@@ -47,6 +47,8 @@ class RawIntent:
         if source_id == "":
             raise ValueError("source_id must be non-empty")
 
+        if isinstance(priority, bool):
+            raise ValueError("priority must be an integer, bool is not allowed")
         if priority < 1 or priority > 10:
             raise ValueError("priority must be between 1 and 10 inclusive")
 
