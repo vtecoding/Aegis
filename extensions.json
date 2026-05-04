@@ -1,0 +1,65 @@
+{
+  // Aegis — Recommended VS Code Extensions
+  // Install all: Extensions panel → "..." → Show Recommended Extensions
+  // Or: code --install-extension <id> for each
+  "recommendations": [
+
+    // ── AI & Copilot ────────────────────────────────────────────────
+    "github.copilot",                     // Core: inline completions + chat
+    "github.copilot-chat",                // Agent mode, edits, /explain, /fix, /review
+
+    // ── Python Core ──────────────────────────────────────────────────
+    "ms-python.python",                   // Python language support
+    "ms-python.vscode-pylance",           // Pylance: fast Pyright-based IntelliSense
+    "ms-python.debugpy",                  // Python debugger
+
+    // ── Linting & Formatting ─────────────────────────────────────────
+    "charliermarsh.ruff",                 // Ruff: lint + format (replaces flake8/black/isort)
+
+    // ── Testing ──────────────────────────────────────────────────────
+    "littlefoxteam.vscode-python-test-adapter", // Python test explorer UI
+    "hbenl.vscode-test-explorer",         // Test explorer framework
+
+    // ── Git & Version Control ────────────────────────────────────────
+    "eamodio.gitlens",                    // GitLens: blame, history, authorship inline
+    "mhutchie.git-graph",                 // Visual git graph
+    "github.vscode-pull-request-github",  // PR review + issue management inside VS Code
+
+    // ── Code Quality & Navigation ────────────────────────────────────
+    "usernamehw.errorlens",               // Inline error messages on the problem line
+    "gruntfuggly.todo-tree",              // Surfaces TODO(#xx) comments — enforces issue refs
+    "streetsidesoftware.code-spell-checker", // Catch typos in code and comments
+
+    // ── File & Workspace ─────────────────────────────────────────────
+    "editorconfig.editorconfig",          // .editorconfig support
+    "christian-kohler.path-intellisense", // Autocomplete file paths
+
+    // ── TOML (pyproject.toml) ────────────────────────────────────────
+    "tamasfe.even-better-toml",           // TOML syntax, validation, formatting
+
+    // ── YAML (GitHub Actions, configs) ──────────────────────────────
+    "redhat.vscode-yaml",                 // YAML validation with schemas
+
+    // ── Markdown (docs/, ADRs, specs) ───────────────────────────────
+    "yzhang.markdown-all-in-one",         // Markdown editing power tools
+    "davidanson.vscode-markdownlint",     // Markdown lint — keeps docs clean
+    "bierner.markdown-mermaid",           // Renders Mermaid diagrams in preview
+
+    // ── Diagrams (Architecture diagrams in docs/) ────────────────────
+    "hediet.vscode-drawio",               // Draw.io integration for architecture diagrams
+
+    // ── Productivity ─────────────────────────────────────────────────
+    "alefragnani.bookmarks",              // Jump between key locations in large codebases
+    "mechatroner.rainbow-csv",            // Readable CSVs (for test fixtures/data)
+    "ms-vscode.makefile-tools"            // Makefile support — run make targets from sidebar
+  ],
+
+  // Extensions that conflict with this setup or add noise — do not install
+  "unwantedRecommendations": [
+    "ms-python.flake8",       // Replaced by ruff
+    "ms-python.black-formatter", // Replaced by ruff
+    "ms-python.isort",        // Replaced by ruff
+    "ms-python.mypy-type-checker", // Replaced by pyright via Pylance
+    "njpwerner.autodocstring" // Copilot handles docstrings
+  ]
+}

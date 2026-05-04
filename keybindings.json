@@ -1,0 +1,203 @@
+// Aegis — Keybindings
+// Philosophy: every Copilot action should be one chord away.
+// Review conflicts with your OS if any bindings don't fire.
+[
+
+  // ── Copilot Inline Suggestions ──────────────────────────────────
+  {
+    "key": "tab",
+    "command": "editor.action.inlineSuggest.commit",
+    "when": "inlineSuggestionHasCompletionWithNextWord"
+  },
+  {
+    "key": "ctrl+right",
+    "command": "editor.action.inlineSuggest.acceptNextWord",
+    "when": "inlineSuggestionVisible && !editorReadonly"
+  },
+  {
+    "key": "alt+]",
+    "command": "editor.action.inlineSuggest.showNext",
+    "when": "inlineSuggestionVisible"
+  },
+  {
+    "key": "alt+[",
+    "command": "editor.action.inlineSuggest.showPrevious",
+    "when": "inlineSuggestionVisible"
+  },
+  {
+    "key": "escape",
+    "command": "editor.action.inlineSuggest.hide",
+    "when": "inlineSuggestionVisible"
+  },
+  // Force trigger inline suggestion
+  {
+    "key": "alt+\\",
+    "command": "editor.action.inlineSuggest.trigger",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+
+  // ── Copilot Chat ────────────────────────────────────────────────
+  // Open Copilot Chat panel
+  {
+    "key": "ctrl+shift+i",
+    "command": "workbench.panel.chat.view.copilot.focus"
+  },
+  // Quick chat (floating, stays in editor context)
+  {
+    "key": "ctrl+shift+alt+l",
+    "command": "workbench.action.quickchat.open"
+  },
+  // Explain selected code
+  {
+    "key": "ctrl+shift+e",
+    "command": "github.copilot.chat.explain.palette",
+    "when": "editorTextFocus"
+  },
+  // Fix selected code / error
+  {
+    "key": "ctrl+shift+f",
+    "command": "github.copilot.chat.fix.palette",
+    "when": "editorTextFocus"
+  },
+  // Review selected code
+  {
+    "key": "ctrl+shift+r",
+    "command": "github.copilot.chat.review.selection",
+    "when": "editorHasSelection"
+  },
+  // Generate tests for selected code
+  {
+    "key": "ctrl+shift+t",
+    "command": "github.copilot.chat.generateTests.palette",
+    "when": "editorTextFocus"
+  },
+  // Open Copilot Edits (agent mode)
+  {
+    "key": "ctrl+shift+alt+e",
+    "command": "workbench.action.chat.openEditSession"
+  },
+
+  // ── Editor Navigation (Speed) ────────────────────────────────────
+  // Go to definition (standard — just confirming)
+  {
+    "key": "f12",
+    "command": "editor.action.revealDefinition",
+    "when": "editorHasDefinitionProvider && editorTextFocus"
+  },
+  // Peek definition inline — don't leave context
+  {
+    "key": "alt+f12",
+    "command": "editor.action.peekDefinition",
+    "when": "editorHasDefinitionProvider && editorTextFocus"
+  },
+  // Go to references
+  {
+    "key": "shift+f12",
+    "command": "editor.action.goToReferences",
+    "when": "editorHasReferenceProvider && editorTextFocus"
+  },
+  // Jump to next problem
+  {
+    "key": "alt+shift+.",
+    "command": "editor.action.marker.next",
+    "when": "editorFocus"
+  },
+  {
+    "key": "alt+shift+,",
+    "command": "editor.action.marker.prev",
+    "when": "editorFocus"
+  },
+
+  // ── Testing ──────────────────────────────────────────────────────
+  // Run test at cursor
+  {
+    "key": "ctrl+shift+alt+r",
+    "command": "python.runtests",
+    "when": "editorTextFocus"
+  },
+  // Run all tests
+  {
+    "key": "ctrl+shift+alt+a",
+    "command": "testing.runAll"
+  },
+  // Run tests with coverage
+  {
+    "key": "ctrl+shift+alt+c",
+    "command": "testing.coverageAll"
+  },
+  // Toggle test results panel
+  {
+    "key": "ctrl+shift+alt+t",
+    "command": "workbench.view.testing.focus"
+  },
+
+  // ── Git / Source Control ─────────────────────────────────────────
+  // Stage current file
+  {
+    "key": "ctrl+shift+alt+s",
+    "command": "git.stageSelectedRanges",
+    "when": "editorTextFocus"
+  },
+  // Open source control panel
+  {
+    "key": "ctrl+shift+g",
+    "command": "workbench.view.scm"
+  },
+  // Generate commit message with Copilot
+  {
+    "key": "ctrl+shift+alt+m",
+    "command": "github.copilot.chat.generateCommitMessage",
+    "when": "scmRepository"
+  },
+
+  // ── Refactoring ──────────────────────────────────────────────────
+  // Rename symbol
+  {
+    "key": "f2",
+    "command": "editor.action.rename",
+    "when": "editorHasRenameProvider && editorTextFocus"
+  },
+  // Extract to method/variable (code actions)
+  {
+    "key": "ctrl+shift+alt+x",
+    "command": "editor.action.quickFix",
+    "when": "editorHasCodeActionsProvider && editorTextFocus"
+  },
+  // Format document
+  {
+    "key": "ctrl+shift+alt+f",
+    "command": "editor.action.formatDocument",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+
+  // ── Bookmarks (alefragnani.bookmarks) ────────────────────────────
+  {
+    "key": "ctrl+alt+k",
+    "command": "bookmarks.toggle",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+l",
+    "command": "bookmarks.jumpToNext",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+j",
+    "command": "bookmarks.jumpToPrevious",
+    "when": "editorTextFocus"
+  },
+
+  // ── Terminal ─────────────────────────────────────────────────────
+  // Open terminal quickly
+  {
+    "key": "ctrl+`",
+    "command": "workbench.action.terminal.toggleTerminal"
+  },
+  // Run selected text in terminal (great for running one-off make commands)
+  {
+    "key": "ctrl+shift+alt+p",
+    "command": "workbench.action.terminal.runSelectedText",
+    "when": "editorTextFocus"
+  }
+
+]
