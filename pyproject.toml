@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aegis"
+version = "0.1.0"
+description = "Aegis \u2014 Deterministic Intent Gateway (DIG) \u2014 Phase 1 Core Pipeline"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0,<3.0",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "ruff>=0.4",
+    "pyright>=1.1.360",
+    "hatchling",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aegis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--tb=short"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src"]
+exclude = ["tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+pythonPlatform = "All"
