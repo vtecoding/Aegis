@@ -13,6 +13,7 @@ The pipeline is deterministic: given the same input and the same `ExecutionConte
 | Property | Status |
 |----------|--------|
 | Phase | Phase 1 — Core Pipeline |
+| Contracts | v1 implemented — execution context, JSON boundary, raw intent, validation result, typed errors |
 | Robotics (ROS 2) | Not started — Phase 2 |
 | LLM SDK in core | Forbidden — all phases |
 | Production safety claims | None — not yet proven |
