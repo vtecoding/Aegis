@@ -77,7 +77,8 @@ tests/
 ├── contracts/    # Contract conformance tests
 ├── unit/         # Pure function tests
 ├── integration/  # End-to-end pipeline tests
-└── regression/   # One file per bug, named by issue number
+├── regression/   # One file per bug, named by issue number
+└── adversarial/  # Hostile inputs (required — Aegis is a gateway for untrusted intent)
 ```
 
 ## Governance

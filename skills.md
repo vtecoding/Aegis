@@ -346,6 +346,7 @@ tests/
 ├── unit/
 ├── integration/
 ├── regression/
+├── adversarial/
 └── conftest.py
 
 docs/

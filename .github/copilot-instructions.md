@@ -150,6 +150,7 @@ Aegis is a safety system. Testing here is not optional scaffolding — it is the
 3. **Unit tests** (`tests/unit/`) — test individual deterministic functions in isolation. No I/O, no network, no filesystem.
 4. **Integration tests** (`tests/integration/`) — test full pipeline traversals with controlled fixtures.
 5. **Regression tests** (`tests/regression/`) — one test per bug fix. Named after the issue: `test_issue_42_null_intent_crashes_validator.py`.
+6. **Adversarial tests** (`tests/adversarial/`) — hostile inputs: empty/whitespace commands, prompt-injection strings, command-injection strings in parameters, oversized payloads, weird Unicode, NaN/infinity floats, deeply nested JSON, negative/out-of-range values. Aegis is a gateway for untrusted intent; adversarial coverage is not optional.
 
 **Rules:**
 - Every new function gets at least one unit test and one property-based invariant test.
@@ -315,6 +316,7 @@ tests/
 ├── unit/               # Pure function tests — mirrors src/ structure
 ├── integration/        # End-to-end pipeline tests
 ├── regression/         # One file per bug — named by issue number
+├── adversarial/        # Hostile inputs — required; Aegis is a gateway for untrusted intent
 └── conftest.py         # Shared fixtures only
 
 docs/

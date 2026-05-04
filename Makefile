@@ -1,4 +1,4 @@
-.PHONY: verify test test-invariants typecheck lint format coverage clean
+.PHONY: verify test test-invariants test-adversarial typecheck lint format coverage clean
 
 PYTHON := python
 SRC    := src
@@ -21,6 +21,9 @@ test:
 
 test-invariants:
 	pytest $(TESTS)/invariants -v --tb=short
+
+test-adversarial:
+	pytest $(TESTS)/adversarial -v --tb=short
 
 typecheck:
 	pyright --project pyproject.toml
