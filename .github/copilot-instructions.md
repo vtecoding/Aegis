@@ -114,26 +114,29 @@ All such values must be injected through explicit contracts such as `ExecutionCo
 
 ## 5. Code Quality Gates
 
+Canonical gate logic lives in `scripts/verify.py`. `make verify` is the Unix/CI wrapper and must delegate to the same runner. On Windows, run the runner directly with the active virtual environment Python.
+
 Every file you create or modify must pass all of these. Run them in this order:
 
 ```bash
 # 1. Type checking (strict)
-pyright --strict src/
+python -m pyright --project pyproject.toml
 
 # 2. Linting
-ruff check src/ tests/
+python -m ruff check src tests
 
 # 3. Formatting
-ruff format --check src/ tests/
+python -m ruff format --check src tests
 
 # 4. Tests with coverage
-pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=90
+python -m pytest tests --cov=src --cov-report=term-missing --cov-fail-under=90
 
 # 5. Invariant tests (run separately — these are the safety tests)
-pytest tests/invariants/ -v --tb=short
+python -m pytest tests/invariants -v --tb=short
 
 # 6. Full gate
-make verify  # runs all of the above in CI order
+python scripts/verify.py verify  # canonical runner
+make verify                      # Unix/CI wrapper for the canonical runner
 ```
 
 **If any gate fails, do not present the change as complete.**

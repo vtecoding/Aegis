@@ -17,7 +17,7 @@
 | Can I use ROS 2? | **No.** Not until Phase 2. |
 | Can I use LLM SDKs in core? | **No.** Never in deterministic core. |
 | Coverage floor | 90% line — 100% on contracts/ and errors.py |
-| Run all checks | `make verify` |
+| Run all checks | `python scripts/verify.py verify` (`make verify` delegates to it) |
 | Who decides architecture? | Human (AI orchestrator). You propose; they confirm. |
 
 ---
@@ -86,7 +86,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 - [ ] All 5 layers have typed contracts in `contracts/`
 - [ ] Full Hypothesis invariant suite for determinism properties
 - [ ] ADRs written for all major architectural decisions
-- [ ] `make verify` passes cleanly with zero warnings
+- [ ] `scripts/verify.py verify` passes cleanly with zero warnings
 
 ### Phase 1 Hard Constraints
 ```
@@ -589,18 +589,24 @@ dev = [
 
 ---
 
-## 9. Makefile Reference
+## 9. Verification Reference
+
+Canonical gate logic lives in `scripts/verify.py`. `make verify` is the Unix/CI wrapper and must delegate to the same runner. On Windows, run the runner directly with the active virtual environment Python.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify.py verify
+```
 
 ```makefile
-# Key targets — always use these, never raw commands in CI
-make verify          # Run all quality gates in CI order
+# Key targets — wrappers around scripts/verify.py
+make verify          # Run all quality gates through the canonical runner
 make test            # Run all tests
 make test-invariants # Run only Hypothesis invariant suite
-make typecheck       # pyright --strict
+make test-adversarial # Run only adversarial boundary tests
+make typecheck       # pyright through the canonical runner
 make lint            # ruff check
 make format          # ruff format
 make coverage        # pytest --cov with HTML report
-make docs            # Build docs
 make clean           # Remove build artifacts
 ```
 
@@ -647,6 +653,7 @@ Do not implement against stale docs. Do not silently choose one conflicting sour
 [ ] ruff format --check passes
 [ ] pytest tests/ passes — zero failures, zero unexpected skips
 [ ] pytest tests/invariants/ passes — all property tests green
+[ ] python scripts/verify.py verify passes as the canonical gate
 [ ] Coverage >= 90% overall, 100% on contracts/ and errors.py
 [ ] No forbidden patterns from §7
 [ ] All new public functions have docstrings

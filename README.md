@@ -16,7 +16,7 @@ The pipeline is deterministic: given the same input and the same `ExecutionConte
 | Robotics (ROS 2) | Not started — Phase 2 |
 | LLM SDK in core | Forbidden — all phases |
 | Production safety claims | None — not yet proven |
-| Validation command | `make verify` |
+| Validation command | `python scripts/verify.py verify` (`make verify` delegates to it) |
 
 Correctness claims in Phase 1 are bounded by: typed contracts, deterministic replay, property-based invariant tests, unit tests, and quality gates passing cleanly.
 
@@ -37,11 +37,21 @@ Each layer is a separate Python package under `src/aegis/`. Data flows forward o
 
 ### Quality Gate
 
+Canonical gate logic lives in `scripts/verify.py`. `make verify` is the Unix/CI wrapper.
+
+Unix/CI:
+
 ```bash
 make verify
 ```
 
-This runs (in order): `pyright --strict`, `ruff check`, `ruff format --check`, `pytest --cov`, `pytest tests/invariants`.
+Windows direct command, using the active virtual environment Python:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify.py verify
+```
+
+This runs (in order): `pyright --project pyproject.toml`, `ruff check`, `ruff format --check`, `pytest --cov`, `pytest tests/invariants`.
 
 All gates must be green before any PR merges.
 
@@ -50,6 +60,7 @@ All gates must be green before any PR merges.
 ```bash
 make test            # Run all tests
 make test-invariants # Run Hypothesis invariant suite only
+make test-adversarial # Run adversarial boundary tests only
 make typecheck       # pyright --strict
 make lint            # ruff check
 make format          # ruff format (applies changes)

@@ -1,41 +1,38 @@
 .PHONY: verify test test-invariants test-adversarial typecheck lint format coverage clean
 
-PYTHON := python
-SRC    := src
-TESTS  := tests
+PYTHON ?= python
+VERIFY_RUNNER := scripts/verify.py
 
 # ----------------------------------------------------------------------------
 # verify — full quality gate. Must be green before any PR merges.
 #          Mirrors what CI runs. Run this locally before pushing.
 # ----------------------------------------------------------------------------
-verify: typecheck lint
-	ruff format --check $(SRC) $(TESTS)
-	pytest $(TESTS) --cov=$(SRC) --cov-report=term-missing --cov-fail-under=90
-	pytest $(TESTS)/invariants -v --tb=short
+verify:
+	$(PYTHON) $(VERIFY_RUNNER) verify
 
 # ----------------------------------------------------------------------------
 # Individual targets — use during development
 # ----------------------------------------------------------------------------
 test:
-	pytest $(TESTS)
+	$(PYTHON) $(VERIFY_RUNNER) test
 
 test-invariants:
-	pytest $(TESTS)/invariants -v --tb=short
+	$(PYTHON) $(VERIFY_RUNNER) test-invariants
 
 test-adversarial:
-	pytest $(TESTS)/adversarial -v --tb=short
+	$(PYTHON) $(VERIFY_RUNNER) test-adversarial
 
 typecheck:
-	pyright --project pyproject.toml
+	$(PYTHON) $(VERIFY_RUNNER) typecheck
 
 lint:
-	ruff check $(SRC) $(TESTS)
+	$(PYTHON) $(VERIFY_RUNNER) lint
 
 format:
-	ruff format $(SRC) $(TESTS)
+	$(PYTHON) $(VERIFY_RUNNER) format
 
 coverage:
-	pytest $(TESTS) --cov=$(SRC) --cov-report=term-missing --cov-report=html
+	$(PYTHON) $(VERIFY_RUNNER) coverage
 
 clean:
 	rm -rf .pytest_cache .ruff_cache htmlcov .coverage
