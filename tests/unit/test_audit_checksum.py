@@ -67,39 +67,54 @@ class TestPlanChecksum:
         plan2 = _make_plan("stop")
         assert plan_checksum(plan1) == plan_checksum(plan2)
 
+    def test_plan_checksum_excludes_plan_id(self) -> None:
+        """checksum = what would be executed, not which planning event produced it.
+
+        Two plans with identical steps but different plan_ids (e.g. same command
+        issued by different operators) must produce the same checksum. The plan_id
+        is bound into audit_id, not checksum.
+        """
+        ctx = _make_context()
+        plan1 = _make_plan("stop", context=ctx, source_id="operator-1")
+        plan2 = _make_plan("stop", context=ctx, source_id="operator-2")
+        # Different source_ids → different plan_ids
+        assert plan1.plan_id != plan2.plan_id
+        # Same steps → same checksum
+        assert plan_checksum(plan1) == plan_checksum(plan2)
+
     def test_plan_checksum_differs_for_different_commands(self) -> None:
         stop_plan = _make_plan("stop")
         wait_plan = _make_plan("wait", {"duration_ms": 1000})
         assert plan_checksum(stop_plan) != plan_checksum(wait_plan)
 
-    def test_plan_checksum_does_not_directly_include_context_fields(self) -> None:
-        """Context fields (request_id, submitted_at, policy_version, run_id) are
-        not included directly in the checksum payload; they live in audit_id only.
-        Different contexts produce different plan_ids (via stable_plan_id), so
-        the checksums will differ, but that is through plan_id, not raw context.
+    def test_plan_checksum_same_for_different_contexts(self) -> None:
+        """Same steps + different context → same checksum.
+
+        Context fields are bound into audit_id, not checksum. Two plans with
+        identical steps but different request_id / policy_version / run_id must
+        produce the identical checksum.
         """
         ctx1 = _make_context("req-A", "policy-v1")
         ctx2 = _make_context("req-B", "policy-v2", run_id="run-1")
         plan1 = _make_plan("stop", context=ctx1)
         plan2 = _make_plan("stop", context=ctx2)
-        assert _SHA256_HEX.match(plan_checksum(plan1))
-        assert _SHA256_HEX.match(plan_checksum(plan2))
+        assert plan_checksum(plan1) == plan_checksum(plan2)
 
-    def test_plan_checksum_differs_for_different_source_ids(self) -> None:
-        # source_id is not directly in the checksum payload, but it is encoded
-        # into plan_id via stable_plan_id — so different source_ids produce
-        # different plan_ids and therefore different checksums.
+    def test_plan_checksum_same_for_different_source_ids(self) -> None:
+        # source_id is not in the checksum payload. Two stop plans from different
+        # operators produce identical steps → identical checksum. The audit_id
+        # will differ because plan_id (which encodes source_id) is in audit_id.
         plan1 = _make_plan("stop", source_id="operator-1")
         plan2 = _make_plan("stop", source_id="operator-2")
-        assert plan_checksum(plan1) != plan_checksum(plan2)
+        assert plan_checksum(plan1) == plan_checksum(plan2)
 
-    def test_plan_checksum_differs_for_different_priorities(self) -> None:
-        # priority is not directly in the checksum payload, but it is encoded
-        # into plan_id via stable_plan_id — so different priorities produce
-        # different plan_ids and therefore different checksums.
+    def test_plan_checksum_same_for_different_priorities(self) -> None:
+        # priority is not in the checksum payload. Two stop plans with different
+        # priorities produce identical steps → identical checksum. The audit_id
+        # will differ because plan_id (which encodes priority) is in audit_id.
         plan1 = _make_plan("stop", priority=1)
         plan2 = _make_plan("stop", priority=9)
-        assert plan_checksum(plan1) != plan_checksum(plan2)
+        assert plan_checksum(plan1) == plan_checksum(plan2)
 
     @pytest.mark.parametrize(
         "command,params",
@@ -139,6 +154,9 @@ class TestPlanAuditId:
         plan2 = _make_plan("stop", context=ctx2)
         checksum1 = plan_checksum(plan1)
         checksum2 = plan_checksum(plan2)
+        # Same steps → same checksum
+        assert checksum1 == checksum2
+        # Different context → different audit_id
         assert plan_audit_id(plan1, checksum1) != plan_audit_id(plan2, checksum2)
 
     def test_plan_audit_id_differs_for_different_policy_versions(self) -> None:
@@ -148,6 +166,8 @@ class TestPlanAuditId:
         plan2 = _make_plan("stop", context=ctx2)
         checksum1 = plan_checksum(plan1)
         checksum2 = plan_checksum(plan2)
+        # Same steps → same checksum
+        assert checksum1 == checksum2
         assert plan_audit_id(plan1, checksum1) != plan_audit_id(plan2, checksum2)
 
     def test_plan_audit_id_differs_for_different_run_ids(self) -> None:
@@ -157,6 +177,9 @@ class TestPlanAuditId:
         plan2 = _make_plan("stop", context=ctx2)
         checksum1 = plan_checksum(plan1)
         checksum2 = plan_checksum(plan2)
+        # Same steps → same checksum
+        assert checksum1 == checksum2
+        # Different run_id (in context) → different audit_id
         assert plan_audit_id(plan1, checksum1) != plan_audit_id(plan2, checksum2)
 
     def test_plan_audit_id_and_checksum_are_different_values(self) -> None:

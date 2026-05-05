@@ -70,7 +70,13 @@ class TestAuditedPlanAdversarialConstruction:
         assert len(receipt.checksum) == 64
         assert len(receipt.audit_id) == 64
 
-    def test_maximum_priority_and_minimum_priority_produce_different_checksums(self) -> None:
+    def test_maximum_priority_and_minimum_priority_produce_same_checksum(self) -> None:
+        """checksum covers only steps; priority is not in the payload.
+
+        Max and min priority plans with identical steps must produce the same
+        checksum. They will produce different audit_ids because plan_id (which
+        encodes priority via stable_plan_id) is bound into audit_id.
+        """
         ctx = ExecutionContext("req-p", datetime(2026, 1, 1, tzinfo=UTC), "policy-v1")
 
         intent_min = RawIntent("stop", {}, "op-1", 1, ctx)
@@ -80,9 +86,14 @@ class TestAuditedPlanAdversarialConstruction:
         plan_min = CommandPlan(stable_plan_id(intent_min, (step,)), intent_min, (step,))
         plan_max = CommandPlan(stable_plan_id(intent_max, (step,)), intent_max, (step,))
 
-        from aegis.audit.checksum import plan_checksum
+        from aegis.audit.checksum import plan_audit_id, plan_checksum
 
-        assert plan_checksum(plan_min) != plan_checksum(plan_max)
+        checksum_min = plan_checksum(plan_min)
+        checksum_max = plan_checksum(plan_max)
+        # Same steps → same checksum
+        assert checksum_min == checksum_max
+        # Different plan_id (encodes priority) → different audit_id
+        assert plan_audit_id(plan_min, checksum_min) != plan_audit_id(plan_max, checksum_max)
 
     def test_prompt_injection_in_request_id_does_not_affect_hash_structure(self) -> None:
         injection = "req; DROP TABLE plans; --"

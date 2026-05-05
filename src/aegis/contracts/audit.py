@@ -21,8 +21,9 @@ class AuditedPlan:
         audit_id: Deterministic SHA-256 hash of the plan checksum and
             execution context fields (request_id, submitted_at,
             policy_version, run_id).
-        checksum: Deterministic SHA-256 hash of the canonical plan content
-            (plan_id, intent command, intent parameters, steps).
+        checksum: Deterministic SHA-256 hash of the executable command steps only
+            (step_type, parameters, sequence for each step). The plan_id and context
+            fields are intentionally excluded; they are bound into audit_id instead.
 
     Raises:
         ValueError: If ``audit_id`` or ``checksum`` are empty strings.

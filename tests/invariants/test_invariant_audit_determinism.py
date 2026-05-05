@@ -112,6 +112,37 @@ def test_invariant_mapping_key_order_does_not_alter_checksum() -> None:
 
 
 @given(case=_VALID_COMMAND_CASES)
+def test_invariant_same_steps_different_context_same_checksum_different_audit_id(
+    case: tuple[str, dict[str, object]],
+) -> None:
+    """Core separation invariant: checksum = what would be executed; audit_id = this receipt.
+
+    Two plans with identical command steps but different execution contexts must:
+    - produce the SAME checksum  (steps are identical)
+    - produce a DIFFERENT audit_id  (context is different, plan_id is different)
+    """
+    command, parameters = case
+    # context-A
+    ctx_a = ExecutionContext("req-inv-A", datetime(2026, 3, 1, tzinfo=UTC), "policy-v1")
+    result_a = validate_intent(RawIntent(command, parameters, "operator-1", 5, ctx_a))
+    # context-B — different request_id, policy, and run_id
+    ctx_b = ExecutionContext("req-inv-B", datetime(2026, 4, 1, tzinfo=UTC), "policy-v2", "run-99")
+    result_b = validate_intent(RawIntent(command, parameters, "operator-2", 8, ctx_b))
+
+    assert result_a.is_valid and result_b.is_valid
+    plan_a = plan_validated_intent(result_a)
+    plan_b = plan_validated_intent(result_b)
+
+    checksum_a = plan_checksum(plan_a)
+    checksum_b = plan_checksum(plan_b)
+
+    # same executable steps → same checksum
+    assert checksum_a == checksum_b
+    # different context → different audit_id
+    assert plan_audit_id(plan_a, checksum_a) != plan_audit_id(plan_b, checksum_b)
+
+
+@given(case=_VALID_COMMAND_CASES)
 def test_invariant_audited_plan_checksum_and_audit_id_are_non_empty(
     case: tuple[str, dict[str, object]],
 ) -> None:
