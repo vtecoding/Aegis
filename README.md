@@ -13,8 +13,9 @@ The pipeline is deterministic: given the same input and the same `ExecutionConte
 | Property | Status |
 |----------|--------|
 | Phase | Phase 1 — Core Pipeline |
-| Contracts | v1 implemented — execution context, JSON boundary, raw intent, validation result, typed errors |
+| Contracts | v1 implemented — execution context, JSON boundary, raw intent, validation result, planning contracts, typed errors |
 | Validation | v1 implemented — schema limits, allowed abstract commands, semantic violations |
+| Planning | v1 implemented — deterministic one-step command plans and stable SHA-256 plan IDs |
 | Robotics (ROS 2) | Not started — Phase 2 |
 | LLM SDK in core | Forbidden — all phases |
 | Production safety claims | None — not yet proven |
@@ -50,10 +51,10 @@ make verify
 Windows direct command, using the active virtual environment Python:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\verify.py verify
+.\.venv-1\Scripts\python.exe scripts\verify.py verify
 ```
 
-This runs (in order): `pyright --project pyproject.toml`, `ruff check`, `ruff format --check`, `pytest --cov`, `pytest tests/invariants`.
+This runs (in order): `pyright --project pyproject.toml`, `ruff check`, `ruff format --check`, `pytest tests --cov`, and `pytest tests/invariants`. The full coverage pass includes adversarial tests.
 
 All gates must be green before any PR merges.
 
