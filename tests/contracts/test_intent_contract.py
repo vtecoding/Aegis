@@ -75,6 +75,12 @@ def test_raw_intent_rejects_priority_above_ten() -> None:
         RawIntent("inspect_area", {}, "operator-1", 11, make_context())
 
 
+def test_raw_intent_rejects_bool_priority() -> None:
+    """bool is not accepted as an integer priority."""
+    with pytest.raises(ValueError, match="bool"):
+        RawIntent("inspect_area", {}, "operator-1", True, make_context())
+
+
 def test_raw_intent_rejects_non_json_parameters() -> None:
     """parameters must be a JSON-compatible object."""
     with pytest.raises(ValueError, match="JSON-compatible"):

@@ -51,7 +51,8 @@ The contract rejects naive timestamps and non-UTC aware timestamps. It never gen
 - `command`: non-empty string, stripped before storage.
 - `parameters`: caller-provided JSON-compatible mapping, recursively frozen before storage.
 - `source_id`: non-empty string, stripped before storage.
-- `priority`: integer from 1 through 10 inclusive.
+- `priority`: integer from 1 through 10 inclusive; bool is rejected even though Python
+	treats bool as a subclass of int.
 - `context`: caller-provided `ExecutionContext`.
 
 Raw intent does not validate command semantics or command-specific parameter schemas. It only preserves and freezes explicit boundary data.
@@ -114,7 +115,7 @@ Every error includes a non-empty stripped `message`, a non-empty stripped `layer
 |------|-----------|----------|
 | ExecutionContext | `tests/contracts/test_context_contract.py` | UTC requirement, canonical strings, immutability, equality |
 | JSON boundary | `tests/contracts/test_json_types_contract.py` | accepted JSON values and rejected non-JSON values |
-| RawIntent | `tests/contracts/test_intent_contract.py` | required fields, priority range, JSON parameters, mutation protection |
+| RawIntent | `tests/contracts/test_intent_contract.py` | required fields, priority range, bool priority rejection, JSON parameters, mutation protection |
 | Validation | `tests/contracts/test_validation_contract.py` | violation metadata, validity consistency, tuple storage, immutability |
 | Errors | `tests/contracts/test_errors_contract.py` | hierarchy construction, required fields, context freezing, stable strings |
 | Determinism | `tests/invariants/test_invariant_contract_determinism.py` | repeated construction equality and mutation isolation |
