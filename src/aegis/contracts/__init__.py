@@ -12,6 +12,7 @@ from aegis.contracts.json_types import (
     freeze_json_value,
     is_json_value,
 )
+from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
 from aegis.contracts.planning import CommandPlan, CommandStep, CommandStepType
 from aegis.contracts.validation import ValidationResult, Violation
 
@@ -27,6 +28,8 @@ __all__ = [
     "GateDecisionStatus",
     "JsonScalar",
     "JsonValue",
+    "PipelineOutcome",
+    "PipelineResult",
     "RawIntent",
     "ValidationResult",
     "Violation",
