@@ -10,6 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Audit v1: deterministic `AuditedPlan` receipt wrapping any `CommandPlan` with a SHA-256 content checksum and a SHA-256 audit event identifier derived from checksum plus execution context
+- Contract, unit, invariant, and adversarial tests for audit-v1 determinism, immutability, key-order invariance, and adversarial inputs
 - Planning v1: immutable `CommandStep` and `CommandPlan` contracts, deterministic SHA-256 plan IDs, and one-step abstract command planning for valid `move`/`stop`/`inspect`/`wait` intents
 - Contract, unit, invariant, and adversarial tests for planning-v1 determinism, mutation isolation, plan hashing, metadata dropping, and corrupted validation defenses
 - Validation v1: schema and semantic validation for `RawIntent`, explicit JSON depth/key/string limits, and abstract `move`/`stop`/`inspect`/`wait` command vocabulary
