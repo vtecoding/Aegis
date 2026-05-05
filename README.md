@@ -13,12 +13,16 @@ The pipeline is deterministic: given the same input and the same `ExecutionConte
 | Property | Status |
 |----------|--------|
 | Phase | Phase 1 — Core Pipeline |
+| Contracts | v1 implemented — execution context, JSON boundary, raw intent, validation result, planning contracts, audit contracts, typed errors |
+| Validation | v1 implemented — schema limits, allowed abstract commands, semantic violations |
+| Planning | v1 implemented — deterministic one-step command plans and stable SHA-256 plan IDs |
+| Audit | v1 implemented — deterministic `AuditedPlan` receipts with SHA-256 checksum and audit_id |
 | Robotics (ROS 2) | Not started — Phase 2 |
 | LLM SDK in core | Forbidden — all phases |
 | Production safety claims | None — not yet proven |
 | Validation command | `python scripts/verify.py verify` (`make verify` delegates to it) |
 
-Correctness claims in Phase 1 are bounded by: typed contracts, deterministic replay, property-based invariant tests, unit tests, and quality gates passing cleanly.
+Correctness claims in Phase 1 are bounded by: typed contracts, deterministic replay, property-based invariant tests, unit/adversarial tests, and quality gates passing cleanly.
 
 ## Pipeline
 
@@ -48,10 +52,10 @@ make verify
 Windows direct command, using the active virtual environment Python:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\verify.py verify
+.\.venv-1\Scripts\python.exe scripts\verify.py verify
 ```
 
-This runs (in order): `pyright --project pyproject.toml`, `ruff check`, `ruff format --check`, `pytest --cov`, `pytest tests/invariants`.
+This runs (in order): `pyright --project pyproject.toml`, `ruff check`, `ruff format --check`, `pytest tests --cov`, and `pytest tests/invariants`. The full coverage pass includes adversarial tests.
 
 All gates must be green before any PR merges.
 
