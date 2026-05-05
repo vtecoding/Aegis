@@ -1,5 +1,6 @@
 """Shared typed contracts between Aegis pipeline layers."""
 
+from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.json_types import (
@@ -14,6 +15,7 @@ from aegis.contracts.planning import CommandPlan, CommandStep, CommandStepType
 from aegis.contracts.validation import ValidationResult, Violation
 
 __all__ = [
+    "AuditedPlan",
     "CommandPlan",
     "CommandStep",
     "CommandStepType",
