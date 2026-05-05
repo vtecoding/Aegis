@@ -2,6 +2,7 @@
 
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
+from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.json_types import (
     FrozenJsonValue,
@@ -21,6 +22,9 @@ __all__ = [
     "CommandStepType",
     "ExecutionContext",
     "FrozenJsonValue",
+    "GateBlockReason",
+    "GateDecision",
+    "GateDecisionStatus",
     "JsonScalar",
     "JsonValue",
     "RawIntent",

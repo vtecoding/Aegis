@@ -2,7 +2,7 @@
 
 ## Summary
 
-Contracts v1 defines the first deterministic contract spine for Aegis Phase 1: execution context, JSON boundary typing, raw intent input, validation result metadata, and typed Aegis errors.
+Contracts v1 defines the first deterministic contract spine for Aegis Phase 1: execution context, JSON boundary typing, raw intent input, validation result metadata, and typed Aegis errors. Later layer-specific contracts, including gate-v1, are specified in their own specs.
 
 ## Goals
 
@@ -19,7 +19,7 @@ Contracts v1 defines the first deterministic contract spine for Aegis Phase 1: e
 - No command planner.
 - No semantic validator.
 - No audit record builder.
-- No execution gate behavior.
+- No execution gate behavior in contracts-v1; gate-v1 behavior is specified separately in `docs/specs/gate-v1.md`.
 - No CLI or simulation behavior.
 - No networking, filesystem reads, database clients, hardware interfaces, ROS 2, or LLM dependencies.
 
@@ -125,5 +125,5 @@ Every error includes a non-empty stripped `message`, a non-empty stripped `layer
 
 - These are contracts only; no validation layer behavior is implemented yet.
 - `RawIntent` is still boundary-level and does not narrow command-specific schemas yet.
-- No planner, audit builder, or execution gate exists yet.
+- Planning, audit, and gate contracts are specified separately in their layer specs.
 - No robotics or LLM integration exists.
