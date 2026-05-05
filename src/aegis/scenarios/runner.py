@@ -7,9 +7,11 @@ from typing import cast
 
 from aegis.audit import build_audited_plan
 from aegis.contracts.context import ExecutionContext
+from aegis.contracts.gate import GateBlockReason, GateDecisionStatus
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.json_types import FrozenJsonValue, JsonValue
 from aegis.errors import PlanningError
+from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
 from aegis.scenarios.models import (
     ScenarioAuditSummary,
@@ -145,6 +147,8 @@ def run_scenario(fixture: ScenarioFixture, context: ExecutionContext) -> Scenari
             violations=(),
             plan_step=None,
             audit=None,
+            gate_status=None,
+            gate_integrity_mismatch=False,
             failure_reason=f"intent_construction_failed: {exc}",
         )
 
@@ -153,9 +157,11 @@ def run_scenario(fixture: ScenarioFixture, context: ExecutionContext) -> Scenari
     validation_str = "valid" if validation_result.is_valid else "invalid"
     violation_codes = tuple(v.code for v in validation_result.violations)
 
-    # Step 3: Plan and audit — only when validation passed.
+    # Step 3: Plan, audit, and gate — only when validation passed.
     plan_step: ScenarioPlanStep | None = None
     audit_summary: ScenarioAuditSummary | None = None
+    gate_decision_status: str | None = None
+    gate_integrity_mismatch = False
     failure_reason: str | None = None
     planned = False
     audited = False
@@ -174,6 +180,12 @@ def run_scenario(fixture: ScenarioFixture, context: ExecutionContext) -> Scenari
             audit_summary = ScenarioAuditSummary(
                 checksum=audited_plan.checksum,
                 audit_id=audited_plan.audit_id,
+            )
+            decision = gate_audited_plan(audited_plan)
+            gate_decision_status = decision.status.value
+            gate_integrity_mismatch = any(
+                r in (GateBlockReason.CHECKSUM_MISMATCH, GateBlockReason.AUDIT_ID_MISMATCH)
+                for r in decision.reasons
             )
         except PlanningError as exc:
             failure_reason = f"planning_failed: {exc.message}"
@@ -223,6 +235,8 @@ def run_scenario(fixture: ScenarioFixture, context: ExecutionContext) -> Scenari
         violations=violation_codes,
         plan_step=plan_step,
         audit=audit_summary,
+        gate_status=gate_decision_status,
+        gate_integrity_mismatch=gate_integrity_mismatch,
         failure_reason=failure_reason,
     )
 
@@ -255,6 +269,9 @@ def run_scenarios(
     metadata_leak_count = 0
     unexpected_exception_count = 0
     deterministic_replay_failures = 0
+    gate_allowed_count = 0
+    gate_blocked_count = 0
+    gate_integrity_mismatch_count = 0
 
     for fixture in fixtures:
         result = run_scenario(fixture, context)
@@ -285,6 +302,14 @@ def run_scenarios(
         ):
             unexpected_exception_count += 1
 
+        if result.gate_status == GateDecisionStatus.ALLOWED:
+            gate_allowed_count += 1
+        elif result.gate_status == GateDecisionStatus.BLOCKED:
+            gate_blocked_count += 1
+
+        if result.gate_integrity_mismatch:
+            gate_integrity_mismatch_count += 1
+
     return results, ScenarioMetrics(
         scenario_count=scenario_count,
         valid_count=valid_count,
@@ -294,6 +319,9 @@ def run_scenarios(
         metadata_leak_count=metadata_leak_count,
         unexpected_exception_count=unexpected_exception_count,
         deterministic_replay_failures=deterministic_replay_failures,
+        gate_allowed_count=gate_allowed_count,
+        gate_blocked_count=gate_blocked_count,
+        gate_integrity_mismatch_count=gate_integrity_mismatch_count,
     )
 
 

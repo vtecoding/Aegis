@@ -102,6 +102,8 @@ Summary of the plan step produced by the planning layer.
 | `violations` | `tuple[str, ...]` | Violation codes from the validation layer |
 | `plan_step` | `ScenarioPlanStep \| None` | Plan step summary when planning succeeded |
 | `audit` | `ScenarioAuditSummary \| None` | Audit summary when auditing succeeded |
+| `gate_status` | `str \| None` | `"allowed"`, `"blocked"`, or `None` when the gate was not reached |
+| `gate_integrity_mismatch` | `bool` | True when the gate was blocked due to `CHECKSUM_MISMATCH` or `AUDIT_ID_MISMATCH` |
 | `failure_reason` | `str \| None` | Internal failure detail when a non-validation error occurred |
 
 `validation = "error"` means `RawIntent` construction was rejected at the boundary (e.g. empty
@@ -120,6 +122,9 @@ constructed successfully but the validation layer found violations.
 | `metadata_leak_count` | `int` | Scenarios where a `"metadata"` key appeared anywhere in plan step parameters (including inside nested mappings and tuple/array items) |
 | `unexpected_exception_count` | `int` | Scenarios where a non-`AegisError` exception propagated through the pipeline |
 | `deterministic_replay_failures` | `int` | Scenarios where re-running with the same inputs produced a different result |
+| `gate_allowed_count` | `int` | Scenarios where the gate returned `GateDecisionStatus.ALLOWED` |
+| `gate_blocked_count` | `int` | Scenarios where the gate returned `GateDecisionStatus.BLOCKED` |
+| `gate_integrity_mismatch_count` | `int` | Scenarios where the gate was blocked due to `CHECKSUM_MISMATCH` or `AUDIT_ID_MISMATCH` |
 
 ---
 
@@ -199,8 +204,10 @@ A `ScenarioResult.status == "passed"` when ALL of:
 metadata_leak_count = 0
 unexpected_exception_count = 0
 deterministic_replay_failures = 0
+gate_integrity_mismatch_count = 0
 invalid intents are never planned
 valid supported intents are planned and audited
+all audited plans are gate-allowed
 ```
 
 ---

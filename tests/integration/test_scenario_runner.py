@@ -62,6 +62,13 @@ def test_release_gate_deterministic_replay_failures_is_zero() -> None:
     assert metrics.deterministic_replay_failures == 0
 
 
+def test_release_gate_gate_integrity_mismatch_count_is_zero() -> None:
+    """The gate must never report checksum or audit-id mismatches for legitimate plans."""
+    fixtures = _load_all_fixtures()
+    _, metrics = run_scenarios(fixtures, make_context())
+    assert metrics.gate_integrity_mismatch_count == 0
+
+
 # ---------------------------------------------------------------------------
 # Safety invariants
 # ---------------------------------------------------------------------------
@@ -90,6 +97,18 @@ def test_valid_intents_produce_audit_receipts() -> None:
             assert result.audit.audit_id != ""
 
 
+def test_valid_intents_are_gate_allowed() -> None:
+    """Intents that pass audit must be allowed by the gate."""
+    fixtures = _load_all_fixtures()
+    results, _ = run_scenarios(fixtures, make_context())
+    for result in results:
+        if result.audited:
+            assert result.gate_status == "allowed", (
+                f"Audited intent not gate-allowed: {result.scenario} "
+                f"(gate_status={result.gate_status!r})"
+            )
+
+
 # ---------------------------------------------------------------------------
 # Metric consistency
 # ---------------------------------------------------------------------------
@@ -105,6 +124,11 @@ def test_metrics_counts_match_results() -> None:
     assert metrics.invalid_count == sum(1 for r in results if r.validation == "invalid")
     assert metrics.planned_count == sum(1 for r in results if r.planned)
     assert metrics.audit_created_count == sum(1 for r in results if r.audited)
+    assert metrics.gate_allowed_count == sum(1 for r in results if r.gate_status == "allowed")
+    assert metrics.gate_blocked_count == sum(1 for r in results if r.gate_status == "blocked")
+    assert metrics.gate_integrity_mismatch_count == sum(
+        1 for r in results if r.gate_integrity_mismatch
+    )
 
 
 def test_fixture_count_matches_expected() -> None:
@@ -293,3 +317,6 @@ def test_run_scenarios_empty_list_produces_zero_metrics() -> None:
     assert metrics.metadata_leak_count == 0
     assert metrics.unexpected_exception_count == 0
     assert metrics.deterministic_replay_failures == 0
+    assert metrics.gate_allowed_count == 0
+    assert metrics.gate_blocked_count == 0
+    assert metrics.gate_integrity_mismatch_count == 0

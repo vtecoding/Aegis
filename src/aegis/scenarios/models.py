@@ -105,6 +105,10 @@ class ScenarioResult:
         violations: Violation codes emitted by the validation layer.
         plan_step: Plan step summary when planning succeeded; else ``None``.
         audit: Audit summary when auditing succeeded; else ``None``.
+        gate_status: Gate decision status string — ``"allowed"``, ``"blocked"``,
+            or ``None`` when the gate was not reached (auditing was skipped).
+        gate_integrity_mismatch: True when the gate was blocked due to
+            ``CHECKSUM_MISMATCH`` or ``AUDIT_ID_MISMATCH`` reasons.
         failure_reason: Internal failure detail when an execution error
             occurred (boundary rejection, planning failure, or unexpected
             exception).  Distinct from validation violations.
@@ -118,6 +122,8 @@ class ScenarioResult:
     violations: tuple[str, ...]
     plan_step: ScenarioPlanStep | None
     audit: ScenarioAuditSummary | None
+    gate_status: str | None
+    gate_integrity_mismatch: bool
     failure_reason: str | None
 
 
@@ -137,6 +143,12 @@ class ScenarioMetrics:
             occurred during execution.
         deterministic_replay_failures: Scenarios where re-running with the
             same fixture and context produced a different ``ScenarioResult``.
+        gate_allowed_count: Scenarios where the gate returned
+            ``GateDecisionStatus.ALLOWED``.
+        gate_blocked_count: Scenarios where the gate returned
+            ``GateDecisionStatus.BLOCKED``.
+        gate_integrity_mismatch_count: Scenarios where the gate was blocked
+            due to ``CHECKSUM_MISMATCH`` or ``AUDIT_ID_MISMATCH`` reasons.
     """
 
     scenario_count: int
@@ -147,3 +159,6 @@ class ScenarioMetrics:
     metadata_leak_count: int
     unexpected_exception_count: int
     deterministic_replay_failures: int
+    gate_allowed_count: int
+    gate_blocked_count: int
+    gate_integrity_mismatch_count: int
