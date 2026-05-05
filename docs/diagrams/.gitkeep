@@ -1,0 +1,5 @@
+# Diagrams directory placeholder
+
+This directory is reserved for architecture diagrams and exported visual artefacts.
+
+Keep diagrams deterministic and source-controlled where possible. Prefer text-based diagram sources such as Mermaid when they are enough.
