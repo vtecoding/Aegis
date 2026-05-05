@@ -1,0 +1,5 @@
+# Regression test directory placeholder
+
+This directory is reserved for regression tests that lock fixes for previously observed bugs.
+
+When a bug is fixed, add a focused regression test here or in the closest existing test tier with a clear regression name.
