@@ -297,24 +297,29 @@ def run_scenarios(
     )
 
 
+def _contains_metadata(value: FrozenJsonValue) -> bool:
+    """Return True when ``value`` contains a mapping key named ``"metadata"`` at any depth.
+
+    Handles nested mappings and nested tuples (frozen JSON arrays) recursively.
+    Scalar values (str, int, float, bool, None) never contain metadata keys.
+    """
+    if isinstance(value, Mapping):
+        return _has_metadata_key(cast(Mapping[str, FrozenJsonValue], value))
+    if isinstance(value, tuple):
+        return any(_contains_metadata(item) for item in value)
+    return False
+
+
 def _has_metadata_key(params: Mapping[str, FrozenJsonValue]) -> bool:
     """Return True when a key named ``"metadata"`` appears anywhere in ``params``.
 
-    Recurses into nested mappings and into tuple elements (frozen JSON arrays)
-    so that metadata buried at any depth — including inside JSON array items — is
-    detected.
+    Recurses fully into nested mappings and nested tuples (frozen JSON arrays),
+    including tuples inside tuples, so that metadata buried at any depth in the
+    frozen JSON structure is detected.
     """
     for key, value in params.items():
         if key == "metadata":
             return True
-        if isinstance(value, Mapping) and _has_metadata_key(
-            cast(Mapping[str, FrozenJsonValue], value)
-        ):
+        if _contains_metadata(value):
             return True
-        if isinstance(value, tuple):
-            for item in value:
-                if isinstance(item, Mapping) and _has_metadata_key(
-                    cast(Mapping[str, FrozenJsonValue], item)
-                ):
-                    return True
     return False
