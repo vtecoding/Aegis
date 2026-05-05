@@ -19,8 +19,8 @@ def build_audited_plan(plan: CommandPlan) -> AuditedPlan:
 
     Returns:
         An immutable audit receipt containing the original plan, a deterministic
-        SHA-256 checksum of the plan content, and a deterministic SHA-256
-        audit event identifier.
+        SHA-256 checksum of the executable command steps, and a deterministic
+        SHA-256 audit event identifier.
     """
     checksum = plan_checksum(plan)
     audit_id = plan_audit_id(plan, checksum)
