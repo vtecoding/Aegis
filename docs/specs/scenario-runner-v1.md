@@ -117,8 +117,8 @@ constructed successfully but the validation layer found violations.
 | `invalid_count` | `int` | Scenarios where validation produced violations |
 | `planned_count` | `int` | Scenarios where planning succeeded |
 | `audit_created_count` | `int` | Scenarios where an audit receipt was created |
-| `metadata_leak_count` | `int` | Scenarios where a `"metadata"` key appeared in plan step parameters |
-| `unexpected_exception_count` | `int` | Scenarios where a non-Aegis exception occurred |
+| `metadata_leak_count` | `int` | Scenarios where a `"metadata"` key appeared anywhere in plan step parameters (including inside nested mappings and tuple/array items) |
+| `unexpected_exception_count` | `int` | Scenarios where a non-`AegisError` exception propagated through the pipeline |
 | `deterministic_replay_failures` | `int` | Scenarios where re-running with the same inputs produced a different result |
 
 ---
@@ -142,6 +142,17 @@ def run_scenarios(
 ```
 
 `run_scenarios` runs each fixture twice with the same context to verify deterministic replay.
+
+### Harness boundary exception policy
+
+`run_scenario` catches `except Exception` **in the scenario harness only**, after all
+`AegisError` subclasses have already been handled.  Its sole purpose is to count unexpected
+pipeline failures as `unexpected_exception_count` so that batched runs can complete and report
+instead of crashing the harness.  The release gate requires this counter to be zero.
+
+This pattern is **explicitly prohibited** in `contracts/`, `validation/`, `planning/`,
+`audit/`, and `gate/`.  It is allowed only here because the scenario runner *is* the
+fault-reporting boundary for the proof harness.
 
 ---
 

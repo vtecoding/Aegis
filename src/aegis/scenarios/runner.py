@@ -178,7 +178,10 @@ def run_scenario(fixture: ScenarioFixture, context: ExecutionContext) -> Scenari
         except PlanningError as exc:
             failure_reason = f"planning_failed: {exc.message}"
         except Exception as exc:  # noqa: BLE001
-            # Captured to prevent harness crashes; counted in unexpected_exception_count.
+            # SCENARIO HARNESS BOUNDARY ONLY:
+            # This proof harness converts unexpected pipeline failures into a metric so
+            # scenario batches can report `unexpected_exception_count`.
+            # Do not copy this pattern into contracts/validation/planning/audit/gate.
             failure_reason = f"unexpected_exception: {exc!r}"
 
     # Derive the actual planning outcome for expectation matching.
@@ -297,9 +300,9 @@ def run_scenarios(
 def _has_metadata_key(params: Mapping[str, FrozenJsonValue]) -> bool:
     """Return True when a key named ``"metadata"`` appears anywhere in ``params``.
 
-    Recurses into nested mappings so that metadata buried at any depth is
-    detected.  Only mapping keys are inspected; tuple (list) values are not
-    recursed because metadata injection targets object keys, not array elements.
+    Recurses into nested mappings and into tuple elements (frozen JSON arrays)
+    so that metadata buried at any depth — including inside JSON array items — is
+    detected.
     """
     for key, value in params.items():
         if key == "metadata":
@@ -308,4 +311,10 @@ def _has_metadata_key(params: Mapping[str, FrozenJsonValue]) -> bool:
             cast(Mapping[str, FrozenJsonValue], value)
         ):
             return True
+        if isinstance(value, tuple):
+            for item in value:
+                if isinstance(item, Mapping) and _has_metadata_key(
+                    cast(Mapping[str, FrozenJsonValue], item)
+                ):
+                    return True
     return False

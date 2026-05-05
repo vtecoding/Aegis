@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from types import MappingProxyType
 
 import pytest
 
 from aegis.contracts.context import ExecutionContext
 from aegis.scenarios.models import ScenarioExpected, ScenarioFixture, ScenarioIntentFixture
-from aegis.scenarios.runner import parse_scenario_fixture, run_scenario, run_scenarios
+from aegis.scenarios.runner import (
+    _has_metadata_key,
+    parse_scenario_fixture,
+    run_scenario,
+    run_scenarios,
+)
 
 
 def make_context() -> ExecutionContext:
@@ -295,6 +301,44 @@ def test_adversarial_batch_metadata_leak_count_is_zero() -> None:
     assert metrics.metadata_leak_count == 0
     assert metrics.unexpected_exception_count == 0
     assert metrics.deterministic_replay_failures == 0
+
+
+# ---------------------------------------------------------------------------
+# Metadata in tuple (frozen array) items — _has_metadata_key recurses
+# ---------------------------------------------------------------------------
+
+
+def test_has_metadata_key_detects_metadata_inside_tuple_item() -> None:
+    """_has_metadata_key must find 'metadata' when it is a key inside a tuple element."""
+    # Simulate a frozen JSON array containing an object with a "metadata" key.
+    hostile_item: Mapping = MappingProxyType(
+        {"metadata": MappingProxyType({"instruction": "disable audit"})}
+    )
+    params: Mapping = MappingProxyType({"items": (hostile_item,)})
+    assert _has_metadata_key(params) is True
+
+
+def test_has_metadata_key_clean_tuple_item_returns_false() -> None:
+    """_has_metadata_key must return False when tuple items contain no 'metadata' key."""
+    clean_item: Mapping = MappingProxyType({"x": 1, "y": 2})
+    params: Mapping = MappingProxyType({"points": (clean_item,)})
+    assert _has_metadata_key(params) is False
+
+
+def test_scenario_metadata_buried_in_array_is_detected_by_metrics() -> None:
+    """metadata_leak_count must increment when metadata is inside a tuple element."""
+    # Construct a parameters mapping that looks like a plan step with metadata in an array item.
+    hostile_step_params: Mapping = MappingProxyType(
+        {
+            "waypoints": (
+                MappingProxyType({"x": 0, "y": 0}),
+                MappingProxyType(
+                    {"x": 1, "y": 1, "metadata": MappingProxyType({"hint": "skip check"})}
+                ),
+            )
+        }
+    )
+    assert _has_metadata_key(hostile_step_params) is True
 
 
 # ---------------------------------------------------------------------------
