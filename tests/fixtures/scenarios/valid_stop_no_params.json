@@ -1,0 +1,15 @@
+{
+  "name": "valid_stop_no_params",
+  "intent": {
+    "command": "stop",
+    "parameters": {},
+    "source_id": "safety-monitor",
+    "priority": 9
+  },
+  "expected": {
+    "validation": "valid",
+    "planning": "valid",
+    "metadata_dropped": false,
+    "audit_created": true
+  }
+}
