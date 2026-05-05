@@ -1,0 +1,5 @@
+# ADR directory placeholder
+
+This directory is reserved for Architecture Decision Records.
+
+Add ADRs here when a design decision changes public contracts, phase boundaries, dependency policy, safety semantics, validation gates, or canonical architecture.
