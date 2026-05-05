@@ -11,6 +11,7 @@ import pytest
 from aegis.contracts.context import ExecutionContext
 from aegis.scenarios.models import ScenarioExpected, ScenarioFixture, ScenarioIntentFixture
 from aegis.scenarios.runner import (
+    _contains_metadata,
     _has_metadata_key,
     parse_scenario_fixture,
     run_scenario,
@@ -304,13 +305,26 @@ def test_adversarial_batch_metadata_leak_count_is_zero() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Metadata in tuple (frozen array) items — _has_metadata_key recurses
+# _has_metadata_key / _contains_metadata — full nested coverage
 # ---------------------------------------------------------------------------
 
 
+def test_has_metadata_key_detects_direct_key() -> None:
+    """metadata as a direct mapping key must be detected."""
+    params: Mapping = MappingProxyType({"metadata": "hostile"})
+    assert _has_metadata_key(params) is True
+
+
+def test_has_metadata_key_detects_key_inside_nested_mapping() -> None:
+    """metadata nested inside a child mapping must be detected."""
+    params: Mapping = MappingProxyType(
+        {"target": MappingProxyType({"metadata": MappingProxyType({"hint": "skip"})})}
+    )
+    assert _has_metadata_key(params) is True
+
+
 def test_has_metadata_key_detects_metadata_inside_tuple_item() -> None:
-    """_has_metadata_key must find 'metadata' when it is a key inside a tuple element."""
-    # Simulate a frozen JSON array containing an object with a "metadata" key.
+    """metadata as a key inside a tuple element mapping must be detected."""
     hostile_item: Mapping = MappingProxyType(
         {"metadata": MappingProxyType({"instruction": "disable audit"})}
     )
@@ -318,16 +332,33 @@ def test_has_metadata_key_detects_metadata_inside_tuple_item() -> None:
     assert _has_metadata_key(params) is True
 
 
-def test_has_metadata_key_clean_tuple_item_returns_false() -> None:
-    """_has_metadata_key must return False when tuple items contain no 'metadata' key."""
+def test_has_metadata_key_detects_metadata_inside_tuple_inside_tuple() -> None:
+    """metadata buried inside tuple -> tuple -> mapping must be detected."""
+    inner_item: Mapping = MappingProxyType({"metadata": "hostile"})
+    # tuple containing a tuple containing a mapping with 'metadata'
+    params: Mapping = MappingProxyType({"matrix": ((inner_item,),)})
+    assert _has_metadata_key(params) is True
+
+
+def test_has_metadata_key_clean_nested_tuple_returns_false() -> None:
+    """Clean tuple structures with no metadata key must return False."""
     clean_item: Mapping = MappingProxyType({"x": 1, "y": 2})
-    params: Mapping = MappingProxyType({"points": (clean_item,)})
+    params: Mapping = MappingProxyType({"points": (clean_item, MappingProxyType({"x": 3, "y": 4}))})
     assert _has_metadata_key(params) is False
 
 
-def test_scenario_metadata_buried_in_array_is_detected_by_metrics() -> None:
-    """metadata_leak_count must increment when metadata is inside a tuple element."""
-    # Construct a parameters mapping that looks like a plan step with metadata in an array item.
+def test_contains_metadata_scalar_returns_false() -> None:
+    """_contains_metadata on a scalar value must return False."""
+    assert _contains_metadata("hostile string") is False
+    assert _contains_metadata(42) is False
+    assert _contains_metadata(None) is False
+    assert _contains_metadata(3.14) is False
+
+
+def test_scenario_fixture_metadata_in_nested_array_increments_leak_count() -> None:
+    """metadata_leak_count must increment when plan step params contain nested array metadata."""
+    # Directly test _has_metadata_key with a structure matching what a plan step could hold:
+    # a 'waypoints' key whose value is a tuple of mappings, one of which has 'metadata'.
     hostile_step_params: Mapping = MappingProxyType(
         {
             "waypoints": (
