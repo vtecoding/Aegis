@@ -72,24 +72,31 @@ class TestPlanChecksum:
         wait_plan = _make_plan("wait", {"duration_ms": 1000})
         assert plan_checksum(stop_plan) != plan_checksum(wait_plan)
 
-    def test_plan_checksum_does_not_depend_on_context(self) -> None:
-        """Same plan content with different contexts produces the same checksum."""
+    def test_plan_checksum_does_not_directly_include_context_fields(self) -> None:
+        """Context fields (request_id, submitted_at, policy_version, run_id) are
+        not included directly in the checksum payload; they live in audit_id only.
+        Different contexts produce different plan_ids (via stable_plan_id), so
+        the checksums will differ, but that is through plan_id, not raw context.
+        """
         ctx1 = _make_context("req-A", "policy-v1")
         ctx2 = _make_context("req-B", "policy-v2", run_id="run-1")
         plan1 = _make_plan("stop", context=ctx1)
         plan2 = _make_plan("stop", context=ctx2)
-        # checksums cover plan content, not caller context — they should match
-        # only if plan_id also matches; plan_id does include context, so they
-        # will differ. Test that checksum structure is well-formed.
         assert _SHA256_HEX.match(plan_checksum(plan1))
         assert _SHA256_HEX.match(plan_checksum(plan2))
 
     def test_plan_checksum_differs_for_different_source_ids(self) -> None:
+        # source_id is not directly in the checksum payload, but it is encoded
+        # into plan_id via stable_plan_id — so different source_ids produce
+        # different plan_ids and therefore different checksums.
         plan1 = _make_plan("stop", source_id="operator-1")
         plan2 = _make_plan("stop", source_id="operator-2")
         assert plan_checksum(plan1) != plan_checksum(plan2)
 
     def test_plan_checksum_differs_for_different_priorities(self) -> None:
+        # priority is not directly in the checksum payload, but it is encoded
+        # into plan_id via stable_plan_id — so different priorities produce
+        # different plan_ids and therefore different checksums.
         plan1 = _make_plan("stop", priority=1)
         plan2 = _make_plan("stop", priority=9)
         assert plan_checksum(plan1) != plan_checksum(plan2)

@@ -9,8 +9,8 @@
 ## Goals
 
 - Produce a deterministic `AuditedPlan` from any valid `CommandPlan`
-- `checksum`: SHA-256 of the canonical plan content (plan_id, intent command, intent parameters, source_id, priority, steps)
-- `audit_id`: SHA-256 of (checksum + execution context fields: request_id, submitted_at, policy_version, run_id)
+- `checksum`: SHA-256 of the executable plan payload (`plan_id` and concrete command steps)
+- `audit_id`: SHA-256 of (`checksum` + `plan_id` + execution context fields: `request_id`, `submitted_at`, `policy_version`, `run_id`)
 - Both hashes are derived exclusively from explicit input — no `datetime.now()`, no `uuid.uuid4()`, no `os.environ`
 - Full coverage of `contracts/audit.py` (100%)
 
@@ -33,8 +33,8 @@
 @dataclass(frozen=True, slots=True)
 class AuditedPlan:
     plan: CommandPlan    # The plan this receipt covers
-    audit_id: str        # SHA-256(checksum + context fields)
-    checksum: str        # SHA-256(plan_id + intent + steps)
+    audit_id: str        # SHA-256(checksum + plan_id + context fields)
+    checksum: str        # SHA-256(plan_id + steps)
 ```
 
 **Invariants:**
@@ -64,7 +64,7 @@ def build_audited_plan(plan: CommandPlan) -> AuditedPlan:
 
 ```python
 def plan_checksum(plan: CommandPlan) -> str:
-    """SHA-256 of canonical { plan_id, intent, steps }."""
+    """SHA-256 of canonical { plan_id, steps }."""
 
 def plan_audit_id(plan: CommandPlan, checksum: str) -> str:
     """SHA-256 of canonical { checksum, plan_id, context }."""
@@ -78,16 +78,12 @@ def plan_audit_id(plan: CommandPlan, checksum: str) -> str:
 
 | Field | Notes |
 |---|---|
-| `plan.plan_id` | The planner-assigned identity |
-| `plan.intent.command` | Command string |
-| `plan.intent.parameters` | Recursively canonical, keys sorted |
-| `plan.intent.source_id` | Who submitted the intent |
-| `plan.intent.priority` | Integer priority |
+| `plan.plan_id` | Opaque planner-assigned identity; encodes full planning event (command, params, source, priority, context) via `stable_plan_id` |
 | `plan.steps[*].step_type.value` | Each step's type |
 | `plan.steps[*].parameters` | Each step's parameters, keys sorted |
 | `plan.steps[*].sequence` | Each step's sequence index |
 
-**Intentionally excluded from `checksum`:** execution context fields (`request_id`, `submitted_at`, `policy_version`, `run_id`). These are incorporated into `audit_id` instead, keeping the content hash independent of caller identity.
+**Design invariant:** `plan_id + same steps → same checksum`.  Caller context fields (`request_id`, `submitted_at`, `policy_version`, `run_id`) are intentionally excluded from the checksum payload — they are bound into `audit_id` instead.  Intent fields (`command`, `parameters`, `source_id`, `priority`) are not directly in the checksum payload; they influence it indirectly through `plan_id` (which is produced by `stable_plan_id` and encodes the full planning event).
 
 ### `plan_audit_id` covers
 
@@ -163,5 +159,6 @@ All non-deterministic values are provided through `plan.intent.context` (`Execut
 ## Known Limitations
 
 - `AuditedPlan` validates only non-emptiness of `audit_id` and `checksum`, not that they are valid SHA-256 hex strings. This is intentional: the contract is minimal; the test suite verifies the hash format.
-- `checksum` does not cover the execution context. Two plans with identical content but different contexts will produce the same `checksum` but different `audit_id`. This is by design: `checksum` is a content integrity check; `audit_id` is the event receipt.
+- `checksum` does not cover the execution context fields directly. Two plans with identical `plan_id` and identical steps will always produce the same `checksum`, regardless of context. Different plan_ids (arising from different commands, source_ids, priorities, or contexts) will produce different checksums — but this is through `plan_id`, not through direct field expansion.
+- `audit_id` binds the checksum to a specific request/context event. Same plan under a different `request_id` or `policy_version` will produce the same `checksum` but a different `audit_id`.
 - `audit-v1` does not perform gate decisions. An `AuditedPlan` is not an approval; it is a receipt.

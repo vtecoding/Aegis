@@ -16,11 +16,17 @@ type _CanonicalJsonValue = (
 
 
 def plan_checksum(plan: CommandPlan) -> str:
-    """Compute a deterministic SHA-256 checksum of a command plan's content.
+    """Compute a deterministic SHA-256 checksum of the executable plan payload.
 
-    The checksum covers the plan_id, the intent's command, parameters, source_id,
-    and priority, plus all command steps.  Execution context fields are intentionally
-    excluded so the checksum reflects plan content independently of the caller context.
+    Covers the plan_id (an opaque reference that already encodes the full planning
+    event) and the concrete command steps (step_type, parameters, sequence).  Caller
+    context fields (request_id, submitted_at, policy_version, run_id) are intentionally
+    excluded — they are bound into audit_id instead.
+
+    Design invariant::
+
+        same plan_id + same steps  →  same checksum
+        different context only     →  same checksum, different audit_id
 
     Args:
         plan: The command plan to checksum.
@@ -30,12 +36,6 @@ def plan_checksum(plan: CommandPlan) -> str:
     """
     payload: dict[str, _CanonicalJsonValue] = {
         "plan_id": plan.plan_id,
-        "intent": {
-            "command": plan.intent.command,
-            "parameters": _canonical_json_mapping(plan.intent.parameters),
-            "source_id": plan.intent.source_id,
-            "priority": plan.intent.priority,
-        },
         "steps": [_canonical_step(step) for step in plan.steps],
     }
     canonical_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
