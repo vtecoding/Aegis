@@ -1,0 +1,15 @@
+{
+  "name": "invalid_command_unsupported",
+  "intent": {
+    "command": "launch",
+    "parameters": {},
+    "source_id": "llm-agent",
+    "priority": 7
+  },
+  "expected": {
+    "validation": "invalid",
+    "planning": "skipped",
+    "metadata_dropped": false,
+    "audit_created": false
+  }
+}

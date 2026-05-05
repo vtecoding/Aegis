@@ -1,0 +1,17 @@
+{
+  "name": "valid_move_simple",
+  "intent": {
+    "command": "move",
+    "parameters": {
+      "target": { "x": 3.5, "y": -1.0 }
+    },
+    "source_id": "nav-planner",
+    "priority": 5
+  },
+  "expected": {
+    "validation": "valid",
+    "planning": "valid",
+    "metadata_dropped": false,
+    "audit_created": true
+  }
+}

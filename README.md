@@ -52,7 +52,7 @@ make verify
 Windows direct command, using the active virtual environment Python:
 
 ```powershell
-.\.venv-1\Scripts\python.exe scripts\verify.py verify
+python scripts\verify.py verify
 ```
 
 This runs (in order): `pyright --project pyproject.toml`, `ruff check`, `ruff format --check`, `pytest tests --cov`, and `pytest tests/invariants`. The full coverage pass includes adversarial tests.
