@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2: Policy-v1** (next) |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 1: Policy-v1 contracts** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -131,13 +131,19 @@ ROS integration, or runtime actuation guards.
 - Middleware integration
 - Real robot actuation control
 
-### Phase 2: Policy-v1 (Next Phase — Do Not Implement Until Phase 1 Tag Is Cut)
+### Phase 2 Part 1: Policy-v1 Contract Foundation
 
-Phase 2 introduces policy-backed semantic safety. The core question Phase 2 must answer:
+Phase 2 Part 1 introduces deterministic immutable Policy-v1 contracts only. It does not
+implement real policy enforcement, real world-state ingestion, simulation, middleware
+integration, or robot safety decisions.
+
+The broader Phase 2 direction is policy-backed semantic admission. The core question a
+future pure policy evaluator must answer is:
 
 > Given a proposed plan, declared policy, and an immutable world snapshot — should this action be allowed, blocked, or require review?
 
 This is the jump from *secure command validator* to *deterministic safety-policy admission engine*.
+Part 1 is only the contract foundation for that jump.
 
 **Phase 2 contracts to introduce (in `contracts/`):**
 - `Policy` — declared rule set governing allowed commands and parameters
@@ -145,17 +151,19 @@ This is the jump from *secure command validator* to *deterministic safety-policy
 - `Capability` — a named permitted action class
 - `Constraint` — a typed bound on a parameter or state
 - `WorldSnapshotStub` — immutable, injected snapshot of environment state (Phase 2 stub; Phase 3+ real)
-- `PolicyEvaluationResult` — typed result: `ALLOWED | BLOCKED | REQUIRES_REVIEW`
+- `PolicyEvaluationResult` — typed result: `ALLOW | BLOCK | REQUIRE_REVIEW | INVALID | ERROR`
 - `SafetyCase` — structured justification for a gate decision referencing policy and snapshot
 
 **Phase 2 new layer:**
-- `src/aegis/policy/` — Layer 2.5: inserted between Validation and Planning. Evaluates policy rules against validated intent and world snapshot. Pure and deterministic. No I/O.
+- `src/aegis/policy/` — Layer 2.5 namespace for Policy-v1. In Part 1 it exposes
+    contracts and pure structural validation only. Evaluation is a later slice.
 
 **Phase 2 hard constraints (same as Phase 1 plus):**
 - `WorldSnapshotStub` must be injected — never read from environment in core
 - Policy rules must be serialisable and replayable
 - No ROS 2, no LLM, no network in the policy layer
-- Policy evaluation must be deterministic: same intent + same policy + same snapshot → same result
+- Future policy evaluation must be deterministic: same intent + same policy + same snapshot → same result
+- Unknown policy elements must fail closed and never imply allow
 
 **Phase 2 forbidden (still):**
 - ROS 2 integration (Phase 3)
