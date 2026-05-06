@@ -1,6 +1,6 @@
 # skills.md — Aegis Agent Authority File
 > **This is the canonical authority for all AI agents, Copilot sessions, and human contributors working on the Aegis codebase.**
-> Read this file first. Always. Every session.
+> Read this file first. Always. Every session. Every Line.
 
 ---
 
@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: Core Pipeline** (no robotics, no LLMs in core) |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2: Policy-v1** (next) |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -81,12 +81,12 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 ## 2. Current Phase: Phase 1 — Core Pipeline
 
 ### Phase 1 Goals
-- [ ] Implement the full DIG pipeline in pure Python
-- [ ] 90%+ test coverage with property-based invariant tests
-- [ ] All 5 layers have typed contracts in `contracts/`
-- [ ] Full Hypothesis invariant suite for determinism properties
-- [ ] ADRs written for all major architectural decisions
-- [ ] `scripts/verify.py verify` passes cleanly with zero warnings
+- [x] Implement the full DIG pipeline in pure Python
+- [x] 90%+ test coverage with property-based invariant tests
+- [x] All 5 layers have typed contracts in `contracts/`
+- [x] Full Hypothesis invariant suite for determinism properties
+- [x] ADRs written for all major architectural decisions (ADR-0001–0008)
+- [x] `scripts/verify.py verify` passes cleanly with zero warnings
 
 ### Phase 1 Hard Constraints
 ```
@@ -108,10 +108,60 @@ FORBIDDEN (until Phase 2):
   - Any hardware interface library
 ```
 
-### Phase 2 Preview (Do Not Implement Yet)
-- ROS 2 integration adapter (wraps the core pipeline — does not modify it)
-- Hardware interface layer
-- Real-time audit streaming
+### Phase 1 — Release Statement
+
+Phase 1 is **RELEASE-COMPLETE**. This release completes the deterministic Aegis kernel.
+It does not include physical safety policy evaluation, environment awareness, simulation,
+ROS integration, or runtime actuation guards.
+
+**Phase 1 proves:**
+- Deterministic intent-to-gate pipeline
+- Typed immutable contracts
+- Tamper-evident audit binding
+- Pure approval boundary
+- Governance documentation
+- Invariant-backed test discipline
+
+**Phase 1 does not prove:**
+- Semantic physical safety
+- Policy enforcement at scale
+- Environment-aware decisions
+- Runtime safety monitoring
+- Simulation or collision checking
+- Middleware integration
+- Real robot actuation control
+
+### Phase 2: Policy-v1 (Next Phase — Do Not Implement Until Phase 1 Tag Is Cut)
+
+Phase 2 introduces policy-backed semantic safety. The core question Phase 2 must answer:
+
+> Given a proposed plan, declared policy, and an immutable world snapshot — should this action be allowed, blocked, or require review?
+
+This is the jump from *secure command validator* to *deterministic safety-policy admission engine*.
+
+**Phase 2 contracts to introduce (in `contracts/`):**
+- `Policy` — declared rule set governing allowed commands and parameters
+- `PolicyRule` — a single evaluable rule with condition and consequence
+- `Capability` — a named permitted action class
+- `Constraint` — a typed bound on a parameter or state
+- `WorldSnapshotStub` — immutable, injected snapshot of environment state (Phase 2 stub; Phase 3+ real)
+- `PolicyEvaluationResult` — typed result: `ALLOWED | BLOCKED | REQUIRES_REVIEW`
+- `SafetyCase` — structured justification for a gate decision referencing policy and snapshot
+
+**Phase 2 new layer:**
+- `src/aegis/policy/` — Layer 2.5: inserted between Validation and Planning. Evaluates policy rules against validated intent and world snapshot. Pure and deterministic. No I/O.
+
+**Phase 2 hard constraints (same as Phase 1 plus):**
+- `WorldSnapshotStub` must be injected — never read from environment in core
+- Policy rules must be serialisable and replayable
+- No ROS 2, no LLM, no network in the policy layer
+- Policy evaluation must be deterministic: same intent + same policy + same snapshot → same result
+
+**Phase 2 forbidden (still):**
+- ROS 2 integration (Phase 3)
+- Hardware interface layer (Phase 3)
+- Real-time audit streaming (Phase 3)
+- LLM policy generation in core (never)
 
 ---
 
