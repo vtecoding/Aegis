@@ -10,12 +10,16 @@ from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
 from aegis.contracts.policy import PolicyDecision, PolicyEvaluationResult, SafetyCase
 from aegis.contracts.policy_admission import (
+    PolicyAdmissionDecision,
     PolicyAdmissionInput,
+    PolicyAdmissionIntegrityStatus,
     PolicyAdmissionMode,
     PolicyAdmissionRecord,
+    assert_policy_admission_integrity,
     disabled_policy_admission_record,
+    is_policy_backed_approval,
 )
-from aegis.errors import AegisError
+from aegis.errors import AegisError, PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case, evaluate_policy
@@ -138,7 +142,7 @@ def _run(
             policy_admission=policy_record,
         )
 
-    # Step 5: Gate — deterministic approval boundary.
+    # Step 5: Gate — final deterministic gate over an already policy-admitted plan.
     # GateError propagates to caller.
     try:
         decision = gate_audited_plan(audited_plan)
@@ -151,7 +155,19 @@ def _run(
             plan=plan,
             audited_plan=audited_plan,
             gate_decision=None,
-            policy_admission=policy_record,
+            policy_admission=_error_policy_record(policy_record, "GATE_DECISION_FAILED"),
+        )
+
+    if decision.status == "allowed" and not is_policy_backed_approval(
+        audited_plan, policy_record, decision
+    ):
+        return PipelineResult(
+            outcome=PipelineOutcome.ERROR,
+            validation_result=validation_result,
+            plan=plan,
+            audited_plan=audited_plan,
+            gate_decision=None,
+            policy_admission=_integrity_failed_policy_record(policy_record),
         )
 
     outcome = PipelineOutcome.ALLOWED if decision.status == "allowed" else PipelineOutcome.BLOCKED
@@ -183,6 +199,7 @@ def _not_run_policy_record(policy_admission: PolicyAdmissionInput) -> PolicyAdmi
         enforced=True,
         admission_allowed=False,
         reasons=("POLICY_ADMISSION_NOT_RUN",),
+        admission_decision=PolicyAdmissionDecision.NOT_RUN,
     )
 
 
@@ -192,7 +209,7 @@ def _evaluate_policy_admission(
     audited_plan: AuditedPlan,
 ) -> tuple[PolicyAdmissionRecord, PipelineOutcome | None]:
     if policy_admission.mode is PolicyAdmissionMode.DISABLED:
-        return disabled_policy_admission_record(), None
+        return disabled_policy_admission_record(), PipelineOutcome.BLOCKED
 
     if policy_admission.policy is None:
         return _denied_policy_record("POLICY_REQUIRED"), PipelineOutcome.BLOCKED
@@ -209,7 +226,15 @@ def _evaluate_policy_admission(
     except AegisError:
         raise
     except Exception:  # noqa: BLE001
-        return _denied_policy_record("POLICY_EVALUATION_FAILED"), PipelineOutcome.ERROR
+        return (
+            _denied_policy_record(
+                "POLICY_EVALUATION_FAILED",
+                admission_decision=PolicyAdmissionDecision.ERROR,
+                integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                exception_reason="POLICY_EVALUATION_FAILED",
+            ),
+            PipelineOutcome.ERROR,
+        )
 
     try:
         safety_case = build_safety_case(
@@ -217,6 +242,9 @@ def _evaluate_policy_admission(
             audited_plan_id=audited_plan.audit_id,
             world_snapshot=policy_admission.world_snapshot,
             evidence=_safety_case_evidence(policy_admission, audited_plan),
+            plan_id=audited_plan.plan.plan_id,
+            plan_checksum=audited_plan.checksum,
+            capability=policy_admission.capability,
         )
     except AegisError:
         raise
@@ -224,13 +252,47 @@ def _evaluate_policy_admission(
         return (
             _denied_policy_record(
                 "SAFETY_CASE_BUILD_FAILED",
-                policy_result=policy_result,
+                policy_result=_policy_result_or_none(policy_result),
                 safety_case=None,
+                admission_decision=PolicyAdmissionDecision.ERROR,
+                integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                exception_reason="SAFETY_CASE_BUILD_FAILED",
             ),
             PipelineOutcome.ERROR,
         )
 
-    policy_record = _policy_record_from_result(policy_result, safety_case)
+    policy_record: PolicyAdmissionRecord | None = None
+    try:
+        policy_record = _policy_record_from_result(policy_result, safety_case, audited_plan)
+        if policy_record.admission_allowed:
+            assert_policy_admission_integrity(audited_plan, policy_record)
+    except PolicyAdmissionIntegrityError:
+        if policy_record is None:
+            return (
+                _denied_policy_record(
+                    "POLICY_ADMISSION_INTEGRITY_FAILED",
+                    policy_result=_policy_result_or_none(policy_result),
+                    safety_case=safety_case,
+                    admission_decision=PolicyAdmissionDecision.ERROR,
+                    integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                    exception_reason="POLICY_ADMISSION_INTEGRITY_FAILED",
+                ),
+                PipelineOutcome.ERROR,
+            )
+        return _integrity_failed_policy_record(policy_record), PipelineOutcome.ERROR
+    except Exception:  # noqa: BLE001
+        return (
+            _denied_policy_record(
+                "POLICY_ADMISSION_RECORD_FAILED",
+                policy_result=_policy_result_or_none(policy_result),
+                safety_case=safety_case,
+                admission_decision=PolicyAdmissionDecision.ERROR,
+                integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                exception_reason="POLICY_ADMISSION_RECORD_FAILED",
+            ),
+            PipelineOutcome.ERROR,
+        )
+    assert policy_record is not None
     if policy_record.admission_allowed:
         return policy_record, None
     return policy_record, _blocked_policy_outcome(policy_result)
@@ -241,6 +303,9 @@ def _denied_policy_record(
     *,
     policy_result: PolicyEvaluationResult | None = None,
     safety_case: SafetyCase | None = None,
+    admission_decision: PolicyAdmissionDecision | None = None,
+    integrity_status: PolicyAdmissionIntegrityStatus | None = None,
+    exception_reason: str | None = None,
 ) -> PolicyAdmissionRecord:
     reasons = (reason,) if policy_result is None else _with_reason(policy_result.reasons, reason)
     return PolicyAdmissionRecord(
@@ -250,12 +315,22 @@ def _denied_policy_record(
         enforced=True,
         admission_allowed=False,
         reasons=reasons,
+        admission_decision=admission_decision,
+        integrity_status=integrity_status,
+        exception_reason=exception_reason,
     )
+
+
+def _policy_result_or_none(value: object) -> PolicyEvaluationResult | None:
+    if isinstance(value, PolicyEvaluationResult):
+        return value
+    return None
 
 
 def _policy_record_from_result(
     policy_result: PolicyEvaluationResult,
     safety_case: SafetyCase,
+    audited_plan: AuditedPlan,
 ) -> PolicyAdmissionRecord:
     admission_allowed = policy_result.decision is PolicyDecision.ALLOW
     return PolicyAdmissionRecord(
@@ -267,6 +342,50 @@ def _policy_record_from_result(
         reasons=_with_reason(
             policy_result.reasons, _policy_decision_reason(policy_result.decision)
         ),
+        audit_id=audited_plan.audit_id,
+        plan_id=audited_plan.plan.plan_id,
+        plan_checksum=audited_plan.checksum,
+        world_snapshot_id=safety_case.world_snapshot_id,
+        world_snapshot_checksum=safety_case.world_snapshot_checksum,
+        capability_name=safety_case.capability_name,
+        capability_version=safety_case.capability_version,
+        admission_decision=PolicyAdmissionDecision(policy_result.decision.value),
+        integrity_status=(
+            PolicyAdmissionIntegrityStatus.PASSED
+            if admission_allowed
+            else PolicyAdmissionIntegrityStatus.NOT_CHECKED
+        ),
+    )
+
+
+def _integrity_failed_policy_record(policy_record: PolicyAdmissionRecord) -> PolicyAdmissionRecord:
+    return _error_policy_record(policy_record, "POLICY_ADMISSION_INTEGRITY_FAILED")
+
+
+def _error_policy_record(
+    policy_record: PolicyAdmissionRecord,
+    reason: str,
+) -> PolicyAdmissionRecord:
+    return PolicyAdmissionRecord(
+        mode=PolicyAdmissionMode.ENFORCE,
+        policy_result=policy_record.policy_result,
+        safety_case=policy_record.safety_case,
+        enforced=True,
+        admission_allowed=False,
+        reasons=_with_reason(policy_record.reasons, reason),
+        audit_id=policy_record.audit_id,
+        plan_id=policy_record.plan_id,
+        plan_checksum=policy_record.plan_checksum,
+        policy_id=policy_record.policy_id,
+        policy_result_checksum=policy_record.policy_result_checksum,
+        safety_case_id=policy_record.safety_case_id,
+        world_snapshot_id=policy_record.world_snapshot_id,
+        world_snapshot_checksum=policy_record.world_snapshot_checksum,
+        capability_name=policy_record.capability_name,
+        capability_version=policy_record.capability_version,
+        admission_decision=PolicyAdmissionDecision.ERROR,
+        integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+        exception_reason=reason,
     )
 
 

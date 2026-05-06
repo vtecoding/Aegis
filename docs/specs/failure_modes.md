@@ -236,7 +236,7 @@ as permission.
 | `CAPABILITY_EMPTY_NAME` | `Capability.name` is empty or not canonical |
 | `WORLD_SNAPSHOT_INVALID_TIME_RANGE` | Snapshot timing is negative or expires before capture |
 | `WORLD_SNAPSHOT_INVALID_CONFIDENCE` | Snapshot confidence is outside `[0.0, 1.0]` |
-| `POLICY_RESULT_INVALID_DECISION` | Result decision is outside Policy-v1 decisions |
+| `POLICY_RESULT_INVALID_DECISION` | Result decision is outside exact Policy-v1 decisions, including whitespace or confusable variants |
 | `POLICY_RESULT_ALLOW_WITHOUT_MATCHED_RULE` | `ALLOW` result has no matched rule |
 | `POLICY_RESULT_FAILURE_WITHOUT_REASON` | `BLOCK`, `INVALID`, or `ERROR` has no reason |
 | `SAFETY_CASE_EMPTY_ID` | `SafetyCase.safety_case_id` is empty after stripping |
@@ -296,8 +296,9 @@ robot state.
 ## FM-14: SafetyCase Evidence or Hash Failure
 
 **Trigger:** SafetyCase construction receives an empty audited plan ID, an `ALLOW` result
-without passed constraint evidence, unsupported evidence values, or evidence that cannot be
-canonicalised deterministically.
+without passed constraint evidence, unsupported evidence values, evidence that cannot be
+canonicalised deterministically, or an explicit policy-result checksum that does not match
+the supplied policy result.
 
 **Expected outcome:** `build_safety_case` raises `ValueError`; no SafetyCase is produced.
 
@@ -311,6 +312,7 @@ objects; treating a SafetyCase as execution permission.
 |------|---------|----------------------------|------------------------|---------------------|
 | `SAFETY_CASE_EVIDENCE_REQUIRED` | ALLOW result lacks meaningful passed constraint evidence | `ValueError` before SafetyCase construction | `test_policy_evaluator_safety_case.py` | Empty-evidence ALLOW case |
 | `SAFETY_CASE_HASH_UNSTABLE` | Evidence contains unsupported or non-canonical objects | `ValueError` before hash use | `test_policy_evaluator_safety_case.py` | Memory-address-dependent hashing |
+| `SAFETY_CASE_POLICY_RESULT_MISMATCH` | SafetyCase claims a policy-result checksum that does not match the result | `ValueError` before admission | `test_policy_contracts.py` | Forged result binding |
 
 ---
 
@@ -463,12 +465,68 @@ objects; treating a SafetyCase as execution permission.
 
 **Trigger:** Policy admission is disabled while caller metadata contains policy-looking allow fields.
 
-**Expected pipeline outcome:** Legacy gate behaviour only.
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED`.
 
-**Expected gate behaviour:** Gate runs normally after audit.
+**Expected gate behaviour:** Gate is not called.
 
-**Expected PolicyAdmissionRecord:** `mode=DISABLED`, `policy_result=None`, `safety_case=None`, reason `POLICY_ADMISSION_DISABLED`.
+**Expected PolicyAdmissionRecord:** `mode=DISABLED`, `policy_result=None`,
+`safety_case=None`, `admission_allowed=False`, `integrity_status=DISABLED`, reason
+`POLICY_ADMISSION_DISABLED`.
 
-**Forbidden behaviour:** Creating a fake policy `ALLOW` result for disabled mode.
+**Forbidden behaviour:** Creating a fake policy `ALLOW` result for disabled mode or
+allowing disabled admission to reach final gate approval.
 
 **Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`, `tests/invariants/test_invariant_policy_admission.py`.
+
+---
+
+## FM-25: Policy Admission Integrity Mismatch
+
+**Trigger:** A policy admission record or SafetyCase is stale, forged, mismatched, or
+internally contradictory with respect to the audited plan, plan checksum, policy result,
+world snapshot, or capability binding.
+
+**Expected pipeline outcome:** `PipelineOutcome.ERROR` when detected inside `run_pipeline`,
+or `PolicyAdmissionIntegrityError` when callers invoke the integrity assertion directly.
+
+**Expected gate behaviour:** Gate is not called for pre-gate integrity failures.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=False`,
+`integrity_status=FAILED`, and reason/exception evidence identifying admission integrity
+failure when a pipeline result is returned.
+
+**Forbidden behaviour:** Trusting caller-provided admission fields, SafetyCase evidence,
+or cached policy results without recomputing and comparing canonical bindings.
+
+**Required test coverage:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`,
+`tests/contracts/test_policy_admission_contract.py`, `tests/integration/test_pipeline_policy_admission.py`.
+
+---
+
+## FM-26: Confusable or Normalized Security Decision Values
+
+**Trigger:** A caller supplies decision strings such as `ALLOW `, `allow`, fullwidth
+`ALLOW`, or zero-width/bidi-marked variants at a policy or policy-admission boundary.
+
+**Expected outcome:** `ValueError` at contract construction.
+
+**Forbidden behaviour:** Normalizing security decisions into allow-equivalent enum values.
+
+**Required test coverage:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`,
+`tests/contracts/test_policy_admission_contract.py`.
+
+---
+
+## FM-27: Malformed Evaluator Output
+
+**Trigger:** A monkeypatched or future adapter boundary returns a non-`PolicyEvaluationResult`
+object from policy evaluation.
+
+**Expected pipeline outcome:** `PipelineOutcome.ERROR` with non-approved policy admission.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Forbidden behaviour:** Reading arbitrary object attributes as admission authority or
+continuing to gate approval.
+
+**Required test coverage:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`.

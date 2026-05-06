@@ -61,5 +61,9 @@ class GateError(AegisError):
     """Execution gate failure."""
 
 
+class PolicyAdmissionIntegrityError(AegisError):
+    """Policy admission integrity failure."""
+
+
 class ConfigurationError(AegisError):
     """Configuration failure."""

@@ -111,6 +111,7 @@ def evaluate_policy_with_safety_case(
         audited_plan_id=audited_plan_id,
         world_snapshot=world_snapshot,
         evidence=safety_evidence,
+        capability=capability,
     )
     return result, safety_case
 

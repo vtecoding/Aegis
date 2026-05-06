@@ -1,4 +1,4 @@
-# Aegis Master Specification — Phase 1 + Phase 2 Part 3
+# Aegis Master Specification — Phase 1 + Phase 2 Part 4
 
 ## Purpose
 
@@ -9,8 +9,9 @@ a validated, auditable command plan.
 Phase 2 begins Aegis's evolution from deterministic command integrity into deterministic
 safety-policy admission. Phase 2 Part 1 added the immutable Policy-v1 contract
 foundation. Phase 2 Part 2 added a pure evaluator over those contracts. Phase 2 Part 3
-wires that evaluator into the pipeline admission path after audit and before final gate
-approval when policy enforcement is explicitly requested.
+wired that evaluator into the pipeline admission path after audit and before final gate
+approval. Phase 2 Part 4 hardens that boundary so pipeline approval requires enforced,
+integrity-passed policy admission and cannot be skipped, forged, mismatched, or degraded.
 
 Aegis does not execute robot commands. Phase 1 produces a typed decision (`ALLOWED` or
 `BLOCKED`) and an immutable audit receipt. Policy-v1 contracts, the pure evaluator, and
@@ -90,6 +91,25 @@ Forbidden status after Part 3: Aegis proves a robot action is physically safe.
 
 ---
 
+## Phase 2 Part 4 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Policy-backed approval predicate for `PipelineOutcome.ALLOWED` | Physical safety proof or certification |
+| Admission integrity binding for audit ID, plan ID, plan checksum, policy result, world snapshot, and capability | Live sensors or world-state ingestion |
+| Disabled/missing admission fail-closed before final gate | Warn-only, observe-only, or shadow approval modes |
+| Strict security decision enum parsing | Unicode normalization of allow-equivalent decisions |
+| Regression and adversarial bypass audit coverage | ROS 2, simulation, hardware, or runtime actuation |
+
+Honest status after Part 4: Aegis can deterministically prove, by contract and test, that
+`PipelineOutcome.ALLOWED` is policy-backed, SafetyCase-bound, admission-integrity-passed,
+and gate-approved for the same audited plan.
+
+Forbidden status after Part 4: Aegis proves semantic physical safety, collision safety,
+runtime robot safety, or certification readiness.
+
+---
+
 ## Non-Goals
 
 - No production safety claims. Phase 1 correctness is bounded by typed contracts,
@@ -110,15 +130,16 @@ Forbidden status after Part 3: Aegis proves a robot action is physically safe.
    (stub)
 ```
 
-Phase 2 Part 3 inserts policy admission after audit and before the final gate:
+Phase 2 inserts policy admission after audit and before the final gate:
 
 ```text
 RawIntent → ValidationResult → CommandPlan → AuditedPlan
     → PolicyAdmissionRecord(PolicyEvaluationResult + SafetyCase) → GateDecision
 ```
 
-Disabled mode preserves legacy Phase 1 gate behaviour. Enforced mode requires explicit
-policy and capability inputs and fails closed when admission is missing or denied.
+Disabled mode is observable but non-approved and does not call the final gate. Enforced
+mode requires explicit policy and capability inputs and fails closed when admission is
+missing, denied, stale, mismatched, forged, malformed, contradictory, or internally errored.
 
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
 communication uses typed contracts in `contracts/`.
@@ -147,8 +168,11 @@ build_audited_plan(plan) → AuditedPlan
     ↓
 if policy_admission.mode == ENFORCE:
     evaluate Policy + Capability + optional WorldSnapshotStub
-    build SafetyCase bound to AuditedPlan.audit_id
+    build SafetyCase bound to AuditedPlan audit ID, plan, policy result, world snapshot, and capability
+    assert PolicyAdmissionRecord integrity against AuditedPlan and SafetyCase
     if decision != ALLOW → non-approved PipelineResult, gate not reached
+else:
+    return PipelineOutcome.BLOCKED with disabled admission record, gate not reached
     ↓
 gate_audited_plan(audited_plan) → GateDecision
     ↓
@@ -184,8 +208,12 @@ run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
 22. In policy ENFORCE mode, final approval is impossible without `PolicyDecision.ALLOW`.
 23. Policy `ALLOW` cannot bypass gate checksum or audit ID verification.
 24. Missing policy or capability in ENFORCE mode never falls back to legacy approval.
-25. Disabled mode is not represented as a policy `ALLOW`.
+25. Disabled mode is not represented as a policy `ALLOW` and cannot produce approval.
 26. SafetyCase admission binding uses the actual audited plan ID produced by the pipeline.
+27. `PipelineOutcome.ALLOWED` requires enforced policy `ALLOW`, SafetyCase binding,
+    admission integrity `PASSED`, and matching allowed gate decision.
+28. Forged, stale, mismatched, skipped, malformed, or contradictory admission records fail closed.
+29. Security decision strings are exact; confusable, case-changed, or whitespace-marked `ALLOW` variants are rejected.
 
 ---
 
@@ -257,6 +285,12 @@ Pipeline policy admission wiring does **not** protect against:
 - Physical collision, dynamics, human-proximity hazards, or robot actuation outside the deterministic core.
 - Any approval path outside `run_pipeline` that does not explicitly use policy admission.
 
+Policy admission hardening does **not** protect against:
+
+- False but internally consistent caller-supplied evidence.
+- Physical collision, dynamics, human-proximity hazards, or robot actuation outside the deterministic core.
+- Direct consumers that misuse `gate_audited_plan` as full policy approval rather than receipt integrity verification.
+
 ---
 
 ## Failure Model
@@ -282,6 +316,6 @@ Coverage floor: 90% line coverage overall; 100% on `contracts/` and `errors.py`.
 
 ## Future Phases
 
-**Phase 2 Part 4 candidate:** Policy-gate hardening or deterministic capability extraction.
+**Phase 2 next candidates:** deterministic capability extraction, richer policy evidence stubs, or policy review workflow contracts.
 **Phase 3+:** Adapter integration, simulation, formal verification, middleware, and
 hardware work after the deterministic policy core is proven independently.

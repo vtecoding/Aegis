@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -314,6 +316,12 @@ class SafetyCase:
         audited_plan_id: Non-empty audited plan identifier.
         world_snapshot_id: Optional non-empty snapshot identifier.
         evidence: Explicit immutable explanation evidence.
+        plan_id: Optional command plan identifier bound by pipeline admission.
+        plan_checksum: Optional audited plan checksum bound by pipeline admission.
+        policy_result_checksum: Deterministic checksum of the explained policy result.
+        world_snapshot_checksum: Optional checksum from the world snapshot stub.
+        capability_name: Optional capability name evaluated by policy admission.
+        capability_version: Optional capability version evaluated by policy admission.
 
     Raises:
         ValueError: If identifiers are empty, evidence contains unsupported
@@ -325,6 +333,12 @@ class SafetyCase:
     audited_plan_id: str
     world_snapshot_id: str | None
     evidence: Mapping[str, FrozenPolicyValue]
+    plan_id: str | None
+    plan_checksum: str | None
+    policy_result_checksum: str
+    world_snapshot_checksum: str | None
+    capability_name: str | None
+    capability_version: str | None
 
     def __init__(
         self,
@@ -333,10 +347,25 @@ class SafetyCase:
         audited_plan_id: str,
         world_snapshot_id: str | None,
         evidence: Mapping[str, object] | None = None,
+        *,
+        plan_id: str | None = None,
+        plan_checksum: str | None = None,
+        policy_result_checksum: str | None = None,
+        world_snapshot_checksum: str | None = None,
+        capability_name: str | None = None,
+        capability_version: str | None = None,
     ) -> None:
         frozen_evidence = _freeze_policy_mapping(evidence or {})
         if policy_result.decision is PolicyDecision.ALLOW and not frozen_evidence:
             raise ValueError("ALLOW safety cases must include evidence")
+        computed_policy_result_checksum = policy_evaluation_result_checksum(policy_result)
+        normalized_policy_result_checksum = _normalize_optional_text(
+            policy_result_checksum, "policy_result_checksum"
+        )
+        if normalized_policy_result_checksum is None:
+            normalized_policy_result_checksum = computed_policy_result_checksum
+        if normalized_policy_result_checksum != computed_policy_result_checksum:
+            raise ValueError("policy_result_checksum must match policy_result")
 
         object.__setattr__(
             self, "safety_case_id", _normalize_required_text(safety_case_id, "safety_case_id")
@@ -351,6 +380,51 @@ class SafetyCase:
             _normalize_optional_text(world_snapshot_id, "world_snapshot_id"),
         )
         object.__setattr__(self, "evidence", frozen_evidence)
+        object.__setattr__(self, "plan_id", _normalize_optional_text(plan_id, "plan_id"))
+        object.__setattr__(
+            self, "plan_checksum", _normalize_optional_text(plan_checksum, "plan_checksum")
+        )
+        object.__setattr__(self, "policy_result_checksum", normalized_policy_result_checksum)
+        object.__setattr__(
+            self,
+            "world_snapshot_checksum",
+            _normalize_optional_text(world_snapshot_checksum, "world_snapshot_checksum"),
+        )
+        object.__setattr__(
+            self, "capability_name", _normalize_optional_text(capability_name, "capability_name")
+        )
+        object.__setattr__(
+            self,
+            "capability_version",
+            _normalize_optional_text(capability_version, "capability_version"),
+        )
+
+
+def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> str:
+    """Return a deterministic checksum for a PolicyEvaluationResult.
+
+    Args:
+        policy_result: Policy evaluation result to identify.
+
+    Returns:
+        SHA-256 checksum over canonical policy-result content.
+    """
+    payload = {
+        "decision": policy_result.decision.value,
+        "policy_id": policy_result.policy_id,
+        "matched_rule_ids": list(policy_result.matched_rule_ids),
+        "passed_constraints": list(policy_result.passed_constraints),
+        "failed_constraints": list(policy_result.failed_constraints),
+        "reasons": list(policy_result.reasons),
+    }
+    canonical_json = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
 
 
 def _normalize_required_text(value: str, field_name: str) -> str:
@@ -396,11 +470,12 @@ def _normalize_default_decision(value: str | PolicyDefaultDecision) -> PolicyDef
     if isinstance(value, PolicyDefaultDecision):
         return value
 
-    normalized = value.strip()
-    if normalized == PolicyDecision.ALLOW:
+    if value != value.strip():
+        raise ValueError("default_decision must not contain leading or trailing whitespace")
+    if value == PolicyDecision.ALLOW:
         raise ValueError("default_decision must not be ALLOW in Policy-v1")
     try:
-        return PolicyDefaultDecision(normalized)
+        return PolicyDefaultDecision(value)
     except ValueError:
         raise ValueError("default_decision must be BLOCK or REQUIRE_REVIEW") from None
 
@@ -408,8 +483,10 @@ def _normalize_default_decision(value: str | PolicyDefaultDecision) -> PolicyDef
 def _normalize_policy_decision(value: str | PolicyDecision) -> PolicyDecision:
     if isinstance(value, PolicyDecision):
         return value
+    if value != value.strip():
+        raise ValueError("decision must not contain leading or trailing whitespace")
     try:
-        return PolicyDecision(value.strip())
+        return PolicyDecision(value)
     except ValueError:
         raise ValueError("decision must be a valid PolicyDecision") from None
 

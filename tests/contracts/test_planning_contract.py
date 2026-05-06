@@ -41,6 +41,13 @@ def test_command_step_rejects_negative_sequence() -> None:
         CommandStep(CommandStepType.STOP, {}, -1)
 
 
+@pytest.mark.parametrize("sequence", [True, "0"])
+def test_command_step_rejects_non_integer_sequence(sequence: object) -> None:
+    """CommandStep sequence values must be real integers, not bools or strings."""
+    with pytest.raises(ValueError, match="sequence"):
+        CommandStep(CommandStepType.STOP, {}, sequence)
+
+
 def test_command_step_freezes_parameters() -> None:
     """CommandStep recursively freezes JSON-compatible parameters."""
     step = CommandStep(

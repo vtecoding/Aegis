@@ -10,8 +10,10 @@ from aegis.contracts.gate import GateDecision
 from aegis.contracts.planning import CommandPlan
 from aegis.contracts.policy import PolicyDecision
 from aegis.contracts.policy_admission import (
+    PolicyAdmissionMode,
     PolicyAdmissionRecord,
     disabled_policy_admission_record,
+    is_policy_backed_approval,
 )
 from aegis.contracts.validation import ValidationResult
 
@@ -57,17 +59,26 @@ class PipelineResult:
     def __post_init__(self) -> None:
         """Enforce pipeline-v1 outcome/field invariants."""
         if self.outcome == PipelineOutcome.ALLOWED:
+            if self.validation_result is None or self.plan is None or self.audited_plan is None:
+                raise ValueError(
+                    "PipelineResult outcome=ALLOWED requires validation, plan, and audited_plan"
+                )
             if self.gate_decision is None or self.gate_decision.status != "allowed":
                 raise ValueError(
                     "PipelineResult outcome=ALLOWED requires gate_decision with status='allowed'"
                 )
-            if not self.policy_admission.admission_allowed:
-                raise ValueError("PipelineResult outcome=ALLOWED requires policy admission allowed")
+            if not is_policy_backed_approval(
+                self.audited_plan, self.policy_admission, self.gate_decision
+            ):
+                raise ValueError(
+                    "PipelineResult outcome=ALLOWED requires policy-backed admission integrity"
+                )
         elif self.outcome == PipelineOutcome.BLOCKED:
             gate_blocked = self.gate_decision is not None and self.gate_decision.status == "blocked"
             policy_blocked = (
-                self.policy_admission.enforced and not self.policy_admission.admission_allowed
-            )
+                self.policy_admission.enforced
+                or self.policy_admission.mode is PolicyAdmissionMode.DISABLED
+            ) and not self.policy_admission.admission_allowed
             if self.gate_decision is not None and self.gate_decision.status != "blocked":
                 raise ValueError(
                     "PipelineResult outcome=BLOCKED must not include an allowed gate_decision"
@@ -90,3 +101,9 @@ class PipelineResult:
                 raise ValueError("PipelineResult outcome=INVALID must have audited_plan=None")
             if self.gate_decision is not None:
                 raise ValueError("PipelineResult outcome=INVALID must have gate_decision=None")
+            if self.policy_admission.admission_allowed:
+                raise ValueError("PipelineResult outcome=INVALID must not include approval")
+        elif self.outcome == PipelineOutcome.ERROR:
+            gate_allowed = self.gate_decision is not None and self.gate_decision.status == "allowed"
+            if gate_allowed or self.policy_admission.admission_allowed:
+                raise ValueError("PipelineResult outcome=ERROR must not include approval")

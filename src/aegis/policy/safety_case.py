@@ -14,6 +14,7 @@ from aegis.contracts.policy import (
     PolicyEvaluationResult,
     SafetyCase,
     WorldSnapshotStub,
+    policy_evaluation_result_checksum,
 )
 
 type CanonicalHashValue = (
@@ -30,7 +31,11 @@ _RESERVED_EVIDENCE_FIELDS = frozenset(
         "reasons",
         "capability_name",
         "capability_version",
+        "plan_id",
+        "plan_checksum",
+        "policy_result_checksum",
         "world_snapshot_id",
+        "world_snapshot_checksum",
         "constraint_evaluations",
     }
 )
@@ -42,6 +47,9 @@ def build_safety_case(
     audited_plan_id: str,
     world_snapshot: WorldSnapshotStub | None = None,
     evidence: Mapping[str, object] | None = None,
+    plan_id: str | None = None,
+    plan_checksum: str | None = None,
+    capability: Capability | None = None,
 ) -> SafetyCase:
     """Build a deterministic SafetyCase for a Policy-v1 evaluation result.
 
@@ -50,6 +58,9 @@ def build_safety_case(
         audited_plan_id: Caller-supplied audited plan identifier to bind.
         world_snapshot: Optional immutable evidence snapshot used by evaluation.
         evidence: Optional caller-supplied deterministic explanation evidence.
+        plan_id: Optional command plan identifier to bind.
+        plan_checksum: Optional audited plan checksum to bind.
+        capability: Optional capability evaluated by policy admission.
 
     Returns:
         A SafetyCase with a deterministic SHA-256 identifier.
@@ -61,8 +72,20 @@ def build_safety_case(
     normalized_audited_plan_id = _normalize_required_text(audited_plan_id, "audited_plan_id")
     supplied_evidence = dict(evidence or {})
     world_snapshot_id = world_snapshot.snapshot_id if world_snapshot is not None else None
+    world_snapshot_checksum = world_snapshot.checksum if world_snapshot is not None else None
+    capability_name = capability.name if capability is not None else None
+    capability_version = capability.version if capability is not None else None
+    result_checksum = policy_evaluation_result_checksum(policy_result)
     combined_evidence = _combined_safety_evidence(
-        policy_result, world_snapshot_id, supplied_evidence
+        policy_result=policy_result,
+        world_snapshot_id=world_snapshot_id,
+        world_snapshot_checksum=world_snapshot_checksum,
+        plan_id=plan_id,
+        plan_checksum=plan_checksum,
+        policy_result_checksum=result_checksum,
+        capability_name=capability_name,
+        capability_version=capability_version,
+        supplied_evidence=supplied_evidence,
     )
 
     if policy_result.decision.value == "ALLOW" and not policy_result.passed_constraints:
@@ -80,6 +103,12 @@ def build_safety_case(
         normalized_audited_plan_id,
         world_snapshot_id,
         combined_evidence,
+        plan_id=plan_id,
+        plan_checksum=plan_checksum,
+        policy_result_checksum=result_checksum,
+        world_snapshot_checksum=world_snapshot_checksum,
+        capability_name=capability_name,
+        capability_version=capability_version,
     )
 
 
@@ -159,12 +188,17 @@ def canonicalise_for_hash(value: object) -> CanonicalHashValue:
 
 
 def _combined_safety_evidence(
+    *,
     policy_result: PolicyEvaluationResult,
     world_snapshot_id: str | None,
+    world_snapshot_checksum: str | None,
+    plan_id: str | None,
+    plan_checksum: str | None,
+    policy_result_checksum: str,
+    capability_name: str | None,
+    capability_version: str | None,
     supplied_evidence: Mapping[str, object],
 ) -> dict[str, object]:
-    capability_name = supplied_evidence.get("capability_name")
-    capability_version = supplied_evidence.get("capability_version")
     constraint_evaluations = supplied_evidence.get("constraint_evaluations", ())
 
     combined: dict[str, object] = {
@@ -176,7 +210,11 @@ def _combined_safety_evidence(
         "reasons": policy_result.reasons,
         "capability_name": capability_name,
         "capability_version": capability_version,
+        "plan_id": plan_id,
+        "plan_checksum": plan_checksum,
+        "policy_result_checksum": policy_result_checksum,
         "world_snapshot_id": world_snapshot_id,
+        "world_snapshot_checksum": world_snapshot_checksum,
         "constraint_evaluations": constraint_evaluations,
     }
     for key, value in supplied_evidence.items():

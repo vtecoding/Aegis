@@ -100,10 +100,12 @@ and `gate_decision.status == "allowed"`.
 
 ---
 
-## INV-10: Pipeline INVALID Implies No Plan
+## INV-10: Pipeline INVALID Implies No Gate Approval
 
-**Statement:** `PipelineResult(outcome=INVALID)` implies `plan is None`,
-`audited_plan is None`, and `gate_decision is None`.
+**Statement:** `PipelineResult(outcome=INVALID)` implies `gate_decision is None`.
+Validation-invalid results have no plan or audit receipt. Policy-invalid results may
+include a plan and audited plan because policy admission runs after audit, but they never
+reach final gate approval.
 
 **Enforcement:** `PipelineResult.__post_init__` raises `ValueError` if violated.
 
@@ -342,7 +344,9 @@ does not execute, approve, override, or bypass future gate decisions.
 
 ## INV-POLICY-WIRE-009: SafetyCase Binds Actual Audited Plan
 
-**Statement:** SafetyCase admission binding uses the `AuditedPlan.audit_id` produced during pipeline execution.
+**Statement:** SafetyCase admission binding uses the `AuditedPlan.audit_id`, plan ID,
+plan checksum, policy result checksum, world snapshot identity/checksum when present,
+and capability identity produced or supplied during pipeline execution.
 
 **Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
 
@@ -359,7 +363,8 @@ does not execute, approve, override, or bypass future gate decisions.
 
 ## INV-POLICY-WIRE-011: Disabled Mode Is Not Policy Allow
 
-**Statement:** DISABLED mode preserves legacy behaviour but never creates a policy `ALLOW` result.
+**Statement:** DISABLED mode is observable but non-approved. It never creates a policy
+`ALLOW` result, never sets admission allowed, and never produces `PipelineOutcome.ALLOWED`.
 
 **Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
 
@@ -370,3 +375,44 @@ does not execute, approve, override, or bypass future gate decisions.
 **Statement:** Every `PipelineResult` exposes a `PolicyAdmissionRecord`.
 
 **Contract test:** `tests/contracts/test_pipeline_contract.py`
+
+---
+
+## INV-POLICY-HARDEN-001: Pipeline Allowed Requires Policy-Backed Approval
+
+**Statement:** `PipelineOutcome.ALLOWED` implies enforced policy admission, policy
+decision `ALLOW`, `admission_allowed=True`, `integrity_status=PASSED`, no exception
+marker, a valid SafetyCase, and a final allowed gate decision for the same audited plan.
+
+**Invariant test:** `tests/invariants/test_policy_admission_invariants.py`
+
+---
+
+## INV-POLICY-HARDEN-002: Admission Integrity Binds Audit, Plan, Policy, and Capability
+
+**Statement:** Admission approval is rejected if the admission record, SafetyCase, policy
+result checksum, audit ID, plan ID, plan checksum, world snapshot binding, or capability
+binding is stale, mismatched, missing, or forged.
+
+**Adversarial tests:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`
+
+---
+
+## INV-POLICY-HARDEN-003: Admission Contradictions Fail Closed
+
+**Statement:** Approval-like admission state is invalid for disabled, blocked, review,
+invalid, error, `NOT_RUN`, or failed-integrity records. `PipelineResult(ERROR)` and
+`PipelineResult(INVALID)` reject embedded approval state.
+
+**Contract tests:** `tests/contracts/test_policy_admission_contract.py`,
+`tests/contracts/test_pipeline_contract.py`
+
+---
+
+## INV-POLICY-HARDEN-004: Security Decision Strings Are Strict
+
+**Statement:** Security-critical decision enum values are exact. Case changes,
+leading/trailing whitespace, zero-width marks, bidi marks, and fullwidth/confusable
+characters are rejected rather than normalized.
+
+**Adversarial test:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`

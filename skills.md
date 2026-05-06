@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 3: Pipeline policy admission wiring** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 4: Policy admission hardening & bypass audit** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 1 — Core Pipeline
+## 2. Current Phase: Phase 2 Part 4 — Policy Admission Hardening
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -192,8 +192,9 @@ decision through a SafetyCase.
 
 Phase 2 Part 3 wires deterministic Policy-v1 evaluation into the pipeline admission path.
 Policy admission runs after audited plan creation and before final gate approval when the
-caller explicitly selects ``PolicyAdmissionMode.ENFORCE``. Legacy Phase 1 behaviour remains
-available only through explicit disabled mode or ``policy_admission=None``.
+caller explicitly selects ``PolicyAdmissionMode.ENFORCE``. Phase 2 Part 4 supersedes the
+earlier legacy-disabled approval path: disabled admission is now observable, non-approved,
+and does not call the final gate.
 
 Policy ENFORCE mode requires an explicit ``Policy`` and explicit ``Capability``. Missing
 policy or capability fails closed before the gate. Policy ``BLOCK``, ``REQUIRE_REVIEW``,
@@ -203,6 +204,24 @@ the existing gate integrity checks must still pass.
 This slice does not ingest live world state, integrate ROS, simulation, middleware, sensors,
 hardware, network services, databases, LLMs, or physical actuation. It does not prove a robot
 action is physically safe.
+
+### Phase 2 Part 4: Policy Admission Hardening & Bypass Audit
+
+Phase 2 Part 4 makes policy admission mandatory for pipeline approval. `PipelineOutcome.ALLOWED`
+requires all of the following: enforced policy mode, policy `ALLOW`, a valid SafetyCase, explicit
+plan/audit/policy/world/capability bindings, admission integrity status `PASSED`, no admission
+exception marker, and a final allowed gate decision bound to the same audited plan.
+
+Disabled or missing policy admission is explicit and fail-closed: it produces a disabled
+`PolicyAdmissionRecord`, does not call the final gate, and cannot produce `ALLOWED`. Policy
+admission records that are skipped, stale, mismatched, forged, contradictory, malformed, or
+internally errored are rejected before approval. Security-critical decision enum values are
+strict: strings such as `ALLOW `, `allow`, fullwidth `ALLOW`, and zero-width/bidi-marked variants
+are rejected rather than normalized.
+
+This slice still does not ingest live world state, integrate ROS, simulation, middleware,
+sensors, hardware, network services, databases, LLMs, or physical actuation. It does not prove
+semantic physical safety, runtime robot safety, collision safety, or certification readiness.
 
 ---
 

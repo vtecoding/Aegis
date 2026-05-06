@@ -18,6 +18,7 @@ from aegis.policy.contracts import (
     PolicyScalar,
     SafetyCase,
     WorldSnapshotStub,
+    policy_evaluation_result_checksum,
 )
 from aegis.policy.evaluator import evaluate_policy, evaluate_policy_with_safety_case
 from aegis.policy.safety_case import build_safety_case, canonicalise_for_hash
@@ -39,5 +40,6 @@ __all__ = [
     "canonicalise_for_hash",
     "evaluate_policy",
     "evaluate_policy_with_safety_case",
+    "policy_evaluation_result_checksum",
     "validate_policy",
 ]

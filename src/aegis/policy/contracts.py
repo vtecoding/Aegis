@@ -12,6 +12,7 @@ from aegis.contracts.policy import (
     PolicyScalar,
     SafetyCase,
     WorldSnapshotStub,
+    policy_evaluation_result_checksum,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "PolicyScalar",
     "SafetyCase",
     "WorldSnapshotStub",
+    "policy_evaluation_result_checksum",
 ]

@@ -91,7 +91,7 @@ def test_hostile_metadata_in_parameters_does_not_survive_to_plan() -> None:
     )
     result = run_pipeline(intent, context)
 
-    assert result.outcome == PipelineOutcome.ALLOWED
+    assert result.outcome == PipelineOutcome.BLOCKED
     assert result.plan is not None
     step = result.plan.steps[0]
     assert "metadata" not in step.parameters
@@ -119,7 +119,7 @@ def test_boundary_priority_values_produce_allowed(priority: int) -> None:
         context=context,
     )
     result = run_pipeline(intent, context)
-    assert result.outcome == PipelineOutcome.ALLOWED
+    assert result.outcome == PipelineOutcome.BLOCKED
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ def test_deeply_nested_move_parameters_produce_allowed() -> None:
     )
     result = run_pipeline(intent, context)
     # Planning may or may not accept extra keys — neither crash nor INVALID is required.
-    assert result.outcome in (PipelineOutcome.ALLOWED, PipelineOutcome.INVALID)
+    assert result.outcome in (PipelineOutcome.BLOCKED, PipelineOutcome.INVALID)
     assert result.outcome != PipelineOutcome.ERROR
 
 

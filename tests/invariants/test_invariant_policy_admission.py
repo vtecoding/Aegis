@@ -128,8 +128,11 @@ def test_invariant_disabled_mode_never_creates_policy_allow_result() -> None:
     context = _context()
     result = run_pipeline(_intent("move", 5, context), context)
 
+    assert result.outcome is PipelineOutcome.BLOCKED
+    assert result.gate_decision is None
     assert result.policy_admission.mode is PolicyAdmissionMode.DISABLED
     assert result.policy_admission.policy_result is None
+    assert result.policy_admission.admission_allowed is False
 
 
 @given(st.sampled_from(_VALID_COMMANDS), st.integers(min_value=1, max_value=10))

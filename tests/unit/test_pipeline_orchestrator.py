@@ -10,6 +10,8 @@ import pytest
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.errors import PlanningError
 from aegis.pipeline import run_pipeline
 
@@ -38,24 +40,41 @@ def make_invalid_intent(context: ExecutionContext) -> RawIntent:
     )
 
 
+def make_allowing_admission() -> PolicyAdmissionInput:
+    return PolicyAdmissionInput(
+        PolicyAdmissionMode.ENFORCE,
+        policy=Policy(
+            "policy-unit",
+            "v1",
+            [
+                PolicyRule(
+                    "rule-1",
+                    "locomotion.translation",
+                    [Constraint("max_velocity", {"max_mps": 1.0})],
+                )
+            ],
+        ),
+        capability=Capability("locomotion.translation", parameters={"velocity_mps": 0.2}),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Happy paths
 # ---------------------------------------------------------------------------
 
 
-def test_run_pipeline_valid_stop_returns_allowed() -> None:
+def test_run_pipeline_valid_stop_without_policy_returns_blocked() -> None:
     context = make_context()
     intent = make_valid_intent(context)
     result = run_pipeline(intent, context)
 
     assert isinstance(result, PipelineResult)
-    assert result.outcome == PipelineOutcome.ALLOWED
+    assert result.outcome == PipelineOutcome.BLOCKED
     assert result.validation_result is not None
     assert result.validation_result.is_valid
     assert result.plan is not None
     assert result.audited_plan is not None
-    assert result.gate_decision is not None
-    assert result.gate_decision.status == "allowed"
+    assert result.gate_decision is None
 
 
 def test_run_pipeline_valid_move_returns_allowed() -> None:
@@ -67,7 +86,7 @@ def test_run_pipeline_valid_move_returns_allowed() -> None:
         priority=3,
         context=context,
     )
-    result = run_pipeline(intent, context)
+    result = run_pipeline(intent, context, policy_admission=make_allowing_admission())
     assert result.outcome == PipelineOutcome.ALLOWED
 
 
@@ -115,7 +134,7 @@ def test_run_pipeline_all_valid_commands_return_allowed(command: str, parameters
         priority=5,
         context=context,
     )
-    result = run_pipeline(intent, context)
+    result = run_pipeline(intent, context, policy_admission=make_allowing_admission())
     assert result.outcome == PipelineOutcome.ALLOWED
 
 
@@ -194,7 +213,7 @@ def test_run_pipeline_unexpected_exception_in_gate_returns_error() -> None:
 
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as mock_gate:
         mock_gate.side_effect = RuntimeError("simulated gate framework failure")
-        result = run_pipeline(intent, context)
+        result = run_pipeline(intent, context, policy_admission=make_allowing_admission())
 
     assert result.outcome == PipelineOutcome.ERROR
     assert result.validation_result is not None

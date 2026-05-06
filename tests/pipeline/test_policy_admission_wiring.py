@@ -59,14 +59,15 @@ def test_policy_admission_none_normalises_to_disabled_mode() -> None:
     context = _context()
     result = run_pipeline(_intent(context), context)
 
-    assert result.outcome is PipelineOutcome.ALLOWED
+    assert result.outcome is PipelineOutcome.BLOCKED
     assert result.policy_admission.mode is PolicyAdmissionMode.DISABLED
     assert result.policy_admission.policy_result is None
     assert result.policy_admission.safety_case is None
-    assert result.policy_admission.admission_allowed is True
+    assert result.policy_admission.admission_allowed is False
+    assert result.gate_decision is None
 
 
-def test_disabled_mode_preserves_legacy_successful_pipeline() -> None:
+def test_disabled_mode_is_explicit_non_approval() -> None:
     context = _context()
     result = run_pipeline(
         _intent(context),
@@ -74,9 +75,8 @@ def test_disabled_mode_preserves_legacy_successful_pipeline() -> None:
         policy_admission=PolicyAdmissionInput(PolicyAdmissionMode.DISABLED),
     )
 
-    assert result.outcome is PipelineOutcome.ALLOWED
-    assert result.gate_decision is not None
-    assert result.gate_decision.status == "allowed"
+    assert result.outcome is PipelineOutcome.BLOCKED
+    assert result.gate_decision is None
     assert result.policy_admission.reasons == ("POLICY_ADMISSION_DISABLED",)
 
 
@@ -296,6 +296,8 @@ def test_disabled_mode_is_not_represented_as_policy_allow() -> None:
     context = _context()
     result = run_pipeline(_intent(context), context)
 
+    assert result.outcome is PipelineOutcome.BLOCKED
     assert result.policy_admission.mode is PolicyAdmissionMode.DISABLED
     assert result.policy_admission.policy_result is None
     assert result.policy_admission.safety_case is None
+    assert result.policy_admission.admission_allowed is False

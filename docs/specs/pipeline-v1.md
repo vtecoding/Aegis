@@ -6,7 +6,8 @@ Pipeline Orchestrator v1 is the single deterministic public API that composes al
 Aegis layers in their canonical order and returns a typed `PipelineResult`.  It is not an
 executor, simulator, or robot adapter.  Its purpose is to provide a clean, importable integration
 boundary for demos, CLI wrappers, future simulator adapters, and eventually robot-action layers.
-Phase 2 Part 3 adds optional policy admission between audit and gate.
+Phase 2 Part 3 adds policy admission between audit and gate. Phase 2 Part 4 hardens that
+boundary so final pipeline approval is impossible without valid enforced policy admission.
 
 ---
 
@@ -19,6 +20,7 @@ Phase 2 Part 3 adds optional policy admission between audit and gate.
 - Be fully deterministic: same inputs always produce the same `PipelineResult`.
 - Provide the public entry point `run_pipeline(raw_intent, context, *, policy_admission=None) -> PipelineResult`.
 - In policy-enforced mode, evaluate Policy-v1 after audit and before final gate approval.
+- Require policy-backed admission integrity for any `PipelineOutcome.ALLOWED` result.
 
 ---
 
@@ -63,8 +65,10 @@ class PipelineOutcome(StrEnum):
 | `policy_admission` | `PolicyAdmissionRecord` | Disabled or enforced policy admission state |
 
 **Outcome derivation rules:**
-- `ALLOWED` — `gate_decision.status == GateDecisionStatus.ALLOWED`
-- `BLOCKED` — `gate_decision.status == GateDecisionStatus.BLOCKED` or policy admission was enforced and denied
+- `ALLOWED` — policy admission is `ENFORCE`, policy decision is `ALLOW`, SafetyCase and
+    admission bindings pass integrity checks, and `gate_decision.status == GateDecisionStatus.ALLOWED`
+- `BLOCKED` — policy admission is disabled, missing, or denied; or the gate blocks after
+    policy-backed admission
 - `INVALID` — validation failed before planning, or policy admission produced `PolicyDecision.INVALID`
 - `ERROR` — an unexpected non-`AegisError` exception was raised
 
@@ -103,10 +107,10 @@ def run_pipeline(
 | Condition | `outcome` | Fields populated |
 |-----------|-----------|-----------------|
 | Validation failed | `INVALID` | `validation_result` |
-| Validation passed, policy disabled, planning/auditing/gate all succeed, gate allows | `ALLOWED` | all layer fields plus disabled policy record |
-| Policy ENFORCE returns ALLOW and gate allows | `ALLOWED` | all layer fields plus enforced policy record |
+| Validation passed, policy disabled or omitted | `BLOCKED` | validation, plan, audit, disabled policy record; no gate decision |
+| Policy ENFORCE returns ALLOW, integrity passes, and gate allows | `ALLOWED` | all layer fields plus enforced policy record |
 | Policy ENFORCE denies before gate | `BLOCKED`, `INVALID`, or `ERROR` | validation, plan, audit, policy record |
-| Validation passed, gate blocks | `BLOCKED` | all four |
+| Policy ENFORCE allows but gate blocks | `BLOCKED` | validation, plan, audit, policy record, blocked gate decision |
 | Unexpected non-`AegisError` exception | `ERROR` | as many as were computed before the exception |
 
 ---
@@ -127,6 +131,7 @@ failures.
 ## Invariants
 
 - `outcome == ALLOWED` implies `gate_decision is not None and gate_decision.status == "allowed"`
+- `outcome == ALLOWED` implies policy admission is enforced, allowed, integrity-passed, and bound to the same audited plan as the gate decision
 - `outcome == BLOCKED` implies a blocked gate decision or denied enforced policy admission
 - `outcome == INVALID` implies `plan is None and audited_plan is None and gate_decision is None`
     unless the invalid state is produced by policy admission after audit
@@ -134,14 +139,16 @@ failures.
 - Same `raw_intent` + same `context` → same `PipelineResult`, always.
 - `run_pipeline` does not mutate `raw_intent` or `context`.
 - Policy `ALLOW` is necessary but not sufficient for final approval.
-- Disabled policy admission is not a policy `ALLOW` result.
+- Disabled policy admission is not a policy `ALLOW` result and cannot produce final approval.
+- Admission records with stale, mismatched, forged, malformed, skipped, or contradictory bindings cannot produce final approval.
 
 ---
 
 ## Release Gate
 
 ```
-outcome == ALLOWED for all valid, supported intents
+outcome == ALLOWED for valid, supported intents only when enforced policy admission allows and gate integrity also allows
+disabled_policy_admission_allowed_count = 0
 outcome == INVALID for all invalid or unsupported intents
 gate_integrity_mismatch_count = 0 (via scenario runner)
 deterministic replay passes

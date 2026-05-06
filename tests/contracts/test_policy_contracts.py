@@ -14,6 +14,7 @@ from aegis.contracts.policy import (
     PolicyRule,
     SafetyCase,
     WorldSnapshotStub,
+    policy_evaluation_result_checksum,
 )
 
 
@@ -91,6 +92,12 @@ def test_policy_rejects_invalid_default_decision() -> None:
     """Policy-v1 rejects defaults outside the fail-closed default decision set."""
     with pytest.raises(ValueError, match="default_decision"):
         Policy("policy-1", "v1", [make_rule()], default_decision="DENY")
+
+
+def test_policy_rejects_whitespace_padded_default_decision() -> None:
+    """Policy-v1 does not normalize security default decision values."""
+    with pytest.raises(ValueError, match="whitespace"):
+        Policy("policy-1", "v1", [make_rule()], default_decision="BLOCK ")
 
 
 def test_policy_accepts_require_review_default() -> None:
@@ -305,6 +312,45 @@ def test_safety_case_accepts_allow_with_evidence() -> None:
     )
 
     assert safety_case.evidence["snapshot_confidence"] == 0.9
+
+
+def test_safety_case_stores_explicit_admission_bindings() -> None:
+    """SafetyCase can bind to plan, policy result, world snapshot, and capability identity."""
+    result = make_allow_result()
+    checksum = policy_evaluation_result_checksum(result)
+    safety_case = SafetyCase(
+        "case-1",
+        result,
+        "audit-1",
+        "snapshot-1",
+        {"snapshot_confidence": 0.9},
+        plan_id="plan-1",
+        plan_checksum="checksum-1",
+        policy_result_checksum=checksum,
+        world_snapshot_checksum="snapshot-checksum-1",
+        capability_name="locomotion.translation",
+        capability_version="v1",
+    )
+
+    assert safety_case.plan_id == "plan-1"
+    assert safety_case.plan_checksum == "checksum-1"
+    assert safety_case.policy_result_checksum == checksum
+    assert safety_case.world_snapshot_checksum == "snapshot-checksum-1"
+    assert safety_case.capability_name == "locomotion.translation"
+    assert safety_case.capability_version == "v1"
+
+
+def test_safety_case_rejects_policy_result_checksum_mismatch() -> None:
+    """SafetyCase cannot claim to explain a different policy evaluation result."""
+    with pytest.raises(ValueError, match="policy_result_checksum"):
+        SafetyCase(
+            "case-1",
+            make_allow_result(),
+            "audit-1",
+            None,
+            {"snapshot_confidence": 0.9},
+            policy_result_checksum="not-the-result-checksum",
+        )
 
 
 def test_policy_result_is_immutable() -> None:

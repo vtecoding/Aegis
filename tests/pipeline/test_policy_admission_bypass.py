@@ -159,7 +159,8 @@ def test_disabled_mode_with_policy_looking_metadata_does_not_create_policy_allow
     context = _context()
     result = run_pipeline(_hostile_intent(context), context)
 
-    assert result.outcome is PipelineOutcome.ALLOWED
+    assert result.outcome is PipelineOutcome.BLOCKED
+    assert result.gate_decision is None
     assert result.policy_admission.policy_result is None
     assert result.policy_admission.safety_case is None
 

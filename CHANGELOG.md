@@ -10,6 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Policy admission hardening for Phase 2 Part 4: policy-backed approval predicate, explicit admission integrity checks, SafetyCase plan/policy/world/capability bindings, strict security decision enum parsing, and fail-closed handling for skipped, stale, forged, mismatched, malformed, errored, or contradictory admission records
+- Contract, adversarial, integration, invariant, and regression tests proving `PipelineOutcome.ALLOWED` requires enforced policy admission, valid SafetyCase binding, admission integrity `PASSED`, and a matching allowed gate decision
 - Pipeline policy admission wiring for Phase 2 Part 3: explicit `PolicyAdmissionInput` and `PolicyAdmissionRecord`, disabled legacy mode, enforced Policy-v1 evaluation after audit and before gate, SafetyCase binding to the actual audited plan ID, and fail-closed denial for policy `BLOCK`, `REQUIRE_REVIEW`, `INVALID`, `ERROR`, missing policy, and missing capability
 - Contract, pipeline, adversarial, integration, and Hypothesis invariant tests for policy admission wiring, bypass resistance, gate interaction, deterministic SafetyCase binding, and disabled-mode observability
 - Policy-v1 pure evaluator for deterministic Capability admission against immutable Policy rules, built-in fail-closed constraints, and deterministic SafetyCase generation
@@ -28,6 +30,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bootstrap import test and invariant test
 
 ### Changed
+- Disabled or missing policy admission no longer preserves legacy approval; it returns an explicit non-approved disabled admission record and skips the final gate
 - `RawIntent` now rejects bool priority values instead of accepting them as integers
 
 ### Removed
