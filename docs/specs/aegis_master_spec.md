@@ -1,4 +1,4 @@
-# Aegis Master Specification — Phase 1 + Phase 2 Part 1
+# Aegis Master Specification — Phase 1 + Phase 2 Part 2
 
 ## Purpose
 
@@ -7,12 +7,13 @@ Intent Gateway**: a pure-Python pipeline that converts untrusted, high-level int
 a validated, auditable command plan.
 
 Phase 2 begins Aegis's evolution from deterministic command integrity into deterministic
-safety-policy admission. Phase 2 Part 1 adds the immutable Policy-v1 contract foundation
-only; it does not evaluate policies or prove real-world safety.
+safety-policy admission. Phase 2 Part 1 added the immutable Policy-v1 contract
+foundation. Phase 2 Part 2 adds a pure evaluator over those contracts; it does not wire
+policy admission into the runtime pipeline or prove real-world safety.
 
 Aegis does not execute robot commands. Phase 1 produces a typed decision (`ALLOWED` or
-`BLOCKED`) and an immutable audit receipt. Policy-v1 contracts prepare the next pure
-admission layer without changing Phase 1 pipeline behaviour.
+`BLOCKED`) and an immutable audit receipt. Policy-v1 contracts and the pure evaluator
+prepare the next admission layer without changing Phase 1 pipeline behaviour.
 
 ---
 
@@ -48,6 +49,26 @@ for a future pure policy evaluator.
 
 ---
 
+## Phase 2 Part 2 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Pure Policy-v1 evaluator in `aegis.policy` | `run_pipeline()` policy enforcement |
+| Exact capability-to-rule matching | Wildcards, regex, fuzzy, or semantic matching |
+| Built-in deterministic constraint evaluators | Dynamic plugins or external registries |
+| Optional caller-supplied context freezing | Environment-variable or current-time reads |
+| Optional `WorldSnapshotStub` evidence evaluation | Live sensors, simulation, or middleware |
+| Deterministic `SafetyCase` generation | Execution permission or legal proof packs |
+
+Honest status after Part 2: Aegis can deterministically evaluate a declared capability
+against declared Policy-v1 rules and immutable supplied evidence, producing a
+`PolicyEvaluationResult` and explanatory `SafetyCase`.
+
+Policy-v1 evaluator output is a policy admission decision over provided evidence. It is
+not proof of real-world physical safety.
+
+---
+
 ## Non-Goals
 
 - No production safety claims. Phase 1 correctness is bounded by typed contracts,
@@ -75,7 +96,7 @@ RawIntent → ValidationResult → CommandPlan → AuditedPlan
     → PolicyEvaluationResult → SafetyCase → GateDecision
 ```
 
-Phase 2 Part 1 defines only the policy contracts needed for this future flow. It does
+Phase 2 Part 2 implements the pure policy-evaluation portion of this future flow. It does
 not wire policy evaluation into `run_pipeline()`.
 
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
@@ -88,7 +109,7 @@ communication uses typed contracts in `contracts/`.
 | Planning | `aegis.planning` | None | Implemented |
 | Audit | `aegis.audit` | None | Implemented |
 | Gate | `aegis.gate` | Phase 2+ only | Implemented |
-| Policy | `aegis.policy` | None | Contracts only |
+| Policy | `aegis.policy` | None | Pure evaluator implemented; not wired into pipeline |
 
 ---
 
@@ -128,6 +149,12 @@ run_pipeline returns PipelineResult(outcome, validation_result, plan, audited_pl
 13. Policy default decision must not be `ALLOW`.
 14. World snapshot stubs are immutable evidence inputs, not live sensor state.
 15. `SafetyCase` explains a policy decision; it is not execution permission by itself.
+16. No matching Policy-v1 rule ever produces `ALLOW`.
+17. Unknown Policy-v1 constraints never produce `ALLOW`.
+18. Failed required constraints always produce `BLOCK`.
+19. Failed optional constraints produce `REQUIRE_REVIEW` unless a required failure blocks.
+20. Policy-v1 evaluator never reads current time, environment, files, network, or live state.
+21. `SafetyCase.safety_case_id` is deterministic over explicit inputs.
 
 ---
 
@@ -137,6 +164,7 @@ run_pipeline returns PipelineResult(outcome, validation_result, plan, audited_pl
 from aegis.pipeline import run_pipeline
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.context import ExecutionContext
+from aegis.policy import build_safety_case, evaluate_policy, evaluate_policy_with_safety_case
 
 result = run_pipeline(raw_intent, context)
 # result.outcome: PipelineOutcome — ALLOWED | BLOCKED | INVALID | ERROR
@@ -168,10 +196,16 @@ Aegis Phase 1 does **not** protect against:
 
 Policy-v1 contract foundation does **not** protect against:
 
-- Missing or incorrect future policy evaluator logic.
 - Stale or false world snapshot evidence.
 - Real-world collision, dynamics, or human-proximity hazards.
 - Any robot execution path outside the deterministic core.
+
+Policy-v1 evaluator does **not** protect against:
+
+- Incorrect, stale, or false evidence supplied by a caller.
+- Real-world collision, dynamics, or human-proximity hazards outside the stub data.
+- Missing future pipeline policy wiring.
+- Treating a SafetyCase as execution permission.
 
 ---
 
@@ -198,7 +232,6 @@ Coverage floor: 90% line coverage overall; 100% on `contracts/` and `errors.py`.
 
 ## Future Phases
 
-**Phase 2 Part 2:** Pure Policy-v1 evaluator over explicit policy, audited plan, and
-world snapshot inputs.
+**Phase 2 Part 3:** Pipeline policy admission wiring after audit and before gate.
 **Phase 3+:** Adapter integration, simulation, formal verification, middleware, and
 hardware work after the deterministic policy core is proven independently.

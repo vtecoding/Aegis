@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 1: Policy-v1 contracts** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 2: Policy-v1 pure evaluator** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -170,6 +170,23 @@ Part 1 is only the contract foundation for that jump.
 - Hardware interface layer (Phase 3)
 - Real-time audit streaming (Phase 3)
 - LLM policy generation in core (never)
+
+### Phase 2 Part 2: Policy-v1 Pure Evaluator
+
+Phase 2 Part 2 implements a deterministic evaluator over already-constructed immutable
+Policy-v1 contracts. It evaluates a `Capability` against a `Policy`, optional
+`WorldSnapshotStub`, and deterministic caller-supplied context, then emits a
+`PolicyEvaluationResult` and deterministic `SafetyCase` evidence package.
+
+This slice does not wire policy decisions into `run_pipeline()`. It does not ingest live
+world state, integrate ROS, simulation, middleware, hardware, network services, databases,
+or LLMs, and it does not prove real-world robot safety.
+
+**Honest Phase 2 Part 2 claim:** Aegis can deterministically evaluate declared Policy-v1
+rules over immutable supplied evidence, fail closed under ambiguity, and explain the
+decision through a SafetyCase.
+
+**Forbidden Phase 2 Part 2 claim:** Aegis proves a robot action is physically safe.
 
 ---
 

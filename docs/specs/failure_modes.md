@@ -244,3 +244,70 @@ as permission.
 
 **Test coverage:** `tests/contracts/test_policy_contracts.py`,
 `tests/policy/test_policy_validation.py`, `tests/invariants/test_invariant_policy_contracts.py`
+
+---
+
+## FM-13: Policy-v1 Evaluator Fail-Closed Decisions
+
+**Trigger:** The pure Policy-v1 evaluator receives a valid policy/capability pair where
+no enabled rule matches, a matching rule contains failed constraints, required evidence is
+missing or stale, supplied context is malformed, or a constraint type is unknown.
+
+**Expected outcome:** `evaluate_policy` returns `PolicyEvaluationResult` with `BLOCK`,
+`REQUIRE_REVIEW`, or `INVALID`. It never allows through missing evidence, stale evidence,
+unknown constraints, hostile metadata, malformed context, or no matching rule.
+
+**Allowed recovery:** Caller may present `REQUIRE_REVIEW` to a human workflow or reject
+`BLOCK`/`INVALID` before future gate wiring. The evaluator itself performs no side effects.
+
+**Forbidden:** Falling back to `ALLOW`; wildcard, regex, fuzzy, semantic, or LLM-based
+capability matching; reading current time, environment, files, network, sensors, or runtime
+robot state.
+
+| Code | Trigger | Expected decision / reason | Required test coverage | Forbidden behaviour |
+|------|---------|----------------------------|------------------------|---------------------|
+| `POLICY_NO_MATCHING_RULE` | No enabled rule matches `Capability.name` exactly | `BLOCK` or `REQUIRE_REVIEW`; includes default reason | `test_policy_evaluator.py`, `test_invariant_policy_evaluator.py` | No-rule `ALLOW` |
+| `POLICY_DEFAULT_BLOCK` | No match and policy default is `BLOCK` | `BLOCK` | `test_policy_evaluator.py` | Treating default as advisory |
+| `POLICY_DEFAULT_REQUIRE_REVIEW` | No match and policy default is `REQUIRE_REVIEW` | `REQUIRE_REVIEW` | `test_policy_evaluator.py` | Escalating to `ALLOW` |
+| `POLICY_UNKNOWN_CONSTRAINT_TYPE` | Constraint type has no built-in evaluator | `BLOCK` if required, `REQUIRE_REVIEW` if optional | `test_policy_evaluator.py`, `test_policy_evaluator_adversarial.py` | Dynamic plugin lookup or allow-all fallback |
+| `POLICY_REQUIRED_CONSTRAINT_FAILED` | Any required matching constraint fails | `BLOCK` | `test_policy_evaluator.py`, invariants | One passing rule bypassing stricter rule |
+| `POLICY_OPTIONAL_CONSTRAINT_FAILED` | Optional constraint fails with no required failure | `REQUIRE_REVIEW` | `test_policy_evaluator.py`, invariants | Silent optional failure |
+| `POLICY_EVALUATION_CONTEXT_INVALID` | Context contains unsupported values such as callables | `INVALID` | `test_policy_evaluator_adversarial.py` | Executing or ignoring malformed context |
+| `WORLD_SNAPSHOT_REQUIRED` | Required snapshot evidence is absent | `BLOCK` or `REQUIRE_REVIEW` by constraint required flag | `test_policy_evaluator_constraints.py` | Missing snapshot `ALLOW` |
+| `WORLD_SNAPSHOT_EXPIRED` | `requested_at_ms > expires_at_ms` | `BLOCK` unless optional review | constraints, adversarial, invariants | Reading current time to compensate |
+| `WORLD_SNAPSHOT_NOT_YET_VALID` | `requested_at_ms < captured_at_ms` | `BLOCK` unless optional review | constraints, invariants | Accepting premature evidence |
+| `REQUEST_TIME_REQUIRED` | Freshness constraint lacks caller-supplied request time | `BLOCK` unless optional review | constraints | Calling `time.time()` or `datetime.now()` |
+| `WORLD_SNAPSHOT_CONFIDENCE_TOO_LOW` | Snapshot confidence below required threshold | `BLOCK` unless optional review | constraints, adversarial, invariants | Low-confidence `ALLOW` |
+| `VELOCITY_REQUIRED` | Capability lacks `velocity_mps` evidence | `BLOCK` unless optional review | constraints | Inferring a default velocity |
+| `VELOCITY_LIMIT_EXCEEDED` | `velocity_mps > max_mps` | `BLOCK` unless optional review | constraints, adversarial, invariants | Allowing over-limit velocity |
+| `TARGET_ZONE_EVIDENCE_REQUIRED` | Deny-zone constraint lacks target zone evidence | `BLOCK` unless optional review | constraints | Treating unknown zone as safe |
+| `TARGET_ZONE_DENIED` | Target is inside a denied zone | `BLOCK` unless optional review | constraints, adversarial | Ignoring denied-zone evidence |
+| `HUMAN_DISTANCE_REQUIRED` | Human proximity evidence is absent | `BLOCK` unless optional review | constraints | Missing distance `ALLOW` |
+| `HUMAN_TOO_CLOSE` | Nearest human distance below minimum | `BLOCK` unless optional review | constraints, adversarial | Allowing unsafe supplied proximity |
+| `AUTHORISATION_REQUIRED` | Required authorisation parameter is absent | `BLOCK` unless optional review | constraints | Empty authorisation wildcard |
+| `AUTHORISATION_MISSING` | Context lacks exact required authorisation | `BLOCK` unless optional review | constraints, adversarial | Substring matching |
+| `DUAL_AUTHORISATION_REQUIRED` | Dual-authorisation constraint is malformed | `BLOCK` unless optional review | constraints | Treating malformed rule as allow |
+| `DUAL_AUTHORISATION_MISSING` | Context lacks exact `dual_authorised is True` | `BLOCK` unless optional review | constraints | Truthy coercion |
+| `EMERGENCY_STOP_ALLOWED` | Explicit `system.emergency_stop` passes override constraint | `ALLOW` only if all other required constraints pass | `test_policy_evaluator.py` | Applying override to movement commands |
+| `EMERGENCY_STOP_CONSTRAINT_MISMATCH` | Override constraint applied to any other capability | `BLOCK` unless optional review | `test_policy_evaluator.py` | Arbitrary emergency bypass |
+
+---
+
+## FM-14: SafetyCase Evidence or Hash Failure
+
+**Trigger:** SafetyCase construction receives an empty audited plan ID, an `ALLOW` result
+without passed constraint evidence, unsupported evidence values, or evidence that cannot be
+canonicalised deterministically.
+
+**Expected outcome:** `build_safety_case` raises `ValueError`; no SafetyCase is produced.
+
+**Allowed recovery:** Caller rejects the incomplete explanation package before future gate
+wiring.
+
+**Forbidden:** Generating UUIDs or timestamps; using Python object `repr()` for custom
+objects; treating a SafetyCase as execution permission.
+
+| Code | Trigger | Expected decision / reason | Required test coverage | Forbidden behaviour |
+|------|---------|----------------------------|------------------------|---------------------|
+| `SAFETY_CASE_EVIDENCE_REQUIRED` | ALLOW result lacks meaningful passed constraint evidence | `ValueError` before SafetyCase construction | `test_policy_evaluator_safety_case.py` | Empty-evidence ALLOW case |
+| `SAFETY_CASE_HASH_UNSTABLE` | Evidence contains unsupported or non-canonical objects | `ValueError` before hash use | `test_policy_evaluator_safety_case.py` | Memory-address-dependent hashing |

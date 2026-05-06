@@ -55,6 +55,15 @@ def unchecked_rule(rule_id: str, enabled: bool, constraints: tuple[Constraint, .
     return rule
 
 
+def unchecked_constraint(constraint_type: str, required: object) -> Constraint:
+    """Build an invalid constraint object for validation fail-closed checks."""
+    constraint = object.__new__(Constraint)
+    object.__setattr__(constraint, "constraint_type", constraint_type)
+    object.__setattr__(constraint, "parameters", {})
+    object.__setattr__(constraint, "required", required)
+    return constraint
+
+
 def test_validate_policy_accepts_valid_policy() -> None:
     """validate_policy accepts a structurally valid Policy-v1 bundle."""
     assert validate_policy(make_policy()) is None
@@ -98,6 +107,43 @@ def test_validate_policy_rejects_enabled_rule_with_zero_constraints() -> None:
 
     with pytest.raises(ValueError, match="enabled rules"):
         validate_policy(policy)
+
+
+def test_validate_policy_rejects_unchecked_rule_with_invalid_capability() -> None:
+    """validate_policy catches malformed unchecked capability references."""
+    rule = unchecked_rule("rule-1", True, (make_constraint(),))
+    object.__setattr__(rule, "capability", "locomotion.*")
+    policy = unchecked_policy("policy-1", "v1", (rule,), PolicyDefaultDecision.BLOCK)
+
+    with pytest.raises(ValueError, match="capability"):
+        validate_policy(policy)
+
+
+def test_validate_policy_rejects_unchecked_rule_with_non_bool_enabled() -> None:
+    """validate_policy catches malformed unchecked enabled flags."""
+    rule = unchecked_rule("rule-1", True, (make_constraint(),))
+    object.__setattr__(rule, "enabled", "yes")
+    policy = unchecked_policy("policy-1", "v1", (rule,), PolicyDefaultDecision.BLOCK)
+
+    with pytest.raises(ValueError, match="enabled"):
+        validate_policy(policy)
+
+
+def test_validate_policy_rejects_unchecked_constraint_shape() -> None:
+    """validate_policy catches malformed unchecked constraint fields."""
+    empty_type = unchecked_rule("rule-1", True, (unchecked_constraint("", True),))
+    non_bool_required = unchecked_rule(
+        "rule-2", "True" == "True", (unchecked_constraint("max_velocity", "yes"),)
+    )
+
+    with pytest.raises(ValueError, match="constraint_type"):
+        validate_policy(
+            unchecked_policy("policy-1", "v1", (empty_type,), PolicyDefaultDecision.BLOCK)
+        )
+    with pytest.raises(ValueError, match="required"):
+        validate_policy(
+            unchecked_policy("policy-1", "v1", (non_bool_required,), PolicyDefaultDecision.BLOCK)
+        )
 
 
 def test_same_valid_input_produces_equal_policy_object() -> None:

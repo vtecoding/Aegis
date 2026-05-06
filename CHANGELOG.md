@@ -10,6 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Policy-v1 pure evaluator for deterministic Capability admission against immutable Policy rules, built-in fail-closed constraints, and deterministic SafetyCase generation
+- Unit, adversarial, and Hypothesis invariant tests for Policy-v1 evaluator matching, constraint semantics, aggregation precedence, hostile metadata inertness, and SafetyCase canonical hashing
 - Audit v1: deterministic `AuditedPlan` receipt wrapping any `CommandPlan` with a SHA-256 content checksum and a SHA-256 audit event identifier derived from checksum plus execution context
 - Contract, unit, invariant, and adversarial tests for audit-v1 determinism, immutability, key-order invariance, and adversarial inputs
 - Planning v1: immutable `CommandStep` and `CommandPlan` contracts, deterministic SHA-256 plan IDs, and one-step abstract command planning for valid `move`/`stop`/`inspect`/`wait` intents

@@ -1,8 +1,8 @@
-"""Layer 2.5: Policy-v1 contract foundation.
+"""Layer 2.5: Policy-v1 contract foundation and pure evaluator.
 
-This package exposes immutable Policy-v1 contracts only. It does not implement
-policy evaluation, world-state ingestion, simulation, middleware integration, or
-robot safety decisions.
+This package exposes immutable Policy-v1 contracts and a pure deterministic
+evaluator. It does not wire policy decisions into the pipeline, ingest live
+world state, integrate simulation or middleware, or prove robot safety.
 """
 
 from aegis.policy.contracts import (
@@ -18,6 +18,8 @@ from aegis.policy.contracts import (
     SafetyCase,
     WorldSnapshotStub,
 )
+from aegis.policy.evaluator import evaluate_policy, evaluate_policy_with_safety_case
+from aegis.policy.safety_case import build_safety_case, canonicalise_for_hash
 from aegis.policy.validation import validate_policy
 
 __all__ = [
@@ -32,5 +34,9 @@ __all__ = [
     "PolicyScalar",
     "SafetyCase",
     "WorldSnapshotStub",
+    "build_safety_case",
+    "canonicalise_for_hash",
+    "evaluate_policy",
+    "evaluate_policy_with_safety_case",
     "validate_policy",
 ]

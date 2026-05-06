@@ -205,3 +205,70 @@ a live sensor model and never reads current time, sensors, files, network, or en
 does not execute, approve, or override gate decisions by itself.
 
 **Contract test:** `tests/contracts/test_policy_contracts.py`
+
+---
+
+## INV-21: No Matching Policy Rule Never Allows
+
+**Statement:** `evaluate_policy` never returns `ALLOW` when no enabled policy rule
+matches `Capability.name` by exact string equality.
+
+**Hypothesis test:** `tests/invariants/test_invariant_policy_evaluator.py`
+
+---
+
+## INV-22: Unknown Policy Constraint Never Allows
+
+**Statement:** Unknown Policy-v1 constraint types fail closed. Required unknown
+constraints block; optional unknown constraints require review.
+
+**Hypothesis test:** `tests/invariants/test_invariant_policy_evaluator.py`
+
+---
+
+## INV-23: Failed Required Constraint Blocks
+
+**Statement:** Any failed required constraint across all matching enabled rules produces
+`PolicyDecision.BLOCK`.
+
+**Hypothesis test:** `tests/invariants/test_invariant_policy_evaluator.py`
+
+---
+
+## INV-24: Failed Optional Constraint Requires Review
+
+**Statement:** Failed optional constraints remain visible and produce
+`PolicyDecision.REQUIRE_REVIEW` unless a required failure already produced `BLOCK`.
+
+**Hypothesis test:** `tests/invariants/test_invariant_policy_evaluator.py`
+
+---
+
+## INV-25: Policy Evaluator Has No Hidden State Reads
+
+**Statement:** `evaluate_policy` reads only explicit `Policy`, `Capability`, optional
+`WorldSnapshotStub`, and optional deterministic context. It never reads current time,
+environment variables, files, network, sensors, simulation, middleware, databases, or live
+robot state.
+
+**Enforcement:** Code review, forbidden pattern checks, and evaluator tests.
+
+---
+
+## INV-26: SafetyCase ID Is Deterministic
+
+**Statement:** `build_safety_case` derives `safety_case_id` from canonical explicit input
+only. Equal semantic evidence produces equal IDs; changed policy result, audited plan ID,
+or world snapshot ID produces a different ID.
+
+**Unit test:** `tests/policy/test_policy_evaluator_safety_case.py`
+
+---
+
+## INV-27: SafetyCase Evidence Is Not Execution Permission
+
+**Statement:** A SafetyCase is an auditable explanation package for a policy result. It
+does not execute, approve, override, or bypass future gate decisions.
+
+**Contract and unit tests:** `tests/contracts/test_policy_contracts.py`,
+`tests/policy/test_policy_evaluator_safety_case.py`

@@ -1,4 +1,4 @@
-# Aegis Phase 1 + Policy-v1 Part 1 Test Matrix
+# Aegis Phase 1 + Policy-v1 Part 2 Test Matrix
 
 Maps each invariant and failure mode to its test coverage across all test tiers.
 "✓" = covered. "—" = not applicable for that tier.
@@ -29,6 +29,13 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | INV-18: Policy default not ALLOW | — | ✓ | ✓ | — | — |
 | INV-19: World snapshot evidence only | — | ✓ | ✓ | — | — |
 | INV-20: SafetyCase not permission | — | ✓ | — | — | — |
+| INV-21: No matching policy rule never allows | ✓ | — | ✓ | ✓ | — |
+| INV-22: Unknown policy constraint never allows | ✓ | — | ✓ | ✓ | — |
+| INV-23: Failed required constraint blocks | ✓ | — | ✓ | ✓ | — |
+| INV-24: Failed optional constraint requires review | ✓ | — | ✓ | ✓ | — |
+| INV-25: Policy evaluator has no hidden state reads | ✓ | — | — | ✓ | — |
+| INV-26: SafetyCase ID deterministic | ✓ | — | — | — | — |
+| INV-27: SafetyCase evidence not permission | ✓ | ✓ | — | — | — |
 
 ---
 
@@ -48,6 +55,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-10: AegisError propagation | ✓ | — | ✓ | — |
 | FM-11: Config invariant violation | ✓ | — | — | — |
 | FM-12: Policy-v1 contract rejection | ✓ | ✓ | ✓ | — |
+| FM-13: Policy-v1 evaluator fail closed | ✓ | — | ✓ | — |
+| FM-14: SafetyCase evidence/hash failure | ✓ | ✓ | — | — |
 
 ---
 
@@ -64,6 +73,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_invariant_gate_determinism.py` | INV-07, INV-08 |
 | `test_invariant_contract_determinism.py` | INV-02, INV-04, INV-15 |
 | `test_invariant_policy_contracts.py` | INV-18, INV-19, FM-12 |
+| `test_invariant_policy_evaluator.py` | INV-21, INV-22, INV-23, INV-24 |
 | `test_invariant_bootstrap.py` | Package imports resolve cleanly |
 
 ### `tests/contracts/`
@@ -87,6 +97,10 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 |------|-------------------------------|
 | `test_policy_immutability.py` | INV-15, INV-16 — deep freeze and hostile metadata inertness |
 | `test_policy_validation.py` | INV-18, INV-19, FM-12 — pure validation helper and determinism |
+| `test_policy_evaluator.py` | INV-21, INV-22, INV-23, INV-24, FM-13 — matching and aggregation |
+| `test_policy_evaluator_constraints.py` | FM-13 — built-in constraint semantics |
+| `test_policy_evaluator_safety_case.py` | INV-26, INV-27, FM-14 — SafetyCase generation and canonical hashing |
+| `test_policy_evaluator_adversarial.py` | INV-21, INV-22, INV-23, INV-24, FM-13 — hostile metadata and fail-closed cases |
 
 ### `tests/unit/`
 

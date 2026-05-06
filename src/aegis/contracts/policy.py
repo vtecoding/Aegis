@@ -367,6 +367,8 @@ def _normalize_optional_text(value: str | None, field_name: str) -> str | None:
 
 
 def _normalize_capability_name(value: str) -> str:
+    if value != value.strip():
+        raise ValueError("capability must not contain leading or trailing whitespace")
     normalized = _normalize_required_text(value, "capability")
     if fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*", normalized) is None:
         raise ValueError("capability must be a canonical dotted lowercase identifier")
@@ -465,7 +467,7 @@ def _freeze_policy_value(value: object) -> FrozenPolicyValue:
     if isinstance(value, set):
         items = cast(set[object], value)
         return frozenset(_freeze_policy_value(item) for item in items)
-    if isinstance(value, dict):
-        mapping = cast(dict[object, object], value)
+    if isinstance(value, Mapping):
+        mapping = cast(Mapping[object, object], value)
         return _freeze_policy_items(mapping.items())
     raise ValueError("policy metadata values must be primitive values or nested containers")
