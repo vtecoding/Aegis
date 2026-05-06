@@ -27,6 +27,12 @@ from aegis.contracts.policy import (
     SafetyCase,
     WorldSnapshotStub,
 )
+from aegis.contracts.policy_admission import (
+    PolicyAdmissionInput,
+    PolicyAdmissionMode,
+    PolicyAdmissionRecord,
+    disabled_policy_admission_record,
+)
 from aegis.contracts.validation import ValidationResult, Violation
 
 __all__ = [
@@ -45,6 +51,9 @@ __all__ = [
     "JsonScalar",
     "JsonValue",
     "Policy",
+    "PolicyAdmissionInput",
+    "PolicyAdmissionMode",
+    "PolicyAdmissionRecord",
     "PolicyDecision",
     "PolicyDefaultDecision",
     "PolicyEvaluationResult",
@@ -57,6 +66,7 @@ __all__ = [
     "ValidationResult",
     "Violation",
     "WorldSnapshotStub",
+    "disabled_policy_admission_record",
     "freeze_json_mapping",
     "freeze_json_value",
     "is_json_value",

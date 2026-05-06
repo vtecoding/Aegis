@@ -1,8 +1,9 @@
 """Layer 2.5: Policy-v1 contract foundation and pure evaluator.
 
 This package exposes immutable Policy-v1 contracts and a pure deterministic
-evaluator. It does not wire policy decisions into the pipeline, ingest live
-world state, integrate simulation or middleware, or prove robot safety.
+evaluator. Pipeline admission wiring lives in ``aegis.pipeline``; this package
+does not ingest live world state, integrate simulation or middleware, or prove
+robot safety.
 """
 
 from aegis.policy.contracts import (

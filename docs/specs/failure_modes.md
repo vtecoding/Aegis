@@ -311,3 +311,164 @@ objects; treating a SafetyCase as execution permission.
 |------|---------|----------------------------|------------------------|---------------------|
 | `SAFETY_CASE_EVIDENCE_REQUIRED` | ALLOW result lacks meaningful passed constraint evidence | `ValueError` before SafetyCase construction | `test_policy_evaluator_safety_case.py` | Empty-evidence ALLOW case |
 | `SAFETY_CASE_HASH_UNSTABLE` | Evidence contains unsupported or non-canonical objects | `ValueError` before hash use | `test_policy_evaluator_safety_case.py` | Memory-address-dependent hashing |
+
+---
+
+## FM-15: Policy Admission Required but Policy Missing
+
+**Trigger:** `PolicyAdmissionInput(mode=ENFORCE, policy=None)` reaches the pipeline.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit and before gate.
+
+**Expected gate behaviour:** Gate is not called; no gate approval is emitted.
+
+**Expected PolicyAdmissionRecord:** `enforced=True`, `admission_allowed=False`, reason includes `POLICY_REQUIRED`.
+
+**Forbidden behaviour:** Falling back to disabled legacy approval.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`,
+`tests/adversarial/test_policy_admission_adversarial_bypass.py`, `tests/invariants/test_invariant_policy_admission.py`.
+
+---
+
+## FM-16: Policy Admission Required but Capability Missing
+
+**Trigger:** `PolicyAdmissionInput(mode=ENFORCE, capability=None)` reaches the pipeline.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit and before gate.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** `enforced=True`, `admission_allowed=False`, reason includes `CAPABILITY_REQUIRED`.
+
+**Forbidden behaviour:** Inferring capability from natural language, metadata, or command names.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`, `tests/invariants/test_invariant_policy_admission.py`.
+
+---
+
+## FM-17: Policy Admission Blocks Audited Plan
+
+**Trigger:** Policy evaluation returns `PolicyDecision.BLOCK`.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED`.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** Contains `policy_result`, `safety_case`, `admission_allowed=False`, reason includes `POLICY_BLOCKED`.
+
+**Forbidden behaviour:** Producing an approved gate decision after policy block.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`, `tests/pipeline/test_policy_admission_gate_interaction.py`.
+
+---
+
+## FM-18: Policy Admission Requires Review
+
+**Trigger:** Policy evaluation returns `PolicyDecision.REQUIRE_REVIEW`.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED`.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** Contains exact policy decision and reason includes `POLICY_REQUIRES_REVIEW`.
+
+**Forbidden behaviour:** Treating review as allow.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`, `tests/invariants/test_invariant_policy_admission.py`.
+
+---
+
+## FM-19: Policy Admission Invalid
+
+**Trigger:** Policy evaluation returns `PolicyDecision.INVALID`.
+
+**Expected pipeline outcome:** `PipelineOutcome.INVALID` after audit.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** Contains `policy_result`, `safety_case`, `admission_allowed=False`, reason includes `POLICY_INVALID`.
+
+**Forbidden behaviour:** Collapsing invalid policy admission into allow or hiding the policy result.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`, `tests/contracts/test_pipeline_contract.py`.
+
+---
+
+## FM-20: Policy Admission Evaluator Error
+
+**Trigger:** Policy evaluation returns `PolicyDecision.ERROR` or raises an unexpected non-`AegisError` exception.
+
+**Expected pipeline outcome:** `PipelineOutcome.ERROR`.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** Contains the policy error result when available, or reason `POLICY_EVALUATION_FAILED`.
+
+**Forbidden behaviour:** Swallowing evaluator errors or silently continuing to gate approval.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`.
+
+---
+
+## FM-21: SafetyCase Build Failure
+
+**Trigger:** SafetyCase construction fails after policy evaluation.
+
+**Expected pipeline outcome:** `PipelineOutcome.ERROR`.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** Preserves `policy_result` when available, `safety_case=None`, reason includes `SAFETY_CASE_BUILD_FAILED`.
+
+**Forbidden behaviour:** Approving without a SafetyCase in ENFORCE mode.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`.
+
+---
+
+## FM-22: Policy Admission Bypass Attempt
+
+**Trigger:** Raw parameters, admission context, evidence, capability metadata, or world facts contain `force_allow`, `policy_decision=ALLOW`, or similar override-looking fields.
+
+**Expected pipeline outcome:** Determined only by policy evaluation and gate integrity.
+
+**Expected gate behaviour:** Gate is skipped on policy denial and still enforces integrity after policy allow.
+
+**Expected PolicyAdmissionRecord:** Shows actual policy decision; hostile fields remain inert evidence only when accepted.
+
+**Forbidden behaviour:** Metadata/context/evidence override of policy or gate outcome.
+
+**Required test coverage:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`, `tests/pipeline/test_policy_admission_bypass.py`.
+
+---
+
+## FM-23: Policy Allow with Gate Integrity Failure
+
+**Trigger:** Policy admission returns `ALLOW`, then gate detects checksum, audit ID, or malformed-plan failure.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED`.
+
+**Expected gate behaviour:** Gate returns a blocked decision with integrity reasons.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=True` with policy `ALLOW`; gate denial remains separately visible.
+
+**Forbidden behaviour:** Policy `ALLOW` skipping or overriding the existing gate.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_gate_interaction.py`.
+
+---
+
+## FM-24: Policy Disabled Mode Mistaken for Allow
+
+**Trigger:** Policy admission is disabled while caller metadata contains policy-looking allow fields.
+
+**Expected pipeline outcome:** Legacy gate behaviour only.
+
+**Expected gate behaviour:** Gate runs normally after audit.
+
+**Expected PolicyAdmissionRecord:** `mode=DISABLED`, `policy_result=None`, `safety_case=None`, reason `POLICY_ADMISSION_DISABLED`.
+
+**Forbidden behaviour:** Creating a fake policy `ALLOW` result for disabled mode.
+
+**Required test coverage:** `tests/pipeline/test_policy_admission_wiring.py`, `tests/invariants/test_invariant_policy_admission.py`.

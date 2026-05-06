@@ -1,4 +1,4 @@
-# Aegis Phase 1 + Policy-v1 Part 2 Test Matrix
+# Aegis Phase 1 + Policy-v1 Part 3 Test Matrix
 
 Maps each invariant and failure mode to its test coverage across all test tiers.
 "✓" = covered. "—" = not applicable for that tier.
@@ -36,6 +36,18 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | INV-25: Policy evaluator has no hidden state reads | ✓ | — | — | ✓ | — |
 | INV-26: SafetyCase ID deterministic | ✓ | — | — | — | — |
 | INV-27: SafetyCase evidence not permission | ✓ | ✓ | — | — | — |
+| INV-POLICY-WIRE-001: Enforced approval requires policy allow | ✓ | — | ✓ | — | ✓ |
+| INV-POLICY-WIRE-002: Missing policy does not fall back | ✓ | — | ✓ | ✓ | — |
+| INV-POLICY-WIRE-003: Missing capability does not fall back | ✓ | — | ✓ | — | — |
+| INV-POLICY-WIRE-004: Policy allow cannot bypass gate | ✓ | — | — | ✓ | — |
+| INV-POLICY-WIRE-005: Policy block prevents approval | ✓ | — | ✓ | ✓ | — |
+| INV-POLICY-WIRE-006: Policy review prevents approval | ✓ | — | ✓ | ✓ | — |
+| INV-POLICY-WIRE-007: Policy invalid prevents approval | ✓ | ✓ | — | — | — |
+| INV-POLICY-WIRE-008: Policy error prevents approval | ✓ | — | — | — | — |
+| INV-POLICY-WIRE-009: SafetyCase binds audited plan | ✓ | — | ✓ | ✓ | ✓ |
+| INV-POLICY-WIRE-010: Metadata cannot override admission | ✓ | — | ✓ | ✓ | — |
+| INV-POLICY-WIRE-011: Disabled is not policy allow | ✓ | ✓ | ✓ | ✓ | — |
+| INV-POLICY-WIRE-012: Admission visible in result | ✓ | ✓ | — | — | ✓ |
 
 ---
 
@@ -57,6 +69,16 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-12: Policy-v1 contract rejection | ✓ | ✓ | ✓ | — |
 | FM-13: Policy-v1 evaluator fail closed | ✓ | — | ✓ | — |
 | FM-14: SafetyCase evidence/hash failure | ✓ | ✓ | — | — |
+| FM-15: Policy required but missing | ✓ | — | ✓ | — |
+| FM-16: Capability required but missing | ✓ | — | — | — |
+| FM-17: Policy blocks audited plan | ✓ | — | ✓ | — |
+| FM-18: Policy requires review | ✓ | — | ✓ | — |
+| FM-19: Policy admission invalid | ✓ | ✓ | — | — |
+| FM-20: Policy evaluator error | ✓ | — | — | — |
+| FM-21: SafetyCase build failure | ✓ | — | — | — |
+| FM-22: Policy admission bypass attempt | ✓ | — | ✓ | — |
+| FM-23: Policy allow with gate failure | ✓ | — | ✓ | — |
+| FM-24: Disabled mistaken for allow | ✓ | ✓ | ✓ | — |
 
 ---
 
@@ -74,6 +96,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_invariant_contract_determinism.py` | INV-02, INV-04, INV-15 |
 | `test_invariant_policy_contracts.py` | INV-18, INV-19, FM-12 |
 | `test_invariant_policy_evaluator.py` | INV-21, INV-22, INV-23, INV-24 |
+| `test_invariant_policy_admission.py` | INV-POLICY-WIRE-001 through INV-POLICY-WIRE-003, INV-POLICY-WIRE-005, INV-POLICY-WIRE-006, INV-POLICY-WIRE-009 through INV-POLICY-WIRE-011 |
 | `test_invariant_bootstrap.py` | Package imports resolve cleanly |
 
 ### `tests/contracts/`
@@ -90,6 +113,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_errors_contract.py` | AegisError hierarchy immutability |
 | `test_json_types_contract.py` | JSON boundary type safety |
 | `test_policy_contracts.py` | INV-16, INV-17, INV-18, INV-19, INV-20, FM-12 |
+| `test_policy_admission_contract.py` | PolicyAdmissionInput, PolicyAdmissionRecord, disabled record invariants, INV-POLICY-WIRE-011, INV-POLICY-WIRE-012 |
 
 ### `tests/policy/`
 
@@ -114,6 +138,9 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_audit_checksum.py` | INV-05, INV-06 |
 | `test_gate_decision_gate.py` | FM-06, FM-07, FM-08, INV-08 |
 | `test_pipeline_orchestrator.py` | INV-01, INV-09, INV-10, INV-13, INV-14, FM-09, FM-10 |
+| `tests/pipeline/test_policy_admission_wiring.py` | FM-15 through FM-21, INV-POLICY-WIRE-001 through INV-POLICY-WIRE-008, INV-POLICY-WIRE-011, INV-POLICY-WIRE-012 |
+| `tests/pipeline/test_policy_admission_gate_interaction.py` | FM-17, FM-18, FM-23, INV-POLICY-WIRE-004 |
+| `tests/pipeline/test_policy_admission_bypass.py` | FM-22, FM-24, INV-POLICY-WIRE-010 |
 | `test_config.py` | FM-11 |
 | `test_logging.py` | `AegisLogEvent`, `make_log_event`, `serialise_log_event` |
 | `test_bootstrap_import.py` | Package import smoke test |
@@ -130,12 +157,14 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_gate_adversarial_inputs.py` | FM-06, FM-07, FM-08, INV-08 |
 | `test_pipeline_adversarial_inputs.py` | FM-09, FM-10, INV-01, INV-13, INV-14 |
 | `test_scenario_runner_adversarial.py` | FM-04, INV-03 end-to-end |
+| `test_policy_admission_adversarial_bypass.py` | FM-15, FM-17, FM-22, FM-24, INV-POLICY-WIRE-010 |
 
 ### `tests/integration/`
 
 | File | Coverage |
 |------|----------|
 | `test_scenario_runner.py` | End-to-end pipeline for all scenario fixtures |
+| `test_pipeline_policy_admission.py` | ENFORCE mode end-to-end with world snapshot, SafetyCase, gate approval |
 
 ---
 

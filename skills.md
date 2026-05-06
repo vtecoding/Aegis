@@ -9,12 +9,12 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 2: Policy-v1 pure evaluator** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 3: Pipeline policy admission wiring** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
 | Linter/formatter | ruff |
-| Can I use ROS 2? | **No.** Not until Phase 2. |
+| Can I use ROS 2? | **No.** Not until a later middleware phase. |
 | Can I use LLM SDKs in core? | **No.** Never in deterministic core. |
 | Coverage floor | 90% line — 100% on contracts/ and errors.py |
 | Run all checks | `python scripts/verify.py verify` (`make verify` delegates to it) |
@@ -187,6 +187,22 @@ rules over immutable supplied evidence, fail closed under ambiguity, and explain
 decision through a SafetyCase.
 
 **Forbidden Phase 2 Part 2 claim:** Aegis proves a robot action is physically safe.
+
+### Phase 2 Part 3: Pipeline Policy Admission Wiring
+
+Phase 2 Part 3 wires deterministic Policy-v1 evaluation into the pipeline admission path.
+Policy admission runs after audited plan creation and before final gate approval when the
+caller explicitly selects ``PolicyAdmissionMode.ENFORCE``. Legacy Phase 1 behaviour remains
+available only through explicit disabled mode or ``policy_admission=None``.
+
+Policy ENFORCE mode requires an explicit ``Policy`` and explicit ``Capability``. Missing
+policy or capability fails closed before the gate. Policy ``BLOCK``, ``REQUIRE_REVIEW``,
+``INVALID``, and ``ERROR`` prevent approval. Policy ``ALLOW`` is necessary but not sufficient:
+the existing gate integrity checks must still pass.
+
+This slice does not ingest live world state, integrate ROS, simulation, middleware, sensors,
+hardware, network services, databases, LLMs, or physical actuation. It does not prove a robot
+action is physically safe.
 
 ---
 

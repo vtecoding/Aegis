@@ -10,6 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Pipeline policy admission wiring for Phase 2 Part 3: explicit `PolicyAdmissionInput` and `PolicyAdmissionRecord`, disabled legacy mode, enforced Policy-v1 evaluation after audit and before gate, SafetyCase binding to the actual audited plan ID, and fail-closed denial for policy `BLOCK`, `REQUIRE_REVIEW`, `INVALID`, `ERROR`, missing policy, and missing capability
+- Contract, pipeline, adversarial, integration, and Hypothesis invariant tests for policy admission wiring, bypass resistance, gate interaction, deterministic SafetyCase binding, and disabled-mode observability
 - Policy-v1 pure evaluator for deterministic Capability admission against immutable Policy rules, built-in fail-closed constraints, and deterministic SafetyCase generation
 - Unit, adversarial, and Hypothesis invariant tests for Policy-v1 evaluator matching, constraint semantics, aggregation precedence, hostile metadata inertness, and SafetyCase canonical hashing
 - Audit v1: deterministic `AuditedPlan` receipt wrapping any `CommandPlan` with a SHA-256 content checksum and a SHA-256 audit event identifier derived from checksum plus execution context

@@ -1,22 +1,38 @@
-"""Phase 1 deterministic pipeline orchestrator."""
+"""Deterministic pipeline orchestrator with optional policy admission."""
 
 from __future__ import annotations
 
 from aegis.audit import build_audited_plan
+from aegis.constants import GATE_VERSION, PIPELINE_VERSION
+from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.policy import PolicyDecision, PolicyEvaluationResult, SafetyCase
+from aegis.contracts.policy_admission import (
+    PolicyAdmissionInput,
+    PolicyAdmissionMode,
+    PolicyAdmissionRecord,
+    disabled_policy_admission_record,
+)
 from aegis.errors import AegisError
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
+from aegis.policy import build_safety_case, evaluate_policy
 from aegis.validation import validate_intent
 
 
-def run_pipeline(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
-    """Run raw intent through the full Phase 1 Aegis pipeline.
+def run_pipeline(
+    raw_intent: RawIntent,
+    context: ExecutionContext,
+    *,
+    policy_admission: PolicyAdmissionInput | None = None,
+) -> PipelineResult:
+    """Run raw intent through the Aegis pipeline.
 
     Composes ``validate_intent`` -> ``plan_validated_intent`` ->
-    ``build_audited_plan`` -> ``gate_audited_plan`` deterministically.
+    ``build_audited_plan`` -> optional policy admission ->
+    ``gate_audited_plan`` deterministically.
 
     ``AegisError`` subclasses (``ValidationError``, ``PlanningError``,
     ``AuditError``, ``GateError``) propagate to the caller unchanged.
@@ -29,16 +45,25 @@ def run_pipeline(raw_intent: RawIntent, context: ExecutionContext) -> PipelineRe
     Args:
         raw_intent: Validated boundary object carrying raw intent data.
         context: Injected execution context for deterministic replay.
+        policy_admission: Optional explicit Policy-v1 admission input. ``None``
+            preserves legacy disabled-mode gate behaviour.
 
     Returns:
         A ``PipelineResult`` with outcome ``ALLOWED``, ``BLOCKED``,
         ``INVALID``, or ``ERROR``.
     """
-    return _run(raw_intent, context)
+    admission_input = _normalize_policy_admission(policy_admission)
+    return _run(raw_intent, context, admission_input)
 
 
-def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
+def _run(
+    raw_intent: RawIntent,
+    context: ExecutionContext,
+    policy_admission: PolicyAdmissionInput,
+) -> PipelineResult:
     """Inner pipeline composition — separated for testability."""
+    initial_policy_record = _not_run_policy_record(policy_admission)
+
     # Step 1: Validate — always runs; produces ValidationResult.
     try:
         validation_result = validate_intent(raw_intent)
@@ -53,6 +78,7 @@ def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
             plan=None,
             audited_plan=None,
             gate_decision=None,
+            policy_admission=initial_policy_record,
         )
 
     if not validation_result.is_valid:
@@ -62,6 +88,7 @@ def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
             plan=None,
             audited_plan=None,
             gate_decision=None,
+            policy_admission=initial_policy_record,
         )
 
     # Step 2: Plan — only when validation passed.
@@ -77,6 +104,7 @@ def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
             plan=None,
             audited_plan=None,
             gate_decision=None,
+            policy_admission=initial_policy_record,
         )
 
     # Step 3: Audit — produces AuditedPlan.
@@ -92,9 +120,25 @@ def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
             plan=plan,
             audited_plan=None,
             gate_decision=None,
+            policy_admission=initial_policy_record,
         )
 
-    # Step 4: Gate — deterministic approval boundary.
+    # Step 4: Optional policy admission — only after audit, before gate.
+    policy_record, blocked_outcome = _evaluate_policy_admission(
+        policy_admission=policy_admission,
+        audited_plan=audited_plan,
+    )
+    if blocked_outcome is not None:
+        return PipelineResult(
+            outcome=blocked_outcome,
+            validation_result=validation_result,
+            plan=plan,
+            audited_plan=audited_plan,
+            gate_decision=None,
+            policy_admission=policy_record,
+        )
+
+    # Step 5: Gate — deterministic approval boundary.
     # GateError propagates to caller.
     try:
         decision = gate_audited_plan(audited_plan)
@@ -107,6 +151,7 @@ def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
             plan=plan,
             audited_plan=audited_plan,
             gate_decision=None,
+            policy_admission=policy_record,
         )
 
     outcome = PipelineOutcome.ALLOWED if decision.status == "allowed" else PipelineOutcome.BLOCKED
@@ -116,4 +161,154 @@ def _run(raw_intent: RawIntent, context: ExecutionContext) -> PipelineResult:
         plan=plan,
         audited_plan=audited_plan,
         gate_decision=decision,
+        policy_admission=policy_record,
     )
+
+
+def _normalize_policy_admission(
+    policy_admission: PolicyAdmissionInput | None,
+) -> PolicyAdmissionInput:
+    if policy_admission is None:
+        return PolicyAdmissionInput(mode=PolicyAdmissionMode.DISABLED)
+    return policy_admission
+
+
+def _not_run_policy_record(policy_admission: PolicyAdmissionInput) -> PolicyAdmissionRecord:
+    if policy_admission.mode is PolicyAdmissionMode.DISABLED:
+        return disabled_policy_admission_record()
+    return PolicyAdmissionRecord(
+        mode=PolicyAdmissionMode.ENFORCE,
+        policy_result=None,
+        safety_case=None,
+        enforced=True,
+        admission_allowed=False,
+        reasons=("POLICY_ADMISSION_NOT_RUN",),
+    )
+
+
+def _evaluate_policy_admission(
+    *,
+    policy_admission: PolicyAdmissionInput,
+    audited_plan: AuditedPlan,
+) -> tuple[PolicyAdmissionRecord, PipelineOutcome | None]:
+    if policy_admission.mode is PolicyAdmissionMode.DISABLED:
+        return disabled_policy_admission_record(), None
+
+    if policy_admission.policy is None:
+        return _denied_policy_record("POLICY_REQUIRED"), PipelineOutcome.BLOCKED
+    if policy_admission.capability is None:
+        return _denied_policy_record("CAPABILITY_REQUIRED"), PipelineOutcome.BLOCKED
+
+    try:
+        policy_result = evaluate_policy(
+            policy=policy_admission.policy,
+            capability=policy_admission.capability,
+            world_snapshot=policy_admission.world_snapshot,
+            context=policy_admission.context,
+        )
+    except AegisError:
+        raise
+    except Exception:  # noqa: BLE001
+        return _denied_policy_record("POLICY_EVALUATION_FAILED"), PipelineOutcome.ERROR
+
+    try:
+        safety_case = build_safety_case(
+            policy_result=policy_result,
+            audited_plan_id=audited_plan.audit_id,
+            world_snapshot=policy_admission.world_snapshot,
+            evidence=_safety_case_evidence(policy_admission, audited_plan),
+        )
+    except AegisError:
+        raise
+    except Exception:  # noqa: BLE001
+        return (
+            _denied_policy_record(
+                "SAFETY_CASE_BUILD_FAILED",
+                policy_result=policy_result,
+                safety_case=None,
+            ),
+            PipelineOutcome.ERROR,
+        )
+
+    policy_record = _policy_record_from_result(policy_result, safety_case)
+    if policy_record.admission_allowed:
+        return policy_record, None
+    return policy_record, _blocked_policy_outcome(policy_result)
+
+
+def _denied_policy_record(
+    reason: str,
+    *,
+    policy_result: PolicyEvaluationResult | None = None,
+    safety_case: SafetyCase | None = None,
+) -> PolicyAdmissionRecord:
+    reasons = (reason,) if policy_result is None else _with_reason(policy_result.reasons, reason)
+    return PolicyAdmissionRecord(
+        mode=PolicyAdmissionMode.ENFORCE,
+        policy_result=policy_result,
+        safety_case=safety_case,
+        enforced=True,
+        admission_allowed=False,
+        reasons=reasons,
+    )
+
+
+def _policy_record_from_result(
+    policy_result: PolicyEvaluationResult,
+    safety_case: SafetyCase,
+) -> PolicyAdmissionRecord:
+    admission_allowed = policy_result.decision is PolicyDecision.ALLOW
+    return PolicyAdmissionRecord(
+        mode=PolicyAdmissionMode.ENFORCE,
+        policy_result=policy_result,
+        safety_case=safety_case,
+        enforced=True,
+        admission_allowed=admission_allowed,
+        reasons=_with_reason(
+            policy_result.reasons, _policy_decision_reason(policy_result.decision)
+        ),
+    )
+
+
+def _blocked_policy_outcome(policy_result: PolicyEvaluationResult) -> PipelineOutcome:
+    if policy_result.decision is PolicyDecision.INVALID:
+        return PipelineOutcome.INVALID
+    if policy_result.decision is PolicyDecision.ERROR:
+        return PipelineOutcome.ERROR
+    return PipelineOutcome.BLOCKED
+
+
+def _policy_decision_reason(decision: PolicyDecision) -> str:
+    if decision is PolicyDecision.ALLOW:
+        return "POLICY_ALLOWED"
+    if decision is PolicyDecision.BLOCK:
+        return "POLICY_BLOCKED"
+    if decision is PolicyDecision.REQUIRE_REVIEW:
+        return "POLICY_REQUIRES_REVIEW"
+    if decision is PolicyDecision.INVALID:
+        return "POLICY_INVALID"
+    return "POLICY_ERROR"
+
+
+def _with_reason(reasons: tuple[str, ...], reason: str) -> tuple[str, ...]:
+    if reason in reasons:
+        return reasons
+    return (*reasons, reason)
+
+
+def _safety_case_evidence(
+    policy_admission: PolicyAdmissionInput,
+    audited_plan: AuditedPlan,
+) -> dict[str, object]:
+    evidence: dict[str, object] = {key: value for key, value in policy_admission.evidence.items()}
+    capability = policy_admission.capability
+    if capability is not None:
+        evidence["capability_name"] = capability.name
+        evidence["capability_version"] = capability.version
+    evidence["pipeline_stage"] = "policy_admission"
+    evidence["pipeline_version"] = PIPELINE_VERSION
+    evidence["gate_version"] = GATE_VERSION
+    evidence["audit_id"] = audited_plan.audit_id
+    evidence["audited_plan_id"] = audited_plan.audit_id
+    evidence["plan_id"] = audited_plan.plan.plan_id
+    return evidence

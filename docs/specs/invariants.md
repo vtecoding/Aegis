@@ -272,3 +272,101 @@ does not execute, approve, override, or bypass future gate decisions.
 
 **Contract and unit tests:** `tests/contracts/test_policy_contracts.py`,
 `tests/policy/test_policy_evaluator_safety_case.py`
+
+---
+
+## INV-POLICY-WIRE-001: Enforced Approval Requires Policy Allow
+
+**Statement:** In ENFORCE mode, final approval is impossible without a
+`PolicyEvaluationResult(decision=ALLOW)`.
+
+**Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
+
+---
+
+## INV-POLICY-WIRE-002: Missing Policy Does Not Fall Back
+
+**Statement:** In ENFORCE mode, missing policy cannot fall back to legacy gate approval.
+
+**Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
+
+---
+
+## INV-POLICY-WIRE-003: Missing Capability Does Not Fall Back
+
+**Statement:** In ENFORCE mode, missing capability cannot fall back to legacy gate approval.
+
+**Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
+
+---
+
+## INV-POLICY-WIRE-004: Policy Allow Cannot Bypass Gate Integrity
+
+**Statement:** Policy `ALLOW` cannot bypass existing gate checksum, audit ID, or malformed-plan checks.
+
+**Pipeline test:** `tests/pipeline/test_policy_admission_gate_interaction.py`
+
+---
+
+## INV-POLICY-WIRE-005: Policy Block Prevents Approval
+
+**Statement:** Policy `BLOCK` always prevents final approval.
+
+**Pipeline test:** `tests/pipeline/test_policy_admission_wiring.py`
+
+---
+
+## INV-POLICY-WIRE-006: Policy Require Review Prevents Approval
+
+**Statement:** Policy `REQUIRE_REVIEW` always prevents final approval.
+
+**Pipeline test:** `tests/pipeline/test_policy_admission_wiring.py`
+
+---
+
+## INV-POLICY-WIRE-007: Policy Invalid Prevents Approval
+
+**Statement:** Policy `INVALID` always prevents final approval.
+
+**Pipeline test:** `tests/pipeline/test_policy_admission_wiring.py`
+
+---
+
+## INV-POLICY-WIRE-008: Policy Error Prevents Approval
+
+**Statement:** Policy `ERROR` always prevents final approval.
+
+**Pipeline test:** `tests/pipeline/test_policy_admission_wiring.py`
+
+---
+
+## INV-POLICY-WIRE-009: SafetyCase Binds Actual Audited Plan
+
+**Statement:** SafetyCase admission binding uses the `AuditedPlan.audit_id` produced during pipeline execution.
+
+**Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
+
+---
+
+## INV-POLICY-WIRE-010: Metadata Cannot Override Admission
+
+**Statement:** Caller metadata, policy-looking parameters, context, evidence, or world facts cannot override policy admission.
+
+**Adversarial tests:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`,
+`tests/pipeline/test_policy_admission_bypass.py`
+
+---
+
+## INV-POLICY-WIRE-011: Disabled Mode Is Not Policy Allow
+
+**Statement:** DISABLED mode preserves legacy behaviour but never creates a policy `ALLOW` result.
+
+**Invariant test:** `tests/invariants/test_invariant_policy_admission.py`
+
+---
+
+## INV-POLICY-WIRE-012: Policy Admission Is Visible
+
+**Statement:** Every `PipelineResult` exposes a `PolicyAdmissionRecord`.
+
+**Contract test:** `tests/contracts/test_pipeline_contract.py`

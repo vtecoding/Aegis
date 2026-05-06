@@ -8,7 +8,10 @@ from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
 from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
 from aegis.contracts.planning import CommandPlan
+from aegis.contracts.policy import PolicyDecision, PolicyEvaluationResult
+from aegis.contracts.policy_admission import PolicyAdmissionMode, PolicyAdmissionRecord
 from aegis.contracts.validation import ValidationResult, Violation
+from aegis.policy import build_safety_case
 
 # ---------------------------------------------------------------------------
 # PipelineOutcome
@@ -112,6 +115,34 @@ def test_pipeline_result_blocked_requires_blocked_gate_decision(
     assert result.outcome == PipelineOutcome.BLOCKED
     assert result.gate_decision is not None
     assert result.gate_decision.status == GateDecisionStatus.BLOCKED
+
+
+def test_pipeline_result_blocked_accepts_denied_policy_without_gate(
+    make_validation_result: ValidationResult,
+    make_command_plan: CommandPlan,
+    make_audited_plan: AuditedPlan,
+) -> None:
+    policy_record = PolicyAdmissionRecord(
+        mode=PolicyAdmissionMode.ENFORCE,
+        policy_result=None,
+        safety_case=None,
+        enforced=True,
+        admission_allowed=False,
+        reasons=("POLICY_REQUIRED",),
+    )
+
+    result = PipelineResult(
+        outcome=PipelineOutcome.BLOCKED,
+        validation_result=make_validation_result,
+        plan=make_command_plan,
+        audited_plan=make_audited_plan,
+        gate_decision=None,
+        policy_admission=policy_record,
+    )
+
+    assert result.outcome == PipelineOutcome.BLOCKED
+    assert result.gate_decision is None
+    assert result.policy_admission.reasons == ("POLICY_REQUIRED",)
 
 
 def test_pipeline_result_blocked_rejects_missing_gate_decision(
@@ -229,6 +260,47 @@ def test_pipeline_result_invalid_rejects_non_none_gate_decision(
             audited_plan=None,
             gate_decision=make_allowed_gate_decision,
         )
+
+
+def test_pipeline_result_invalid_accepts_policy_invalid_after_audit(
+    make_validation_result: ValidationResult,
+    make_command_plan: CommandPlan,
+    make_audited_plan: AuditedPlan,
+) -> None:
+    policy_result = PolicyEvaluationResult(
+        PolicyDecision.INVALID,
+        "policy-1",
+        [],
+        [],
+        [],
+        ["POLICY_EVALUATION_CONTEXT_INVALID"],
+    )
+    safety_case = build_safety_case(
+        policy_result=policy_result,
+        audited_plan_id=make_audited_plan.audit_id,
+        evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
+    )
+    policy_record = PolicyAdmissionRecord(
+        mode=PolicyAdmissionMode.ENFORCE,
+        policy_result=policy_result,
+        safety_case=safety_case,
+        enforced=True,
+        admission_allowed=False,
+        reasons=("POLICY_INVALID",),
+    )
+
+    result = PipelineResult(
+        outcome=PipelineOutcome.INVALID,
+        validation_result=make_validation_result,
+        plan=make_command_plan,
+        audited_plan=make_audited_plan,
+        gate_decision=None,
+        policy_admission=policy_record,
+    )
+
+    assert result.outcome == PipelineOutcome.INVALID
+    assert result.plan is make_command_plan
+    assert result.audited_plan is make_audited_plan
 
 
 # ---------------------------------------------------------------------------

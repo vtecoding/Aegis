@@ -158,12 +158,27 @@ def test_run_pipeline_unexpected_exception_in_validate_returns_error() -> None:
     assert result.gate_decision is None
 
 
+def test_run_pipeline_unexpected_exception_in_plan_returns_error() -> None:
+    context = make_context()
+    intent = make_valid_intent(context)
+
+    with patch("aegis.pipeline.orchestrator.plan_validated_intent") as mock_plan:
+        mock_plan.side_effect = RuntimeError("simulated planning framework failure")
+        result = run_pipeline(intent, context)
+
+    assert result.outcome == PipelineOutcome.ERROR
+    assert result.validation_result is not None
+    assert result.plan is None
+    assert result.audited_plan is None
+    assert result.gate_decision is None
+
+
 def test_run_pipeline_unexpected_exception_in_audit_returns_error() -> None:
     context = make_context()
     intent = make_valid_intent(context)
 
     with patch("aegis.pipeline.orchestrator.build_audited_plan") as mock_audit:
-        mock_audit.side_effect = RuntimeError("simulated audit failure")
+        mock_audit.side_effect = RuntimeError("simulated audit framework failure")
         result = run_pipeline(intent, context)
 
     assert result.outcome == PipelineOutcome.ERROR
@@ -178,7 +193,7 @@ def test_run_pipeline_unexpected_exception_in_gate_returns_error() -> None:
     intent = make_valid_intent(context)
 
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as mock_gate:
-        mock_gate.side_effect = RuntimeError("simulated gate failure")
+        mock_gate.side_effect = RuntimeError("simulated gate framework failure")
         result = run_pipeline(intent, context)
 
     assert result.outcome == PipelineOutcome.ERROR
