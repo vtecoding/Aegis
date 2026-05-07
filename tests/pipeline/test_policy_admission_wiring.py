@@ -5,6 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
+
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome
@@ -52,6 +58,16 @@ def _review_policy() -> Policy:
     return _policy(
         Constraint("max_velocity", {"max_mps": 0.1}, required=False),
         "policy-review",
+    )
+
+
+def _admission(policy: Policy, capability: Capability | None = None) -> PolicyAdmissionInput:
+    return PolicyAdmissionInput(
+        PolicyAdmissionMode.ENFORCE,
+        policy=policy,
+        capability=capability or _capability(),
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context(),
     )
 
 
@@ -119,11 +135,8 @@ def test_invalid_intent_with_enforce_marks_policy_admission_not_run() -> None:
     result = run_pipeline(
         intent,
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_allow_policy(),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_allow_policy()),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.INVALID
@@ -137,11 +150,8 @@ def test_policy_allow_continues_to_existing_gate() -> None:
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_allow_policy(),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_allow_policy()),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -160,11 +170,8 @@ def test_policy_block_prevents_gate_approval() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_block_policy(),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_block_policy()),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     gate.assert_not_called()
@@ -180,11 +187,8 @@ def test_policy_require_review_prevents_gate_approval() -> None:
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_review_policy(),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_review_policy()),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -209,11 +213,8 @@ def test_policy_invalid_prevents_gate_approval() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_allow_policy(),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_allow_policy()),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.INVALID
@@ -238,11 +239,8 @@ def test_policy_error_prevents_gate_approval() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_allow_policy(),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_allow_policy()),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -259,11 +257,8 @@ def test_policy_evaluator_exception_returns_error_without_gate_approval() -> Non
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_allow_policy(),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_allow_policy()),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -279,11 +274,8 @@ def test_safety_case_exception_returns_error_without_gate_approval() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_allow_policy(),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_allow_policy()),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR

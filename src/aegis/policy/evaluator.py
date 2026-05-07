@@ -20,6 +20,10 @@ from aegis.contracts.policy import (
     SafetyCase,
     WorldSnapshotStub,
 )
+from aegis.contracts.world_snapshot_freshness import (
+    WorldSnapshotFreshnessResult,
+    WorldSnapshotFreshnessStatus,
+)
 from aegis.policy.safety_case import build_safety_case
 from aegis.policy.validation import validate_policy
 
@@ -44,6 +48,7 @@ def evaluate_policy(
     capability: Capability,
     world_snapshot: WorldSnapshotStub | None = None,
     context: Mapping[str, object] | None = None,
+    freshness_result: WorldSnapshotFreshnessResult | None = None,
 ) -> PolicyEvaluationResult:
     """Evaluate a Capability against a Policy-v1 bundle and optional evidence.
 
@@ -52,6 +57,8 @@ def evaluate_policy(
         capability: Capability requested by the caller.
         world_snapshot: Optional immutable caller-supplied world evidence.
         context: Optional deterministic caller-supplied evaluation context.
+        freshness_result: Optional deterministic freshness result to bind into
+            the policy result. A non-FRESH result forces BLOCK.
 
     Returns:
         A PolicyEvaluationResult explaining ALLOW, BLOCK, REQUIRE_REVIEW, or
@@ -66,7 +73,7 @@ def evaluate_policy(
         world_snapshot=world_snapshot,
         context=context,
     )
-    return result
+    return _bind_freshness_to_policy_result(result, freshness_result)
 
 
 def evaluate_policy_with_safety_case(
@@ -77,6 +84,7 @@ def evaluate_policy_with_safety_case(
     world_snapshot: WorldSnapshotStub | None = None,
     context: Mapping[str, object] | None = None,
     evidence: Mapping[str, object] | None = None,
+    freshness_result: WorldSnapshotFreshnessResult | None = None,
 ) -> tuple[PolicyEvaluationResult, SafetyCase]:
     """Evaluate policy and build a deterministic SafetyCase explanation.
 
@@ -87,6 +95,7 @@ def evaluate_policy_with_safety_case(
         world_snapshot: Optional immutable caller-supplied world evidence.
         context: Optional deterministic caller-supplied evaluation context.
         evidence: Optional extra deterministic evidence to include.
+        freshness_result: Optional deterministic freshness result to bind.
 
     Returns:
         A tuple of policy evaluation result and SafetyCase.
@@ -100,6 +109,7 @@ def evaluate_policy_with_safety_case(
         world_snapshot=world_snapshot,
         context=context,
     )
+    result = _bind_freshness_to_policy_result(result, freshness_result)
     safety_evidence: dict[str, object] = dict(evidence or {})
     safety_evidence["capability_name"] = capability.name
     safety_evidence["capability_version"] = capability.version
@@ -112,8 +122,69 @@ def evaluate_policy_with_safety_case(
         world_snapshot=world_snapshot,
         evidence=safety_evidence,
         capability=capability,
+        world_snapshot_observed_at_ms=_freshness_observed_at_or_none(freshness_result),
+        freshness_result_checksum=(
+            freshness_result.checksum if freshness_result is not None else None
+        ),
+        freshness_status=freshness_result.status.value if freshness_result is not None else None,
     )
     return result, safety_case
+
+
+def _bind_freshness_to_policy_result(
+    policy_result: PolicyEvaluationResult,
+    freshness_result: WorldSnapshotFreshnessResult | None,
+) -> PolicyEvaluationResult:
+    if freshness_result is None:
+        return policy_result
+
+    observed_at_ms = _freshness_observed_at_or_none(freshness_result)
+    snapshot_id = freshness_result.snapshot_id or None
+    freshness_checksum = freshness_result.checksum
+    freshness_status = freshness_result.status.value
+    if freshness_result.status is not WorldSnapshotFreshnessStatus.FRESH:
+        failed_constraints = _append_unique(
+            policy_result.failed_constraints, "world_snapshot_freshness"
+        )
+        reasons = _append_unique(policy_result.reasons, "WORLD_SNAPSHOT_NOT_FRESH")
+        return PolicyEvaluationResult(
+            PolicyDecision.BLOCK,
+            policy_result.policy_id,
+            policy_result.matched_rule_ids,
+            policy_result.passed_constraints,
+            failed_constraints,
+            reasons,
+            world_snapshot_id=snapshot_id,
+            world_snapshot_observed_at_ms=observed_at_ms,
+            freshness_result_checksum=freshness_checksum,
+            freshness_status=freshness_status,
+        )
+    return PolicyEvaluationResult(
+        policy_result.decision,
+        policy_result.policy_id,
+        policy_result.matched_rule_ids,
+        policy_result.passed_constraints,
+        policy_result.failed_constraints,
+        policy_result.reasons,
+        world_snapshot_id=snapshot_id,
+        world_snapshot_observed_at_ms=observed_at_ms,
+        freshness_result_checksum=freshness_checksum,
+        freshness_status=freshness_status,
+    )
+
+
+def _freshness_observed_at_or_none(
+    freshness_result: WorldSnapshotFreshnessResult | None,
+) -> int | None:
+    if freshness_result is None or freshness_result.observed_at_ms < 0:
+        return None
+    return freshness_result.observed_at_ms
+
+
+def _append_unique(values: tuple[str, ...], value: str) -> tuple[str, ...]:
+    if value in values:
+        return values
+    return (*values, value)
 
 
 def _evaluate_policy_details(

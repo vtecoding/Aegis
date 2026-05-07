@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
+
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome
@@ -62,6 +68,24 @@ def _blocking_policy() -> Policy:
     return _policy(Constraint("max_velocity", {"max_mps": 0.1}))
 
 
+def _admission(
+    policy: Policy,
+    *,
+    capability: Capability | None = None,
+    world_snapshot: WorldSnapshotStub | None = None,
+    context: dict[str, object] | None = None,
+    evidence: dict[str, object] | None = None,
+) -> PolicyAdmissionInput:
+    return PolicyAdmissionInput(
+        PolicyAdmissionMode.ENFORCE,
+        policy=policy,
+        capability=capability or _capability(),
+        world_snapshot=world_snapshot or fresh_world_snapshot(),
+        context=context or fresh_policy_context(),
+        evidence=evidence,
+    )
+
+
 def test_raw_intent_force_allow_metadata_cannot_override_missing_policy() -> None:
     context = _context()
     result = run_pipeline(
@@ -83,11 +107,8 @@ def test_raw_intent_policy_decision_metadata_cannot_override_policy_block() -> N
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_blocking_policy(),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_blocking_policy()),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -100,12 +121,13 @@ def test_context_force_allow_cannot_override_policy_block() -> None:
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_blocking_policy(),
-            capability=_capability(),
-            context={"force_allow": True, "decision": "ALLOW", "override_gate": True},
+        policy_admission=_admission(
+            _blocking_policy(),
+            context=fresh_policy_context(
+                {"force_allow": True, "decision": "ALLOW", "override_gate": True}
+            ),
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -117,12 +139,11 @@ def test_evidence_admission_allowed_cannot_override_policy_block() -> None:
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_blocking_policy(),
-            capability=_capability(),
+        policy_admission=_admission(
+            _blocking_policy(),
             evidence={"admission_allowed": True, "override": "ALLOW"},
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -137,12 +158,11 @@ def test_fake_audited_plan_id_evidence_cannot_forge_safety_case_binding() -> Non
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_policy(Constraint("max_velocity", {"max_mps": 1.0})),
-            capability=_capability(),
+        policy_admission=_admission(
+            _policy(Constraint("max_velocity", {"max_mps": 1.0})),
             evidence={"audited_plan_id": "fake-audit-id"},
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -170,14 +190,11 @@ def test_world_snapshot_override_fact_cannot_override_failed_constraint() -> Non
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_blocking_policy(),
-            capability=_capability(),
-            world_snapshot=WorldSnapshotStub(
-                "snapshot-1", 0, 10, "fixture", 1.0, {"override": True}
-            ),
+        policy_admission=_admission(
+            _blocking_policy(),
+            world_snapshot=fresh_world_snapshot("snapshot-1", facts={"override": True}),
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -198,7 +215,7 @@ def test_required_world_snapshot_missing_blocks_pipeline() -> None:
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
-    assert "WORLD_SNAPSHOT_REQUIRED" in result.policy_admission.reasons
+    assert "WORLD_SNAPSHOT_MISSING" in result.policy_admission.reasons
 
 
 def test_expired_world_snapshot_blocks_pipeline() -> None:
@@ -206,13 +223,14 @@ def test_expired_world_snapshot_blocks_pipeline() -> None:
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_policy(Constraint("snapshot_freshness")),
-            capability=_capability(),
-            world_snapshot=WorldSnapshotStub("snapshot-1", 0, 10, "fixture", 1.0),
-            context={"requested_at_ms": 11},
+        policy_admission=_admission(
+            _policy(Constraint("snapshot_freshness")),
+            world_snapshot=fresh_world_snapshot(
+                "snapshot-1", expires_at_ms=FRESH_EVALUATION_TIME_MS
+            ),
+            context={"requested_at_ms": FRESH_EVALUATION_TIME_MS + 1},
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -224,12 +242,11 @@ def test_low_confidence_world_snapshot_blocks_pipeline() -> None:
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_policy(Constraint("min_sensor_confidence", {"min_confidence": 0.8})),
-            capability=_capability(),
-            world_snapshot=WorldSnapshotStub("snapshot-1", 0, 10, "fixture", 0.7),
+        policy_admission=_admission(
+            _policy(Constraint("min_sensor_confidence", {"min_confidence": 0.8})),
+            world_snapshot=fresh_world_snapshot("snapshot-1", confidence=0.7),
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -241,11 +258,8 @@ def test_unknown_required_constraint_blocks_pipeline() -> None:
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_policy(Constraint("unknown_constraint")),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_policy(Constraint("unknown_constraint"))),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -257,11 +271,8 @@ def test_unknown_optional_constraint_requires_review_and_prevents_approval() -> 
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_policy(Constraint("unknown_constraint", required=False)),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_policy(Constraint("unknown_constraint", required=False))),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED

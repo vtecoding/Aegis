@@ -8,6 +8,7 @@ executor, simulator, or robot adapter.  Its purpose is to provide a clean, impor
 boundary for demos, CLI wrappers, future simulator adapters, and eventually robot-action layers.
 Phase 2 Part 3 adds policy admission between audit and gate. Phase 2 Part 4 hardens that
 boundary so final pipeline approval is impossible without valid enforced policy admission.
+Phase 2 Part 5 adds deterministic world snapshot freshness before policy evaluation.
 
 ---
 
@@ -21,6 +22,7 @@ boundary so final pipeline approval is impossible without valid enforced policy 
 - Provide the public entry point `run_pipeline(raw_intent, context, *, policy_admission=None) -> PipelineResult`.
 - In policy-enforced mode, evaluate Policy-v1 after audit and before final gate approval.
 - Require policy-backed admission integrity for any `PipelineOutcome.ALLOWED` result.
+- In policy-enforced mode, require caller-supplied `evaluation_time_ms` and a FRESH world snapshot before policy evaluation can approve.
 
 ---
 
@@ -34,6 +36,8 @@ boundary so final pipeline approval is impossible without valid enforced policy 
 - No mutable state across invocations.
 - No CLI entry point in v1.
 - No global policy, environment-loaded policy, filesystem-loaded policy, or dynamic policy registry.
+- No wall-clock fallback for freshness. The core never derives `evaluation_time_ms` from system time.
+- No proof that snapshot freshness means real-world truth, source attestation, live sensing correctness, simulation safety, middleware safety, or actuator safety.
 
 ---
 
@@ -87,11 +91,17 @@ def run_pipeline(
     context: ExecutionContext,
     *,
     policy_admission: PolicyAdmissionInput | None = None,
+    evaluation_time_ms: int | None = None,
+    freshness_policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
 ) -> PipelineResult:
     """Run raw intent through the full Phase 1 Aegis pipeline.
 
     Composes validate_intent → plan_validated_intent → build_audited_plan →
-    optional policy admission → gate_audited_plan deterministically.
+    optional world snapshot freshness → optional policy admission →
+    gate_audited_plan deterministically.
+
+    In ENFORCE mode, evaluation_time_ms is required. It is caller-supplied and
+    never derived from wall-clock time.
 
     AegisError subclasses propagate to the caller unchanged.
 
@@ -108,6 +118,9 @@ def run_pipeline(
 |-----------|-----------|-----------------|
 | Validation failed | `INVALID` | `validation_result` |
 | Validation passed, policy disabled or omitted | `BLOCKED` | validation, plan, audit, disabled policy record; no gate decision |
+| Policy ENFORCE lacks world snapshot or evaluation time | `BLOCKED` | validation, plan, audit, denied policy record; no gate decision |
+| Policy ENFORCE has stale or future-dated snapshot | `BLOCKED` | validation, plan, audit, denied policy record; no gate decision |
+| Policy ENFORCE has malformed or contradictory freshness metadata | `INVALID` | validation, plan, audit, denied policy record; no gate decision |
 | Policy ENFORCE returns ALLOW, integrity passes, and gate allows | `ALLOWED` | all layer fields plus enforced policy record |
 | Policy ENFORCE denies before gate | `BLOCKED`, `INVALID`, or `ERROR` | validation, plan, audit, policy record |
 | Policy ENFORCE allows but gate blocks | `BLOCKED` | validation, plan, audit, policy record, blocked gate decision |
@@ -132,15 +145,18 @@ failures.
 
 - `outcome == ALLOWED` implies `gate_decision is not None and gate_decision.status == "allowed"`
 - `outcome == ALLOWED` implies policy admission is enforced, allowed, integrity-passed, and bound to the same audited plan as the gate decision
+- `outcome == ALLOWED` implies freshness status is `FRESH` and the freshness checksum is bound through policy result, SafetyCase, and admission record
 - `outcome == BLOCKED` implies a blocked gate decision or denied enforced policy admission
 - `outcome == INVALID` implies `plan is None and audited_plan is None and gate_decision is None`
-    unless the invalid state is produced by policy admission after audit
+    unless the invalid state is produced by policy admission or malformed freshness after audit
 - `outcome == ERROR` implies no AegisError subclass was involved
 - Same `raw_intent` + same `context` → same `PipelineResult`, always.
 - `run_pipeline` does not mutate `raw_intent` or `context`.
 - Policy `ALLOW` is necessary but not sufficient for final approval.
 - Disabled policy admission is not a policy `ALLOW` result and cannot produce final approval.
 - Admission records with stale, mismatched, forged, malformed, skipped, or contradictory bindings cannot produce final approval.
+- Missing, stale, future-dated, malformed, contradictory, or unchecked freshness evidence cannot produce final approval.
+- `run_pipeline` never reads current time; freshness uses only caller-supplied `evaluation_time_ms`.
 
 ---
 
@@ -148,6 +164,8 @@ failures.
 
 ```
 outcome == ALLOWED for valid, supported intents only when enforced policy admission allows and gate integrity also allows
+freshness_status == FRESH for every outcome == ALLOWED
+world_snapshot_freshness_wall_clock_reads = 0
 disabled_policy_admission_allowed_count = 0
 outcome == INVALID for all invalid or unsupported intents
 gate_integrity_mismatch_count = 0 (via scenario runner)

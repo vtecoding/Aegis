@@ -1,4 +1,4 @@
-# Aegis Phase 1 Failure Modes
+# Aegis Phase 1 + Policy-v1 Part 5 Failure Modes
 
 Each failure mode documents: trigger, expected outcome, allowed recovery, forbidden
 behaviour, and test coverage.
@@ -530,3 +530,87 @@ object from policy evaluation.
 continuing to gate approval.
 
 **Required test coverage:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`.
+
+---
+
+## FM-28: Missing Freshness Inputs in ENFORCE Mode
+
+**Trigger:** `PolicyAdmissionInput(mode=ENFORCE)` reaches the pipeline without a
+`world_snapshot`, without caller-supplied `evaluation_time_ms`, or with a snapshot missing
+its captured timestamp.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit and before policy
+evaluation or final gate approval.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=False`, no policy `ALLOW`, and
+freshness status `MISSING_SNAPSHOT`, `MISSING_EVALUATION_TIME`, or `MISSING_TIMESTAMP`.
+
+**Forbidden behaviour:** Treating `world_snapshot` as optional for approval, inferring a
+timestamp from wall-clock time, or bypassing freshness in tests.
+
+**Required test coverage:** `tests/contracts/test_world_snapshot_freshness_contract.py`,
+`tests/integration/test_pipeline_world_snapshot_freshness.py`.
+
+---
+
+## FM-29: Stale or Future-Dated World Snapshot
+
+**Trigger:** The deterministic age check finds `evaluation_time_ms - captured_at_ms`
+greater than `FreshnessPolicy.max_snapshot_age_ms`, or `captured_at_ms` is in the future
+outside the explicit policy skew allowance.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit and before policy
+evaluation or final gate approval.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=False`, no policy `ALLOW`, and
+freshness status `STALE` or `FUTURE_DATED`.
+
+**Forbidden behaviour:** Calling `datetime.now()`, `time.time()`, environment APIs, sensors,
+middleware, or hardware to compensate for stale supplied evidence.
+
+**Required test coverage:** `tests/contracts/test_world_snapshot_freshness_contract.py`,
+`tests/integration/test_pipeline_world_snapshot_freshness.py`,
+`tests/adversarial/test_world_snapshot_staleness_bypass.py`.
+
+---
+
+## FM-30: Malformed Freshness Metadata
+
+**Trigger:** Snapshot timestamps, snapshot identity, expiry metadata, or freshness policy
+values are invalid, contradictory, non-integer, negative, or forged after construction.
+
+**Expected pipeline outcome:** `PipelineOutcome.INVALID` for invalid/contradictory freshness
+metadata when detected after audit, or `ValueError` at contract construction when the
+boundary contract rejects the value directly.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Forbidden behaviour:** Swallowing malformed freshness evidence, treating unchecked
+metadata as FRESH, or changing production semantics to satisfy old tests.
+
+**Required test coverage:** `tests/contracts/test_world_snapshot_freshness_contract.py`,
+`tests/integration/test_pipeline_world_snapshot_freshness.py`.
+
+---
+
+## FM-31: Freshness Binding or Reuse Mismatch
+
+**Trigger:** A caller reuses a FRESH result from another snapshot, forges the freshness
+checksum, or mismatches freshness status, observed time, snapshot identity, or checksum
+between `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
+
+**Expected outcome:** `WorldSnapshotFreshnessError`, `PolicyAdmissionIntegrityError`, or
+`ValueError` at the integrity boundary. Pipeline approval is impossible.
+
+**Expected gate behaviour:** Gate is not called for pre-gate freshness or admission
+integrity failures.
+
+**Forbidden behaviour:** Trusting cached freshness evidence without recomputing and
+checking the snapshot/time/policy binding.
+
+**Required test coverage:** `tests/adversarial/test_world_snapshot_staleness_bypass.py`,
+`tests/invariants/test_world_snapshot_freshness_invariants.py`.

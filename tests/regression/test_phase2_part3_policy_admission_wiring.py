@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
+
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome
@@ -43,12 +49,19 @@ def _admission(max_mps: float) -> PolicyAdmissionInput:
         PolicyAdmissionMode.ENFORCE,
         policy=_policy(max_mps),
         capability=Capability("locomotion.translation", parameters={"velocity_mps": 0.2}),
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context(),
     )
 
 
 def test_phase2_part3_policy_allow_still_runs_before_gate_approval() -> None:
     context = _context()
-    result = run_pipeline(_intent(context), context, policy_admission=_admission(1.0))
+    result = run_pipeline(
+        _intent(context),
+        context,
+        policy_admission=_admission(1.0),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
 
     assert result.outcome is PipelineOutcome.ALLOWED
     assert result.policy_admission.policy_result is not None
@@ -59,7 +72,12 @@ def test_phase2_part3_policy_allow_still_runs_before_gate_approval() -> None:
 
 def test_phase2_part3_policy_block_still_prevents_gate_approval() -> None:
     context = _context()
-    result = run_pipeline(_intent(context), context, policy_admission=_admission(0.1))
+    result = run_pipeline(
+        _intent(context),
+        context,
+        policy_admission=_admission(0.1),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
 
     assert result.outcome is PipelineOutcome.BLOCKED
     assert result.policy_admission.policy_result is not None

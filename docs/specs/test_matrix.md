@@ -1,4 +1,4 @@
-# Aegis Phase 1 + Policy-v1 Part 4 Test Matrix
+# Aegis Phase 1 + Policy-v1 Part 5 Test Matrix
 
 Maps each invariant and failure mode to its test coverage across all test tiers.
 "✓" = covered. "—" = not applicable for that tier.
@@ -52,6 +52,11 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | INV-POLICY-HARDEN-002: Admission integrity binds context | ✓ | ✓ | ✓ | ✓ | ✓ |
 | INV-POLICY-HARDEN-003: Admission contradictions fail closed | ✓ | ✓ | — | ✓ | ✓ |
 | INV-POLICY-HARDEN-004: Security decision strings are strict | — | ✓ | — | ✓ | — |
+| INV-POLICY-FRESH-001: ALLOWED implies fresh snapshot | — | ✓ | ✓ | ✓ | ✓ |
+| INV-POLICY-FRESH-002: Freshness uses caller-supplied time | — | ✓ | — | — | ✓ |
+| INV-POLICY-FRESH-003: Freshness binds snapshot, time, and policy | — | ✓ | — | ✓ | — |
+| INV-POLICY-FRESH-004: Freshness binding propagates through admission | — | ✓ | ✓ | ✓ | ✓ |
+| INV-POLICY-FRESH-005: Non-fresh evidence fails closed | — | ✓ | ✓ | ✓ | ✓ |
 
 ---
 
@@ -86,6 +91,10 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-25: Policy admission integrity mismatch | ✓ | ✓ | ✓ | ✓ |
 | FM-26: Confusable security decision values | — | ✓ | ✓ | — |
 | FM-27: Malformed evaluator output | — | — | ✓ | — |
+| FM-28: Missing freshness inputs | — | ✓ | — | ✓ |
+| FM-29: Stale or future-dated snapshot | — | ✓ | ✓ | ✓ |
+| FM-30: Malformed freshness metadata | — | ✓ | — | ✓ |
+| FM-31: Freshness binding or reuse mismatch | — | ✓ | ✓ | — |
 
 ---
 
@@ -105,6 +114,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_invariant_policy_evaluator.py` | INV-21, INV-22, INV-23, INV-24 |
 | `test_invariant_policy_admission.py` | INV-POLICY-WIRE-001 through INV-POLICY-WIRE-003, INV-POLICY-WIRE-005, INV-POLICY-WIRE-006, INV-POLICY-WIRE-009 through INV-POLICY-WIRE-011 |
 | `test_policy_admission_invariants.py` | INV-POLICY-HARDEN-001 through INV-POLICY-HARDEN-004 |
+| `test_world_snapshot_freshness_invariants.py` | INV-POLICY-FRESH-001 through INV-POLICY-FRESH-005 |
 | `test_invariant_bootstrap.py` | Package imports resolve cleanly |
 
 ### `tests/contracts/`
@@ -122,6 +132,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_json_types_contract.py` | JSON boundary type safety |
 | `test_policy_contracts.py` | INV-16, INV-17, INV-18, INV-19, INV-20, FM-12, FM-14 |
 | `test_policy_admission_contract.py` | PolicyAdmissionInput, PolicyAdmissionRecord, disabled record invariants, integrity assertions, strict admission decisions, INV-POLICY-WIRE-011, INV-POLICY-WIRE-012, INV-POLICY-HARDEN-002 through INV-POLICY-HARDEN-004 |
+| `test_world_snapshot_freshness_contract.py` | FreshnessPolicy, WorldSnapshotFreshnessResult, deterministic freshness validation, checksum binding, FM-28 through FM-31, INV-POLICY-FRESH-001 through INV-POLICY-FRESH-003 |
 
 ### `tests/policy/`
 
@@ -166,6 +177,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_pipeline_adversarial_inputs.py` | FM-09, FM-10, INV-01, INV-13, INV-14 |
 | `test_scenario_runner_adversarial.py` | FM-04, INV-03 end-to-end |
 | `test_policy_admission_adversarial_bypass.py` | FM-15, FM-17, FM-22, FM-24 through FM-27, INV-POLICY-WIRE-010, INV-POLICY-HARDEN-001 through INV-POLICY-HARDEN-004 |
+| `test_world_snapshot_staleness_bypass.py` | FM-29, FM-31, INV-POLICY-FRESH-003 through INV-POLICY-FRESH-005 |
 
 ### `tests/integration/`
 
@@ -173,6 +185,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 |------|----------|
 | `test_scenario_runner.py` | End-to-end pipeline for all scenario fixtures |
 | `test_pipeline_policy_admission.py` | ENFORCE mode end-to-end allow, block, review, invalid, error, SafetyCase, integrity failure, disabled non-approval, and gate approval |
+| `test_pipeline_world_snapshot_freshness.py` | ENFORCE mode freshness allow, stale, missing snapshot, missing evaluation time, malformed metadata, evaluator-after-freshness error, and disabled non-approval |
 
 ### `tests/regression/`
 

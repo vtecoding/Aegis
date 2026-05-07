@@ -251,6 +251,11 @@ class PolicyEvaluationResult:
         passed_constraints: Constraint IDs or types that passed.
         failed_constraints: Constraint IDs or types that failed.
         reasons: Human-readable deterministic explanation strings.
+        world_snapshot_id: Optional world snapshot identity used for freshness.
+        world_snapshot_observed_at_ms: Optional observed timestamp from the
+            freshness gate.
+        freshness_result_checksum: Optional deterministic freshness result checksum.
+        freshness_status: Optional freshness status string.
 
     Raises:
         ValueError: If decision is invalid, ALLOW has no matched rules, failure
@@ -263,6 +268,10 @@ class PolicyEvaluationResult:
     passed_constraints: tuple[str, ...]
     failed_constraints: tuple[str, ...]
     reasons: tuple[str, ...]
+    world_snapshot_id: str | None
+    world_snapshot_observed_at_ms: int | None
+    freshness_result_checksum: str | None
+    freshness_status: str | None
 
     def __init__(
         self,
@@ -272,6 +281,11 @@ class PolicyEvaluationResult:
         passed_constraints: Iterable[str],
         failed_constraints: Iterable[str],
         reasons: Iterable[str],
+        *,
+        world_snapshot_id: str | None = None,
+        world_snapshot_observed_at_ms: object = None,
+        freshness_result_checksum: str | None = None,
+        freshness_status: object = None,
     ) -> None:
         normalized_decision = _normalize_policy_decision(decision)
         normalized_matched_rule_ids = _normalize_text_tuple(matched_rule_ids, "matched_rule_ids")
@@ -304,6 +318,26 @@ class PolicyEvaluationResult:
             _normalize_text_tuple(failed_constraints, "failed_constraints"),
         )
         object.__setattr__(self, "reasons", normalized_reasons)
+        object.__setattr__(
+            self,
+            "world_snapshot_id",
+            _normalize_optional_text(world_snapshot_id, "world_snapshot_id"),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_observed_at_ms",
+            _normalize_optional_observed_at_ms(world_snapshot_observed_at_ms),
+        )
+        object.__setattr__(
+            self,
+            "freshness_result_checksum",
+            _normalize_optional_text(freshness_result_checksum, "freshness_result_checksum"),
+        )
+        object.__setattr__(
+            self,
+            "freshness_status",
+            _normalize_optional_freshness_status(freshness_status),
+        )
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -339,6 +373,9 @@ class SafetyCase:
     world_snapshot_checksum: str | None
     capability_name: str | None
     capability_version: str | None
+    world_snapshot_observed_at_ms: int | None
+    freshness_result_checksum: str | None
+    freshness_status: str | None
 
     def __init__(
         self,
@@ -354,6 +391,9 @@ class SafetyCase:
         world_snapshot_checksum: str | None = None,
         capability_name: str | None = None,
         capability_version: str | None = None,
+        world_snapshot_observed_at_ms: int | None = None,
+        freshness_result_checksum: str | None = None,
+        freshness_status: str | None = None,
     ) -> None:
         frozen_evidence = _freeze_policy_mapping(evidence or {})
         if policy_result.decision is PolicyDecision.ALLOW and not frozen_evidence:
@@ -398,6 +438,21 @@ class SafetyCase:
             "capability_version",
             _normalize_optional_text(capability_version, "capability_version"),
         )
+        object.__setattr__(
+            self,
+            "world_snapshot_observed_at_ms",
+            _normalize_optional_observed_at_ms(world_snapshot_observed_at_ms),
+        )
+        object.__setattr__(
+            self,
+            "freshness_result_checksum",
+            _normalize_optional_text(freshness_result_checksum, "freshness_result_checksum"),
+        )
+        object.__setattr__(
+            self,
+            "freshness_status",
+            _normalize_optional_freshness_status(freshness_status),
+        )
 
 
 def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> str:
@@ -416,6 +471,10 @@ def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> 
         "passed_constraints": list(policy_result.passed_constraints),
         "failed_constraints": list(policy_result.failed_constraints),
         "reasons": list(policy_result.reasons),
+        "world_snapshot_id": policy_result.world_snapshot_id,
+        "world_snapshot_observed_at_ms": policy_result.world_snapshot_observed_at_ms,
+        "freshness_result_checksum": policy_result.freshness_result_checksum,
+        "freshness_status": policy_result.freshness_status,
     }
     canonical_json = json.dumps(
         payload,
@@ -438,6 +497,46 @@ def _normalize_optional_text(value: str | None, field_name: str) -> str | None:
     if value is None:
         return None
     return _normalize_required_text(value, field_name)
+
+
+def _normalize_optional_observed_at_ms(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("world_snapshot_observed_at_ms must be an integer or None")
+    if value < 0:
+        raise ValueError("world_snapshot_observed_at_ms must be >= 0")
+    return value
+
+
+_VALID_FRESHNESS_STATUS_VALUES = frozenset(
+    {
+        "FRESH",
+        "STALE",
+        "MISSING_SNAPSHOT",
+        "MISSING_TIMESTAMP",
+        "MISSING_EVALUATION_TIME",
+        "FUTURE_DATED",
+        "INVALID_MAX_AGE",
+        "INVALID_TIMESTAMP",
+        "SNAPSHOT_ID_MISSING",
+        "CONTRADICTORY_METADATA",
+        "NOT_CHECKED",
+        "ERROR",
+    }
+)
+
+
+def _normalize_optional_freshness_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("freshness_status must be a string or None")
+    if value != value.strip():
+        raise ValueError("freshness_status must not contain leading or trailing whitespace")
+    if value not in _VALID_FRESHNESS_STATUS_VALUES:
+        raise ValueError("freshness_status must be a valid WorldSnapshotFreshnessStatus value")
+    return value
 
 
 def _normalize_capability_name(value: str) -> str:

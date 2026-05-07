@@ -1,0 +1,262 @@
+"""Adversarial tests for world snapshot freshness bypass attempts."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from unittest.mock import patch
+
+import pytest
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    FRESH_OBSERVED_AT_MS,
+    bind_policy_result_to_freshness,
+    fresh_policy_context,
+    fresh_world_snapshot,
+    fresh_world_snapshot_result,
+)
+
+from aegis.audit import build_audited_plan
+from aegis.contracts.context import ExecutionContext
+from aegis.contracts.intent import RawIntent
+from aegis.contracts.pipeline import PipelineOutcome
+from aegis.contracts.policy import (
+    Capability,
+    Constraint,
+    Policy,
+    PolicyDecision,
+    PolicyEvaluationResult,
+    PolicyRule,
+    WorldSnapshotStub,
+)
+from aegis.contracts.policy_admission import (
+    PolicyAdmissionInput,
+    PolicyAdmissionMode,
+    PolicyAdmissionRecord,
+    assert_policy_admission_integrity,
+    is_policy_backed_approval,
+)
+from aegis.contracts.world_snapshot_freshness import (
+    DEFAULT_FRESHNESS_POLICY,
+    WorldSnapshotFreshnessError,
+    assert_world_snapshot_freshness_integrity,
+)
+from aegis.errors import PolicyAdmissionIntegrityError
+from aegis.gate import gate_audited_plan
+from aegis.pipeline import run_pipeline
+from aegis.planning import plan_validated_intent
+from aegis.policy import build_safety_case
+from aegis.validation import validate_intent
+
+
+def _context(request_id: str = "freshness-adversarial") -> ExecutionContext:
+    return ExecutionContext(request_id, datetime(2026, 1, 1, tzinfo=UTC), "policy-v1")
+
+
+def _intent(context: ExecutionContext) -> RawIntent:
+    return RawIntent("move", {"target": {"x": 1, "y": 2}}, "adversary", 5, context)
+
+
+def _audited_plan(request_id: str = "freshness-adversarial"):
+    context = _context(request_id)
+    validation_result = validate_intent(_intent(context))
+    plan = plan_validated_intent(validation_result)
+    return build_audited_plan(plan)
+
+
+def _policy() -> Policy:
+    return Policy(
+        "freshness-adversarial-policy",
+        "v1",
+        [
+            PolicyRule(
+                "rule-1",
+                "locomotion.translation",
+                [Constraint("max_velocity", {"max_mps": 1.0})],
+            )
+        ],
+    )
+
+
+def _capability() -> Capability:
+    return Capability("locomotion.translation", parameters={"velocity_mps": 0.2})
+
+
+def _allow_result(snapshot: WorldSnapshotStub | None = None) -> PolicyEvaluationResult:
+    freshness_result = fresh_world_snapshot_result(snapshot or fresh_world_snapshot())
+    return bind_policy_result_to_freshness(
+        PolicyEvaluationResult(
+            PolicyDecision.ALLOW,
+            "freshness-adversarial-policy",
+            ["rule-1"],
+            ["rule-1:0:max_velocity"],
+            [],
+            ["POLICY_ALLOWED"],
+        ),
+        freshness_result,
+    )
+
+
+def _safety_case(audited_plan, policy_result: PolicyEvaluationResult, snapshot: WorldSnapshotStub):
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    return build_safety_case(
+        policy_result=policy_result,
+        audited_plan_id=audited_plan.audit_id,
+        world_snapshot=snapshot,
+        evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
+        plan_id=audited_plan.plan.plan_id,
+        plan_checksum=audited_plan.checksum,
+        capability=_capability(),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
+    )
+
+
+def test_stale_snapshot_with_monkeypatched_allow_evaluator_still_blocks() -> None:
+    context = _context("freshness-adversarial-stale")
+    stale_snapshot = fresh_world_snapshot(observed_at_ms=FRESH_OBSERVED_AT_MS - 2_000)
+    allow_result = _allow_result()
+
+    with patch(
+        "aegis.pipeline.orchestrator.evaluate_policy", return_value=allow_result
+    ) as evaluator:
+        result = run_pipeline(
+            _intent(context),
+            context,
+            policy_admission=PolicyAdmissionInput(
+                PolicyAdmissionMode.ENFORCE,
+                policy=_policy(),
+                capability=_capability(),
+                world_snapshot=stale_snapshot,
+                context=fresh_policy_context(),
+            ),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        )
+
+    evaluator.assert_not_called()
+    assert result.outcome is PipelineOutcome.BLOCKED
+    assert result.policy_admission.freshness_status == "STALE"
+
+
+def test_reused_freshness_result_from_another_snapshot_is_rejected() -> None:
+    snapshot_a = fresh_world_snapshot("snapshot-a")
+    snapshot_b = fresh_world_snapshot("snapshot-b")
+    freshness_result = fresh_world_snapshot_result(snapshot_a)
+
+    with pytest.raises(WorldSnapshotFreshnessError):
+        assert_world_snapshot_freshness_integrity(
+            snapshot=snapshot_b,
+            freshness_result=freshness_result,
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            freshness_policy=DEFAULT_FRESHNESS_POLICY,
+        )
+
+
+def test_safety_case_freshness_mismatch_is_rejected() -> None:
+    audited_plan = _audited_plan("freshness-adversarial-safety-case")
+    snapshot_a = fresh_world_snapshot("snapshot-a")
+    snapshot_b = fresh_world_snapshot("snapshot-b")
+    policy_result = _allow_result(snapshot_a)
+    safety_case = _safety_case(audited_plan, policy_result, snapshot_b)
+    freshness_a = fresh_world_snapshot_result(snapshot_a)
+
+    with pytest.raises(ValueError, match="safety_case"):
+        PolicyAdmissionRecord(
+            PolicyAdmissionMode.ENFORCE,
+            policy_result=policy_result,
+            safety_case=safety_case,
+            enforced=True,
+            admission_allowed=True,
+            reasons=("POLICY_ALLOWED",),
+            audit_id=audited_plan.audit_id,
+            plan_id=audited_plan.plan.plan_id,
+            plan_checksum=audited_plan.checksum,
+            world_snapshot_id=snapshot_a.snapshot_id,
+            world_snapshot_checksum=snapshot_a.checksum,
+            capability_name=safety_case.capability_name,
+            capability_version=safety_case.capability_version,
+            world_snapshot_observed_at_ms=freshness_a.observed_at_ms,
+            freshness_result_checksum=freshness_a.checksum,
+            freshness_status=freshness_a.status.value,
+        )
+
+
+def test_policy_evaluation_freshness_mismatch_is_rejected() -> None:
+    audited_plan = _audited_plan("freshness-adversarial-policy-result")
+    snapshot_a = fresh_world_snapshot("snapshot-a")
+    snapshot_b = fresh_world_snapshot("snapshot-b")
+    policy_result = _allow_result(snapshot_a)
+    safety_case = _safety_case(audited_plan, policy_result, snapshot_b)
+    freshness_b = fresh_world_snapshot_result(snapshot_b)
+
+    with pytest.raises(ValueError, match="policy_result"):
+        PolicyAdmissionRecord(
+            PolicyAdmissionMode.ENFORCE,
+            policy_result=policy_result,
+            safety_case=safety_case,
+            enforced=True,
+            admission_allowed=True,
+            reasons=("POLICY_ALLOWED",),
+            audit_id=audited_plan.audit_id,
+            plan_id=audited_plan.plan.plan_id,
+            plan_checksum=audited_plan.checksum,
+            world_snapshot_id=snapshot_b.snapshot_id,
+            world_snapshot_checksum=snapshot_b.checksum,
+            capability_name=safety_case.capability_name,
+            capability_version=safety_case.capability_version,
+            world_snapshot_observed_at_ms=freshness_b.observed_at_ms,
+            freshness_result_checksum=freshness_b.checksum,
+            freshness_status=freshness_b.status.value,
+        )
+
+
+def test_policy_admission_freshness_mismatch_is_rejected_by_integrity() -> None:
+    audited_plan = _audited_plan("freshness-adversarial-admission")
+    snapshot = fresh_world_snapshot()
+    policy_result = _allow_result(snapshot)
+    safety_case = _safety_case(audited_plan, policy_result, snapshot)
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    record = PolicyAdmissionRecord(
+        PolicyAdmissionMode.ENFORCE,
+        policy_result=policy_result,
+        safety_case=safety_case,
+        enforced=True,
+        admission_allowed=True,
+        reasons=("POLICY_ALLOWED",),
+        audit_id=audited_plan.audit_id,
+        plan_id=audited_plan.plan.plan_id,
+        plan_checksum=audited_plan.checksum,
+        world_snapshot_id=snapshot.snapshot_id,
+        world_snapshot_checksum=snapshot.checksum,
+        capability_name=safety_case.capability_name,
+        capability_version=safety_case.capability_version,
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
+    )
+    object.__setattr__(record, "freshness_result_checksum", "0" * 64)
+
+    with pytest.raises(PolicyAdmissionIntegrityError):
+        assert_policy_admission_integrity(audited_plan, record)
+
+
+@pytest.mark.parametrize("status", ["FRESH ", "fresh", "ＦＲＥＳＨ", "FRESH\u200b"])
+def test_confusable_freshness_status_strings_are_rejected(status: str) -> None:
+    with pytest.raises(ValueError):
+        PolicyEvaluationResult(
+            PolicyDecision.ALLOW,
+            "policy-1",
+            ["rule-1"],
+            ["rule-1:0:max_velocity"],
+            [],
+            ["POLICY_ALLOWED"],
+            freshness_status=status,
+        )
+
+
+def test_direct_gate_approval_cannot_produce_full_pipeline_allowed() -> None:
+    audited_plan = _audited_plan("freshness-adversarial-direct-gate")
+    gate_decision = gate_audited_plan(audited_plan)
+
+    assert gate_decision.status == "allowed"
+    assert not is_policy_backed_approval(audited_plan, None, gate_decision)

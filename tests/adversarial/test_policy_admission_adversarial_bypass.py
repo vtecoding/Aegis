@@ -6,6 +6,13 @@ from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    bind_policy_result_to_freshness,
+    fresh_policy_context,
+    fresh_world_snapshot,
+    fresh_world_snapshot_result,
+)
 
 from aegis.audit import build_audited_plan
 from aegis.contracts.context import ExecutionContext
@@ -95,13 +102,15 @@ def _audited_plan(request_id: str = "policy-adversarial-001"):
 
 
 def _allow_result(policy_id: str = "policy-adversarial") -> PolicyEvaluationResult:
-    return PolicyEvaluationResult(
-        PolicyDecision.ALLOW,
-        policy_id,
-        ["rule-1"],
-        ["rule-1:0:max_velocity"],
-        [],
-        ["POLICY_ALLOWED"],
+    return bind_policy_result_to_freshness(
+        PolicyEvaluationResult(
+            PolicyDecision.ALLOW,
+            policy_id,
+            ["rule-1"],
+            ["rule-1:0:max_velocity"],
+            [],
+            ["POLICY_ALLOWED"],
+        )
     )
 
 
@@ -111,15 +120,20 @@ def _allowed_record(
     policy_result: PolicyEvaluationResult | None = None,
     world_snapshot: WorldSnapshotStub | None = None,
 ) -> PolicyAdmissionRecord:
-    result = policy_result or _allow_result()
+    snapshot = world_snapshot or fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    result = policy_result or bind_policy_result_to_freshness(_allow_result(), freshness_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
-        world_snapshot=world_snapshot,
+        world_snapshot=snapshot,
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
         capability=_capability(),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -135,6 +149,9 @@ def _allowed_record(
         world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name=safety_case.capability_name,
         capability_version=safety_case.capability_version,
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
 
@@ -162,8 +179,12 @@ def test_hostile_context_cannot_force_policy_allow() -> None:
             PolicyAdmissionMode.ENFORCE,
             policy=_blocking_policy(),
             capability=_capability(),
-            context={"force_allow": True, "override_gate": True, "decision": "ALLOW"},
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(
+                {"force_allow": True, "override_gate": True, "decision": "ALLOW"}
+            ),
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -180,8 +201,11 @@ def test_hostile_evidence_cannot_force_policy_allow() -> None:
             PolicyAdmissionMode.ENFORCE,
             policy=_blocking_policy(),
             capability=_capability(),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
             evidence={"admission_allowed": True, "override": "ALLOW"},
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -239,10 +263,14 @@ def test_policy_swap_and_evaluation_swap_are_rejected() -> None:
     safety_case = build_safety_case(
         policy_result=first_result,
         audited_plan_id=audited_plan.audit_id,
+        world_snapshot=fresh_world_snapshot(),
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
         capability=_capability(),
+        world_snapshot_observed_at_ms=first_result.world_snapshot_observed_at_ms,
+        freshness_result_checksum=first_result.freshness_result_checksum,
+        freshness_status=first_result.freshness_status,
     )
 
     with pytest.raises(ValueError, match="explain"):
@@ -268,7 +296,7 @@ def test_policy_swap_and_evaluation_swap_are_rejected() -> None:
 
 def test_world_snapshot_swap_is_rejected() -> None:
     audited_plan = _audited_plan()
-    snapshot = WorldSnapshotStub("snapshot-a", 0, 10, "fixture", 1.0, checksum="checksum-a")
+    snapshot = fresh_world_snapshot("snapshot-a", checksum="checksum-a")
     record = _allowed_record(audited_plan=audited_plan, world_snapshot=snapshot)
     object.__setattr__(record, "world_snapshot_id", "snapshot-b")
 
@@ -307,7 +335,10 @@ def test_monkeypatched_evaluator_returning_malformed_result_fails_closed() -> No
                 PolicyAdmissionMode.ENFORCE,
                 policy=_allowing_policy(),
                 capability=_capability(),
+                world_snapshot=fresh_world_snapshot(),
+                context=fresh_policy_context(),
             ),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -324,7 +355,10 @@ def test_monkeypatched_safety_case_builder_missing_case_fails_closed() -> None:
                 PolicyAdmissionMode.ENFORCE,
                 policy=_allowing_policy(),
                 capability=_capability(),
+                world_snapshot=fresh_world_snapshot(),
+                context=fresh_policy_context(),
             ),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -350,7 +384,10 @@ def test_monkeypatched_integrity_check_exception_fails_closed() -> None:
                 PolicyAdmissionMode.ENFORCE,
                 policy=_allowing_policy(),
                 capability=_capability(),
+                world_snapshot=fresh_world_snapshot(),
+                context=fresh_policy_context(),
             ),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR

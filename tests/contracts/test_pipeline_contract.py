@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from tests.policy_freshness_fixtures import (
+    bind_policy_result_to_freshness,
+    fresh_world_snapshot,
+    fresh_world_snapshot_result,
+)
 
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
@@ -51,21 +56,30 @@ def _make_allowed_result(
 
 
 def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
-    policy_result = PolicyEvaluationResult(
-        PolicyDecision.ALLOW,
-        "policy-1",
-        ["rule-1"],
-        ["rule-1:0:max_velocity"],
-        [],
-        ["POLICY_ALLOWED"],
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    policy_result = bind_policy_result_to_freshness(
+        PolicyEvaluationResult(
+            PolicyDecision.ALLOW,
+            "policy-1",
+            ["rule-1"],
+            ["rule-1:0:max_velocity"],
+            [],
+            ["POLICY_ALLOWED"],
+        ),
+        freshness_result,
     )
     safety_case = build_safety_case(
         policy_result=policy_result,
         audited_plan_id=audited_plan.audit_id,
+        world_snapshot=snapshot,
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
         capability=Capability("locomotion.translation"),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -81,6 +95,9 @@ def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
         world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name=safety_case.capability_name,
         capability_version=safety_case.capability_version,
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
 

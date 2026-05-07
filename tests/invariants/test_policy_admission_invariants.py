@@ -6,6 +6,11 @@ from datetime import UTC, datetime
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -66,18 +71,24 @@ def _admission(case: str) -> PolicyAdmissionInput | None:
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(1.0),
             capability=_capability(),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
         )
     if case == "block":
         return PolicyAdmissionInput(
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(0.1),
             capability=_capability(),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
         )
     if case == "review":
         return PolicyAdmissionInput(
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(0.1, required=False),
             capability=_capability(),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
         )
     if case == "missing_policy":
         return PolicyAdmissionInput(PolicyAdmissionMode.ENFORCE, capability=_capability())
@@ -98,6 +109,7 @@ def test_invariant_allowed_implies_valid_policy_backed_approval(
         _intent(command, priority, context),
         context,
         policy_admission=_admission(case),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     if result.outcome is not PipelineOutcome.ALLOWED:
@@ -120,14 +132,25 @@ def test_invariant_allowed_implies_valid_policy_backed_approval(
     assert admission.policy_result is not None
     assert admission.policy_result.decision is PolicyDecision.ALLOW
     assert admission.policy_result.failed_constraints == ()
+    assert admission.policy_result.freshness_status == "FRESH"
+    assert admission.policy_result.freshness_result_checksum is not None
 
     assert admission.safety_case is not None
     assert admission.safety_case.audited_plan_id == result.audited_plan.audit_id
     assert admission.safety_case.plan_id == result.audited_plan.plan.plan_id
     assert admission.safety_case.plan_checksum == result.audited_plan.checksum
+    assert admission.safety_case.freshness_status == "FRESH"
+    assert admission.safety_case.freshness_result_checksum == (
+        admission.policy_result.freshness_result_checksum
+    )
     assert admission.audit_id == result.audited_plan.audit_id
     assert admission.plan_id == result.audited_plan.plan.plan_id
     assert admission.plan_checksum == result.audited_plan.checksum
+    assert admission.freshness_status == "FRESH"
+    assert admission.freshness_result_checksum == admission.policy_result.freshness_result_checksum
+    assert admission.world_snapshot_observed_at_ms == (
+        admission.policy_result.world_snapshot_observed_at_ms
+    )
     assert admission.reasons.count("POLICY_ALLOWED") == 1
 
     integrity = assert_policy_admission_integrity(result.audited_plan, admission)

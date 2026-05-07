@@ -1,4 +1,4 @@
-# Aegis Phase 1 Invariants
+# Aegis Phase 1 + Policy-v1 Part 5 Invariants
 
 These are the invariants that must hold for **all inputs** in Aegis Phase 1.
 Each invariant maps to Hypothesis property-based tests. See `docs/specs/test_matrix.md`
@@ -416,3 +416,55 @@ leading/trailing whitespace, zero-width marks, bidi marks, and fullwidth/confusa
 characters are rejected rather than normalized.
 
 **Adversarial test:** `tests/adversarial/test_policy_admission_adversarial_bypass.py`
+
+---
+
+## INV-POLICY-FRESH-001: Allowed Implies Fresh Snapshot
+
+**Statement:** `PipelineOutcome.ALLOWED` implies the enforced admission record carries
+`freshness_status == "FRESH"`, `freshness_result_checksum is not None`, and a non-empty
+world snapshot identity.
+
+**Invariant test:** `tests/invariants/test_world_snapshot_freshness_invariants.py`
+
+---
+
+## INV-POLICY-FRESH-002: Freshness Uses Only Caller-Supplied Time
+
+**Statement:** The deterministic core computes world snapshot age only from
+`evaluation_time_ms - WorldSnapshotStub.captured_at_ms`. It never reads wall-clock time,
+process state, environment state, files, networks, sensors, middleware, or hardware.
+
+**Contract and integration tests:** `tests/contracts/test_world_snapshot_freshness_contract.py`,
+`tests/integration/test_pipeline_world_snapshot_freshness.py`
+
+---
+
+## INV-POLICY-FRESH-003: Freshness Result Binds Snapshot, Time, and Policy
+
+**Statement:** A FRESH result is valid only when its snapshot ID, observed timestamp,
+evaluation time, maximum allowed age, status, and checksum match recomputation for the same
+snapshot, caller-supplied evaluation time, and `FreshnessPolicy`.
+
+**Contract and adversarial tests:** `tests/contracts/test_world_snapshot_freshness_contract.py`,
+`tests/adversarial/test_world_snapshot_staleness_bypass.py`
+
+---
+
+## INV-POLICY-FRESH-004: Freshness Binding Propagates Through Admission
+
+**Statement:** For any allowed pipeline result, `PolicyEvaluationResult`, `SafetyCase`, and
+`PolicyAdmissionRecord` carry identical snapshot identity, observed timestamp, freshness
+status, and freshness checksum.
+
+**Invariant test:** `tests/invariants/test_world_snapshot_freshness_invariants.py`
+
+---
+
+## INV-POLICY-FRESH-005: Non-Fresh Evidence Fails Closed
+
+**Statement:** Missing, stale, future-dated, malformed, contradictory, forged, reused, or
+unchecked freshness evidence cannot produce final gate approval.
+
+**Integration and adversarial tests:** `tests/integration/test_pipeline_world_snapshot_freshness.py`,
+`tests/adversarial/test_world_snapshot_staleness_bypass.py`

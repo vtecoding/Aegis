@@ -37,6 +37,9 @@ _RESERVED_EVIDENCE_FIELDS = frozenset(
         "world_snapshot_id",
         "world_snapshot_checksum",
         "constraint_evaluations",
+        "world_snapshot_observed_at_ms",
+        "freshness_result_checksum",
+        "freshness_status",
     }
 )
 
@@ -50,6 +53,9 @@ def build_safety_case(
     plan_id: str | None = None,
     plan_checksum: str | None = None,
     capability: Capability | None = None,
+    world_snapshot_observed_at_ms: int | None = None,
+    freshness_result_checksum: str | None = None,
+    freshness_status: str | None = None,
 ) -> SafetyCase:
     """Build a deterministic SafetyCase for a Policy-v1 evaluation result.
 
@@ -61,6 +67,11 @@ def build_safety_case(
         plan_id: Optional command plan identifier to bind.
         plan_checksum: Optional audited plan checksum to bind.
         capability: Optional capability evaluated by policy admission.
+        world_snapshot_observed_at_ms: Optional observed timestamp from the
+            freshness gate (Phase 2 Part 5).
+        freshness_result_checksum: Optional checksum from the freshness result
+            (Phase 2 Part 5).
+        freshness_status: Optional freshness status string (Phase 2 Part 5).
 
     Returns:
         A SafetyCase with a deterministic SHA-256 identifier.
@@ -86,6 +97,9 @@ def build_safety_case(
         capability_name=capability_name,
         capability_version=capability_version,
         supplied_evidence=supplied_evidence,
+        world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
+        freshness_result_checksum=freshness_result_checksum,
+        freshness_status=freshness_status,
     )
 
     if policy_result.decision.value == "ALLOW" and not policy_result.passed_constraints:
@@ -109,6 +123,9 @@ def build_safety_case(
         world_snapshot_checksum=world_snapshot_checksum,
         capability_name=capability_name,
         capability_version=capability_version,
+        world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
+        freshness_result_checksum=freshness_result_checksum,
+        freshness_status=freshness_status,
     )
 
 
@@ -144,6 +161,10 @@ def canonicalise_for_hash(value: object) -> CanonicalHashValue:
             "passed_constraints": list(value.passed_constraints),
             "failed_constraints": list(value.failed_constraints),
             "reasons": list(value.reasons),
+            "world_snapshot_id": value.world_snapshot_id,
+            "world_snapshot_observed_at_ms": value.world_snapshot_observed_at_ms,
+            "freshness_result_checksum": value.freshness_result_checksum,
+            "freshness_status": value.freshness_status,
         }
     if isinstance(value, Capability):
         return {
@@ -198,6 +219,9 @@ def _combined_safety_evidence(
     capability_name: str | None,
     capability_version: str | None,
     supplied_evidence: Mapping[str, object],
+    world_snapshot_observed_at_ms: int | None = None,
+    freshness_result_checksum: str | None = None,
+    freshness_status: str | None = None,
 ) -> dict[str, object]:
     constraint_evaluations = supplied_evidence.get("constraint_evaluations", ())
 
@@ -216,6 +240,9 @@ def _combined_safety_evidence(
         "world_snapshot_id": world_snapshot_id,
         "world_snapshot_checksum": world_snapshot_checksum,
         "constraint_evaluations": constraint_evaluations,
+        "world_snapshot_observed_at_ms": world_snapshot_observed_at_ms,
+        "freshness_result_checksum": freshness_result_checksum,
+        "freshness_status": freshness_status,
     }
     for key, value in supplied_evidence.items():
         if key not in _RESERVED_EVIDENCE_FIELDS:

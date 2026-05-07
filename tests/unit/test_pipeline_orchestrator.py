@@ -6,6 +6,11 @@ from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -55,6 +60,8 @@ def make_allowing_admission() -> PolicyAdmissionInput:
             ],
         ),
         capability=Capability("locomotion.translation", parameters={"velocity_mps": 0.2}),
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context(),
     )
 
 
@@ -86,7 +93,12 @@ def test_run_pipeline_valid_move_returns_allowed() -> None:
         priority=3,
         context=context,
     )
-    result = run_pipeline(intent, context, policy_admission=make_allowing_admission())
+    result = run_pipeline(
+        intent,
+        context,
+        policy_admission=make_allowing_admission(),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
     assert result.outcome == PipelineOutcome.ALLOWED
 
 
@@ -134,7 +146,12 @@ def test_run_pipeline_all_valid_commands_return_allowed(command: str, parameters
         priority=5,
         context=context,
     )
-    result = run_pipeline(intent, context, policy_admission=make_allowing_admission())
+    result = run_pipeline(
+        intent,
+        context,
+        policy_admission=make_allowing_admission(),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
     assert result.outcome == PipelineOutcome.ALLOWED
 
 
@@ -213,7 +230,12 @@ def test_run_pipeline_unexpected_exception_in_gate_returns_error() -> None:
 
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as mock_gate:
         mock_gate.side_effect = RuntimeError("simulated gate framework failure")
-        result = run_pipeline(intent, context, policy_admission=make_allowing_admission())
+        result = run_pipeline(
+            intent,
+            context,
+            policy_admission=make_allowing_admission(),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        )
 
     assert result.outcome == PipelineOutcome.ERROR
     assert result.validation_result is not None

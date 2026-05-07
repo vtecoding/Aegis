@@ -19,6 +19,13 @@ from aegis.contracts.policy_admission import (
     disabled_policy_admission_record,
     is_policy_backed_approval,
 )
+from aegis.contracts.world_snapshot_freshness import (
+    DEFAULT_FRESHNESS_POLICY,
+    FreshnessPolicy,
+    WorldSnapshotFreshnessResult,
+    WorldSnapshotFreshnessStatus,
+    validate_world_snapshot_freshness,
+)
 from aegis.errors import AegisError, PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
@@ -31,39 +38,52 @@ def run_pipeline(
     context: ExecutionContext,
     *,
     policy_admission: PolicyAdmissionInput | None = None,
+    evaluation_time_ms: int | None = None,
+    freshness_policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
 ) -> PipelineResult:
     """Run raw intent through the Aegis pipeline.
 
     Composes ``validate_intent`` -> ``plan_validated_intent`` ->
-    ``build_audited_plan`` -> optional policy admission ->
-    ``gate_audited_plan`` deterministically.
+    ``build_audited_plan`` -> optional world snapshot freshness gate ->
+    optional policy admission -> ``gate_audited_plan`` deterministically.
 
     ``AegisError`` subclasses (``ValidationError``, ``PlanningError``,
     ``AuditError``, ``GateError``) propagate to the caller unchanged.
 
     Only unexpected non-``AegisError`` exceptions are caught and returned
     as ``PipelineOutcome.ERROR`` with the fields populated up to the point
-    of failure.  This narrow boundary mirrors the scenario runner harness
-    policy and must not be copied into layer implementations.
+    of failure.
+
+    Phase 2 Part 5: when policy admission is enforced, the world snapshot must
+    pass deterministic freshness validation against ``evaluation_time_ms``
+    before policy evaluation. Stale, missing, malformed, or freshness-unchecked
+    snapshots fail closed and cannot produce ``PipelineOutcome.ALLOWED``.
 
     Args:
         raw_intent: Validated boundary object carrying raw intent data.
         context: Injected execution context for deterministic replay.
         policy_admission: Optional explicit Policy-v1 admission input. ``None``
             preserves legacy disabled-mode gate behaviour.
+        evaluation_time_ms: Caller-supplied evaluation time in milliseconds for
+            the freshness gate. Required for ENFORCE mode with a snapshot.
+            Never derived from system time.
+        freshness_policy: Caller-supplied freshness policy. Defaults to
+            ``DEFAULT_FRESHNESS_POLICY``.
 
     Returns:
         A ``PipelineResult`` with outcome ``ALLOWED``, ``BLOCKED``,
         ``INVALID``, or ``ERROR``.
     """
     admission_input = _normalize_policy_admission(policy_admission)
-    return _run(raw_intent, context, admission_input)
+    return _run(raw_intent, context, admission_input, evaluation_time_ms, freshness_policy)
 
 
 def _run(
     raw_intent: RawIntent,
     context: ExecutionContext,
     policy_admission: PolicyAdmissionInput,
+    evaluation_time_ms: int | None,
+    freshness_policy: FreshnessPolicy,
 ) -> PipelineResult:
     """Inner pipeline composition — separated for testability."""
     initial_policy_record = _not_run_policy_record(policy_admission)
@@ -131,6 +151,8 @@ def _run(
     policy_record, blocked_outcome = _evaluate_policy_admission(
         policy_admission=policy_admission,
         audited_plan=audited_plan,
+        evaluation_time_ms=evaluation_time_ms,
+        freshness_policy=freshness_policy,
     )
     if blocked_outcome is not None:
         return PipelineResult(
@@ -189,6 +211,11 @@ def _normalize_policy_admission(
     return policy_admission
 
 
+def _observed_at_or_none(result: WorldSnapshotFreshnessResult) -> int | None:
+    """Convert the freshness result observed_at sentinel ``-1`` to ``None``."""
+    return result.observed_at_ms if result.observed_at_ms >= 0 else None
+
+
 def _not_run_policy_record(policy_admission: PolicyAdmissionInput) -> PolicyAdmissionRecord:
     if policy_admission.mode is PolicyAdmissionMode.DISABLED:
         return disabled_policy_admission_record()
@@ -207,6 +234,8 @@ def _evaluate_policy_admission(
     *,
     policy_admission: PolicyAdmissionInput,
     audited_plan: AuditedPlan,
+    evaluation_time_ms: int | None,
+    freshness_policy: FreshnessPolicy,
 ) -> tuple[PolicyAdmissionRecord, PipelineOutcome | None]:
     if policy_admission.mode is PolicyAdmissionMode.DISABLED:
         return disabled_policy_admission_record(), PipelineOutcome.BLOCKED
@@ -216,12 +245,45 @@ def _evaluate_policy_admission(
     if policy_admission.capability is None:
         return _denied_policy_record("CAPABILITY_REQUIRED"), PipelineOutcome.BLOCKED
 
+    # Phase 2 Part 5: deterministic world snapshot freshness gate.
+    try:
+        freshness_result = validate_world_snapshot_freshness(
+            policy_admission.world_snapshot,
+            evaluation_time_ms=evaluation_time_ms,
+            freshness_policy=freshness_policy,
+        )
+    except AegisError:
+        raise
+    except Exception:  # noqa: BLE001
+        return (
+            _denied_policy_record(
+                "WORLD_SNAPSHOT_FRESHNESS_FAILED",
+                admission_decision=PolicyAdmissionDecision.ERROR,
+                integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                exception_reason="WORLD_SNAPSHOT_FRESHNESS_FAILED",
+            ),
+            PipelineOutcome.ERROR,
+        )
+
+    if freshness_result.status is not WorldSnapshotFreshnessStatus.FRESH:
+        reason, outcome = _freshness_block_reason_and_outcome(freshness_result.status)
+        return (
+            _denied_policy_record(
+                reason,
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
+            ),
+            outcome,
+        )
+
     try:
         policy_result = evaluate_policy(
             policy=policy_admission.policy,
             capability=policy_admission.capability,
             world_snapshot=policy_admission.world_snapshot,
             context=policy_admission.context,
+            freshness_result=freshness_result,
         )
     except AegisError:
         raise
@@ -232,6 +294,9 @@ def _evaluate_policy_admission(
                 admission_decision=PolicyAdmissionDecision.ERROR,
                 integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
                 exception_reason="POLICY_EVALUATION_FAILED",
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
             ),
             PipelineOutcome.ERROR,
         )
@@ -245,6 +310,9 @@ def _evaluate_policy_admission(
             plan_id=audited_plan.plan.plan_id,
             plan_checksum=audited_plan.checksum,
             capability=policy_admission.capability,
+            world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+            freshness_result_checksum=freshness_result.checksum,
+            freshness_status=freshness_result.status.value,
         )
     except AegisError:
         raise
@@ -257,13 +325,18 @@ def _evaluate_policy_admission(
                 admission_decision=PolicyAdmissionDecision.ERROR,
                 integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
                 exception_reason="SAFETY_CASE_BUILD_FAILED",
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
             ),
             PipelineOutcome.ERROR,
         )
 
     policy_record: PolicyAdmissionRecord | None = None
     try:
-        policy_record = _policy_record_from_result(policy_result, safety_case, audited_plan)
+        policy_record = _policy_record_from_result(
+            policy_result, safety_case, audited_plan, freshness_result
+        )
         if policy_record.admission_allowed:
             assert_policy_admission_integrity(audited_plan, policy_record)
     except PolicyAdmissionIntegrityError:
@@ -276,6 +349,9 @@ def _evaluate_policy_admission(
                     admission_decision=PolicyAdmissionDecision.ERROR,
                     integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
                     exception_reason="POLICY_ADMISSION_INTEGRITY_FAILED",
+                    world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                    freshness_result_checksum=freshness_result.checksum,
+                    freshness_status=freshness_result.status.value,
                 ),
                 PipelineOutcome.ERROR,
             )
@@ -289,6 +365,9 @@ def _evaluate_policy_admission(
                 admission_decision=PolicyAdmissionDecision.ERROR,
                 integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
                 exception_reason="POLICY_ADMISSION_RECORD_FAILED",
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
             ),
             PipelineOutcome.ERROR,
         )
@@ -296,6 +375,32 @@ def _evaluate_policy_admission(
     if policy_record.admission_allowed:
         return policy_record, None
     return policy_record, _blocked_policy_outcome(policy_result)
+
+
+def _freshness_block_reason_and_outcome(
+    status: WorldSnapshotFreshnessStatus,
+) -> tuple[str, PipelineOutcome]:
+    if status is WorldSnapshotFreshnessStatus.STALE:
+        return "WORLD_SNAPSHOT_STALE", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotFreshnessStatus.MISSING_SNAPSHOT:
+        return "WORLD_SNAPSHOT_MISSING", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotFreshnessStatus.MISSING_TIMESTAMP:
+        return "WORLD_SNAPSHOT_MISSING_TIMESTAMP", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotFreshnessStatus.MISSING_EVALUATION_TIME:
+        return "WORLD_SNAPSHOT_MISSING_EVALUATION_TIME", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotFreshnessStatus.FUTURE_DATED:
+        return "WORLD_SNAPSHOT_FUTURE_DATED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotFreshnessStatus.SNAPSHOT_ID_MISSING:
+        return "WORLD_SNAPSHOT_ID_MISSING", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotFreshnessStatus.CONTRADICTORY_METADATA:
+        return "WORLD_SNAPSHOT_CONTRADICTORY_METADATA", PipelineOutcome.INVALID
+    if status is WorldSnapshotFreshnessStatus.INVALID_MAX_AGE:
+        return "WORLD_SNAPSHOT_INVALID_MAX_AGE", PipelineOutcome.INVALID
+    if status is WorldSnapshotFreshnessStatus.INVALID_TIMESTAMP:
+        return "WORLD_SNAPSHOT_INVALID_TIMESTAMP", PipelineOutcome.INVALID
+    if status is WorldSnapshotFreshnessStatus.NOT_CHECKED:
+        return "WORLD_SNAPSHOT_NOT_CHECKED", PipelineOutcome.BLOCKED
+    return "WORLD_SNAPSHOT_FRESHNESS_ERROR", PipelineOutcome.ERROR
 
 
 def _denied_policy_record(
@@ -306,6 +411,9 @@ def _denied_policy_record(
     admission_decision: PolicyAdmissionDecision | None = None,
     integrity_status: PolicyAdmissionIntegrityStatus | None = None,
     exception_reason: str | None = None,
+    world_snapshot_observed_at_ms: int | None = None,
+    freshness_result_checksum: str | None = None,
+    freshness_status: str | None = None,
 ) -> PolicyAdmissionRecord:
     reasons = (reason,) if policy_result is None else _with_reason(policy_result.reasons, reason)
     return PolicyAdmissionRecord(
@@ -318,6 +426,9 @@ def _denied_policy_record(
         admission_decision=admission_decision,
         integrity_status=integrity_status,
         exception_reason=exception_reason,
+        world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
+        freshness_result_checksum=freshness_result_checksum,
+        freshness_status=freshness_status,
     )
 
 
@@ -331,6 +442,7 @@ def _policy_record_from_result(
     policy_result: PolicyEvaluationResult,
     safety_case: SafetyCase,
     audited_plan: AuditedPlan,
+    freshness_result: WorldSnapshotFreshnessResult,
 ) -> PolicyAdmissionRecord:
     admission_allowed = policy_result.decision is PolicyDecision.ALLOW
     return PolicyAdmissionRecord(
@@ -355,6 +467,9 @@ def _policy_record_from_result(
             if admission_allowed
             else PolicyAdmissionIntegrityStatus.NOT_CHECKED
         ),
+        world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
 
@@ -386,6 +501,9 @@ def _error_policy_record(
         admission_decision=PolicyAdmissionDecision.ERROR,
         integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
         exception_reason=reason,
+        world_snapshot_observed_at_ms=policy_record.world_snapshot_observed_at_ms,
+        freshness_result_checksum=policy_record.freshness_result_checksum,
+        freshness_status=policy_record.freshness_status,
     )
 
 

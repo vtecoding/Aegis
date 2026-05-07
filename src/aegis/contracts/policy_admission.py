@@ -167,6 +167,9 @@ class PolicyAdmissionRecord:
     admission_decision: PolicyAdmissionDecision
     integrity_status: PolicyAdmissionIntegrityStatus
     exception_reason: str | None
+    world_snapshot_observed_at_ms: int | None
+    freshness_result_checksum: str | None
+    freshness_status: str | None
 
     def __init__(
         self,
@@ -190,6 +193,9 @@ class PolicyAdmissionRecord:
         admission_decision: str | PolicyAdmissionDecision | None = None,
         integrity_status: str | PolicyAdmissionIntegrityStatus | None = None,
         exception_reason: str | None = None,
+        world_snapshot_observed_at_ms: int | None = None,
+        freshness_result_checksum: str | None = None,
+        freshness_status: str | None = None,
     ) -> None:
         normalized_mode = _normalize_mode(mode)
         if not isinstance(enforced, bool):
@@ -227,6 +233,13 @@ class PolicyAdmissionRecord:
         normalized_capability_version = _normalize_optional_text(
             capability_version, "capability_version"
         )
+        normalized_world_snapshot_observed_at_ms = _normalize_optional_observed_at_ms(
+            world_snapshot_observed_at_ms
+        )
+        normalized_freshness_result_checksum = _normalize_optional_text(
+            freshness_result_checksum, "freshness_result_checksum"
+        )
+        normalized_freshness_status = _normalize_optional_freshness_status(freshness_status)
 
         if normalized_mode is PolicyAdmissionMode.DISABLED:
             _validate_disabled_record(
@@ -248,7 +261,10 @@ class PolicyAdmissionRecord:
                     normalized_capability_name,
                     normalized_capability_version,
                     normalized_exception_reason,
+                    normalized_freshness_result_checksum,
+                    normalized_freshness_status,
                 ),
+                disabled_observed_at_ms=normalized_world_snapshot_observed_at_ms,
             )
 
         if normalized_mode is PolicyAdmissionMode.ENFORCE:
@@ -271,6 +287,9 @@ class PolicyAdmissionRecord:
                 capability_name=normalized_capability_name,
                 capability_version=normalized_capability_version,
                 exception_reason=normalized_exception_reason,
+                world_snapshot_observed_at_ms=normalized_world_snapshot_observed_at_ms,
+                freshness_result_checksum=normalized_freshness_result_checksum,
+                freshness_status=normalized_freshness_status,
             )
 
         object.__setattr__(self, "mode", normalized_mode)
@@ -292,6 +311,11 @@ class PolicyAdmissionRecord:
         object.__setattr__(self, "admission_decision", normalized_admission_decision)
         object.__setattr__(self, "integrity_status", normalized_integrity_status)
         object.__setattr__(self, "exception_reason", normalized_exception_reason)
+        object.__setattr__(
+            self, "world_snapshot_observed_at_ms", normalized_world_snapshot_observed_at_ms
+        )
+        object.__setattr__(self, "freshness_result_checksum", normalized_freshness_result_checksum)
+        object.__setattr__(self, "freshness_status", normalized_freshness_status)
 
 
 def disabled_policy_admission_record() -> PolicyAdmissionRecord:
@@ -317,6 +341,7 @@ def _validate_disabled_record(
     admission_decision: PolicyAdmissionDecision,
     integrity_status: PolicyAdmissionIntegrityStatus,
     binding_values: tuple[str | None, ...],
+    disabled_observed_at_ms: int | None = None,
 ) -> None:
     if enforced:
         raise ValueError("DISABLED admission records must not be enforced")
@@ -331,6 +356,8 @@ def _validate_disabled_record(
     if integrity_status is not PolicyAdmissionIntegrityStatus.DISABLED:
         raise ValueError("DISABLED admission records must use DISABLED integrity_status")
     if any(value is not None for value in binding_values):
+        raise ValueError("DISABLED admission records must not contain admission bindings")
+    if disabled_observed_at_ms is not None:
         raise ValueError("DISABLED admission records must not contain admission bindings")
 
 
@@ -354,6 +381,9 @@ def _validate_enforced_record(
     capability_name: str | None,
     capability_version: str | None,
     exception_reason: str | None,
+    world_snapshot_observed_at_ms: int | None = None,
+    freshness_result_checksum: str | None = None,
+    freshness_status: str | None = None,
 ) -> None:
     if not enforced:
         raise ValueError("ENFORCE admission records must be enforced")
@@ -395,6 +425,22 @@ def _validate_enforced_record(
             world_snapshot_checksum=world_snapshot_checksum,
             capability_name=capability_name,
             capability_version=capability_version,
+            world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
+            freshness_result_checksum=freshness_result_checksum,
+            freshness_status=freshness_status,
+        )
+        _validate_policy_result_freshness_bindings(
+            policy_result=policy_result,
+            world_snapshot_id=world_snapshot_id,
+            world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
+            freshness_result_checksum=freshness_result_checksum,
+            freshness_status=freshness_status,
+        )
+        _require_freshness_backed_admission(
+            world_snapshot_id=world_snapshot_id,
+            world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
+            freshness_result_checksum=freshness_result_checksum,
+            freshness_status=freshness_status,
         )
     elif reasons == ():
         raise ValueError("denied ENFORCE admission requires reasons")
@@ -498,6 +544,23 @@ def _policy_admission_integrity_violations(
     if safety_case is None:
         violations.append("SAFETY_CASE_MISSING")
 
+    if policy_result is not None:
+        _append_mismatch(
+            violations,
+            policy_result.world_snapshot_id,
+            policy_admission.world_snapshot_id,
+            "POLICY_RESULT_WORLD_SNAPSHOT_ID",
+        )
+        if (
+            policy_result.world_snapshot_observed_at_ms
+            != policy_admission.world_snapshot_observed_at_ms
+        ):
+            violations.append("POLICY_RESULT_WORLD_SNAPSHOT_OBSERVED_AT_MS_MISMATCH")
+        if policy_result.freshness_result_checksum != policy_admission.freshness_result_checksum:
+            violations.append("POLICY_RESULT_FRESHNESS_RESULT_CHECKSUM_MISMATCH")
+        if policy_result.freshness_status != policy_admission.freshness_status:
+            violations.append("POLICY_RESULT_FRESHNESS_STATUS_MISMATCH")
+
     expected_policy_result_checksum = (
         policy_evaluation_result_checksum(policy_result) if policy_result is not None else None
     )
@@ -569,8 +632,26 @@ def _policy_admission_integrity_violations(
             policy_admission.capability_version,
             "SAFETY_CASE_CAPABILITY_VERSION",
         )
+        if (
+            safety_case.world_snapshot_observed_at_ms
+            != policy_admission.world_snapshot_observed_at_ms
+        ):
+            violations.append("SAFETY_CASE_WORLD_SNAPSHOT_OBSERVED_AT_MS_MISMATCH")
+        if safety_case.freshness_result_checksum != policy_admission.freshness_result_checksum:
+            violations.append("SAFETY_CASE_FRESHNESS_RESULT_CHECKSUM_MISMATCH")
+        if safety_case.freshness_status != policy_admission.freshness_status:
+            violations.append("SAFETY_CASE_FRESHNESS_STATUS_MISMATCH")
         if policy_result is not None and safety_case.policy_result != policy_result:
             violations.append("SAFETY_CASE_POLICY_RESULT_MISMATCH")
+
+    if policy_admission.freshness_status != "FRESH":
+        violations.append("FRESHNESS_STATUS_NOT_FRESH")
+    if policy_admission.freshness_result_checksum is None:
+        violations.append("FRESHNESS_RESULT_CHECKSUM_MISSING")
+    if policy_admission.world_snapshot_id is None:
+        violations.append("FRESHNESS_WORLD_SNAPSHOT_ID_MISSING")
+    if policy_admission.world_snapshot_observed_at_ms is None:
+        violations.append("FRESHNESS_WORLD_SNAPSHOT_OBSERVED_AT_MS_MISSING")
 
     return tuple(violations)
 
@@ -623,6 +704,9 @@ def _validate_safety_case_bindings(
     world_snapshot_checksum: str | None,
     capability_name: str | None,
     capability_version: str | None,
+    world_snapshot_observed_at_ms: int | None = None,
+    freshness_result_checksum: str | None = None,
+    freshness_status: str | None = None,
 ) -> None:
     if safety_case.audited_plan_id != audit_id:
         raise ValueError("safety_case audited plan binding must match admission audit_id")
@@ -638,6 +722,49 @@ def _validate_safety_case_bindings(
         raise ValueError("safety_case capability_name must match admission")
     if safety_case.capability_version != capability_version:
         raise ValueError("safety_case capability_version must match admission")
+    if safety_case.world_snapshot_observed_at_ms != world_snapshot_observed_at_ms:
+        raise ValueError("safety_case world_snapshot_observed_at_ms must match admission")
+    if safety_case.freshness_result_checksum != freshness_result_checksum:
+        raise ValueError("safety_case freshness_result_checksum must match admission")
+    if safety_case.freshness_status != freshness_status:
+        raise ValueError("safety_case freshness_status must match admission")
+
+
+def _validate_policy_result_freshness_bindings(
+    *,
+    policy_result: PolicyEvaluationResult,
+    world_snapshot_id: str | None,
+    world_snapshot_observed_at_ms: int | None,
+    freshness_result_checksum: str | None,
+    freshness_status: str | None,
+) -> None:
+    if policy_result.world_snapshot_id != world_snapshot_id:
+        raise ValueError("policy_result world_snapshot_id must match admission")
+    if policy_result.world_snapshot_observed_at_ms != world_snapshot_observed_at_ms:
+        raise ValueError("policy_result world_snapshot_observed_at_ms must match admission")
+    if policy_result.freshness_result_checksum != freshness_result_checksum:
+        raise ValueError("policy_result freshness_result_checksum must match admission")
+    if policy_result.freshness_status != freshness_status:
+        raise ValueError("policy_result freshness_status must match admission")
+
+
+def _require_freshness_backed_admission(
+    *,
+    world_snapshot_id: str | None,
+    world_snapshot_observed_at_ms: int | None,
+    freshness_result_checksum: str | None,
+    freshness_status: str | None,
+) -> None:
+    if world_snapshot_id is None:
+        raise ValueError("allowed ENFORCE admission requires freshness-backed world_snapshot_id")
+    if world_snapshot_observed_at_ms is None:
+        raise ValueError(
+            "allowed ENFORCE admission requires freshness-backed world_snapshot_observed_at_ms"
+        )
+    if freshness_result_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires freshness_result_checksum")
+    if freshness_status != "FRESH":
+        raise ValueError("allowed ENFORCE admission requires freshness_status FRESH")
 
 
 def _normalize_mode(value: str | PolicyAdmissionMode) -> PolicyAdmissionMode:
@@ -709,6 +836,46 @@ def _normalize_optional_text(value: str | None, field_name: str) -> str | None:
     if value is None:
         return None
     return _normalize_required_text(value, field_name)
+
+
+def _normalize_optional_observed_at_ms(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("world_snapshot_observed_at_ms must be an integer or None")
+    if value < 0:
+        raise ValueError("world_snapshot_observed_at_ms must be >= 0")
+    return value
+
+
+_VALID_FRESHNESS_STATUS_VALUES = frozenset(
+    {
+        "FRESH",
+        "STALE",
+        "MISSING_SNAPSHOT",
+        "MISSING_TIMESTAMP",
+        "MISSING_EVALUATION_TIME",
+        "FUTURE_DATED",
+        "INVALID_MAX_AGE",
+        "INVALID_TIMESTAMP",
+        "SNAPSHOT_ID_MISSING",
+        "CONTRADICTORY_METADATA",
+        "NOT_CHECKED",
+        "ERROR",
+    }
+)
+
+
+def _normalize_optional_freshness_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("freshness_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("freshness_status must not contain surrounding whitespace")
+    if value not in _VALID_FRESHNESS_STATUS_VALUES:
+        raise ValueError(f"freshness_status not recognised: {value!r}")
+    return value
 
 
 def _normalize_policy_id(

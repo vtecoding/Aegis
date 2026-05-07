@@ -27,6 +27,15 @@ class PipelineOutcome(StrEnum):
     ERROR = "error"
 
 
+_FRESHNESS_INVALID_REASONS = frozenset(
+    {
+        "WORLD_SNAPSHOT_CONTRADICTORY_METADATA",
+        "WORLD_SNAPSHOT_INVALID_MAX_AGE",
+        "WORLD_SNAPSHOT_INVALID_TIMESTAMP",
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class PipelineResult:
     """Immutable result of one full Phase 1 pipeline run.
@@ -95,9 +104,17 @@ class PipelineResult:
                 and self.policy_admission.policy_result is not None
                 and self.policy_admission.policy_result.decision is PolicyDecision.INVALID
             )
-            if self.plan is not None and not policy_invalid:
+            freshness_invalid = (
+                self.policy_admission.enforced
+                and not self.policy_admission.admission_allowed
+                and self.policy_admission.policy_result is None
+                and any(
+                    reason in _FRESHNESS_INVALID_REASONS for reason in self.policy_admission.reasons
+                )
+            )
+            if self.plan is not None and not policy_invalid and not freshness_invalid:
                 raise ValueError("PipelineResult outcome=INVALID must have plan=None")
-            if self.audited_plan is not None and not policy_invalid:
+            if self.audited_plan is not None and not policy_invalid and not freshness_invalid:
                 raise ValueError("PipelineResult outcome=INVALID must have audited_plan=None")
             if self.gate_decision is not None:
                 raise ValueError("PipelineResult outcome=INVALID must have gate_decision=None")

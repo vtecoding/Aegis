@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 4: Policy admission hardening & bypass audit** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 5: World snapshot freshness gate** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 2 Part 4 — Policy Admission Hardening
+## 2. Current Phase: Phase 2 Part 5 — World Snapshot Freshness Gate
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -222,6 +222,26 @@ are rejected rather than normalized.
 This slice still does not ingest live world state, integrate ROS, simulation, middleware,
 sensors, hardware, network services, databases, LLMs, or physical actuation. It does not prove
 semantic physical safety, runtime robot safety, collision safety, or certification readiness.
+
+### Phase 2 Part 5: World Snapshot Freshness & Staleness Gate
+
+Phase 2 Part 5 makes deterministic world snapshot freshness mandatory for ENFORCE approval
+paths. Policy admission now runs only after a caller-supplied `WorldSnapshotStub` is checked
+against a caller-supplied `evaluation_time_ms` and a deterministic `FreshnessPolicy`. The
+core computes `age_ms = evaluation_time_ms - snapshot.captured_at_ms`; it never reads wall-clock
+time, process state, environment state, files, networks, sensors, middleware, or hardware.
+
+`PipelineOutcome.ALLOWED` now requires all Part 4 policy-backed approval evidence plus a
+FRESH snapshot binding carried consistently through `PolicyEvaluationResult`, `SafetyCase`,
+and `PolicyAdmissionRecord`. Missing snapshots, missing evaluation time, stale snapshots,
+future-dated snapshots, malformed timestamps, invalid freshness policy values, contradictory
+snapshot metadata, forged freshness checksums, and mismatched freshness bindings fail closed
+before final gate approval.
+
+This slice proves deterministic freshness only: that supplied evidence is not older than the
+configured age bound at the supplied evaluation time. It does not prove real-world truth,
+source attestation, live sensing correctness, ROS/middleware safety, simulation safety,
+collision safety, actuator safety, certification readiness, or physical robot safety.
 
 ---
 

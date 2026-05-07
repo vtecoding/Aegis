@@ -5,6 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
+
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome
@@ -15,7 +21,6 @@ from aegis.contracts.policy import (
     PolicyDecision,
     PolicyEvaluationResult,
     PolicyRule,
-    WorldSnapshotStub,
 )
 from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.errors import PolicyAdmissionIntegrityError
@@ -47,6 +52,8 @@ def _admission(policy: Policy, capability: Capability | None = None) -> PolicyAd
         PolicyAdmissionMode.ENFORCE,
         policy=policy,
         capability=capability or _capability(),
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context(),
     )
 
 
@@ -75,11 +82,16 @@ def test_policy_enforced_pipeline_with_world_snapshot_allows_then_gates() -> Non
         PolicyAdmissionMode.ENFORCE,
         policy=policy,
         capability=Capability("locomotion.translation", parameters={"velocity_mps": 0.2}),
-        world_snapshot=WorldSnapshotStub("snapshot-1", 100, 200, "fixture", 0.9),
-        context={"requested_at_ms": 150},
+        world_snapshot=fresh_world_snapshot("snapshot-1", confidence=0.9),
+        context=fresh_policy_context(),
     )
 
-    result = run_pipeline(intent, context, policy_admission=admission)
+    result = run_pipeline(
+        intent,
+        context,
+        policy_admission=admission,
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
 
     assert result.outcome is PipelineOutcome.ALLOWED
     assert result.gate_decision is not None
@@ -95,6 +107,7 @@ def test_policy_block_returns_blocked_without_gate() -> None:
         _intent(context),
         context,
         policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 0.1}))),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -111,6 +124,7 @@ def test_policy_require_review_returns_non_approved_without_gate() -> None:
         policy_admission=_admission(
             _policy(Constraint("max_velocity", {"max_mps": 0.1}, required=False))
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -135,6 +149,7 @@ def test_policy_invalid_returns_invalid_without_gate() -> None:
             _intent(context),
             context,
             policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.INVALID
@@ -148,6 +163,7 @@ def test_policy_evaluator_exception_returns_error_without_approval() -> None:
             _intent(context),
             context,
             policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -162,6 +178,7 @@ def test_safety_case_exception_returns_error_without_approval() -> None:
             _intent(context),
             context,
             policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -177,6 +194,7 @@ def test_admission_integrity_exception_returns_error_without_approval() -> None:
             _intent(context),
             context,
             policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.ERROR

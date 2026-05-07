@@ -1,4 +1,4 @@
-# Aegis Master Specification — Phase 1 + Phase 2 Part 4
+# Aegis Master Specification — Phase 1 + Phase 2 Part 5
 
 ## Purpose
 
@@ -12,6 +12,8 @@ foundation. Phase 2 Part 2 added a pure evaluator over those contracts. Phase 2 
 wired that evaluator into the pipeline admission path after audit and before final gate
 approval. Phase 2 Part 4 hardens that boundary so pipeline approval requires enforced,
 integrity-passed policy admission and cannot be skipped, forged, mismatched, or degraded.
+Phase 2 Part 5 adds a deterministic freshness gate: ENFORCE approval now requires an
+explicit world snapshot that is FRESH at an explicit caller-supplied evaluation time.
 
 Aegis does not execute robot commands. Phase 1 produces a typed decision (`ALLOWED` or
 `BLOCKED`) and an immutable audit receipt. Policy-v1 contracts, the pure evaluator, and
@@ -110,6 +112,26 @@ runtime robot safety, or certification readiness.
 
 ---
 
+## Phase 2 Part 5 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Deterministic `FreshnessPolicy` and `WorldSnapshotFreshnessResult` contracts | Real-world truth or source attestation |
+| Freshness calculation from `evaluation_time_ms - WorldSnapshotStub.captured_at_ms` | Wall-clock, process, environment, sensor, middleware, or hardware time reads |
+| Mandatory FRESH snapshot binding for ENFORCE approval paths | Optional `world_snapshot` on approval paths |
+| Freshness checksum binding through `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord` | Trusting cached or caller-forged freshness evidence |
+| Fail-closed handling for missing, stale, future-dated, malformed, or contradictory freshness evidence | Live world-state ingestion, simulation safety, ROS 2, hardware, or actuation |
+
+Honest status after Part 5: Aegis can deterministically prove that an allowed pipeline
+result was backed by caller-supplied snapshot evidence whose age was within the configured
+freshness bound at the caller-supplied evaluation time.
+
+Forbidden status after Part 5: Aegis proves that the snapshot reflects physical reality,
+that a sensor was trustworthy, that middleware or simulation is safe, or that a robot action
+is physically safe.
+
+---
+
 ## Non-Goals
 
 - No production safety claims. Phase 1 correctness is bounded by typed contracts,
@@ -117,6 +139,7 @@ runtime robot safety, or certification readiness.
   quality gates.
 - No real-world robot safety certification.
 - No claim that Policy-v1 contracts prove semantic physical safety.
+- No claim that freshness proves real-world truth, source attestation, live sensing correctness, simulation safety, middleware safety, or actuator safety.
 - No LLM SDK dependencies anywhere in the deterministic core.
 - No ROS 2, hardware, or network I/O inside `src/aegis/`.
 
@@ -130,16 +153,20 @@ runtime robot safety, or certification readiness.
    (stub)
 ```
 
-Phase 2 inserts policy admission after audit and before the final gate:
+Phase 2 inserts freshness-backed policy admission after audit and before the final gate:
 
 ```text
 RawIntent → ValidationResult → CommandPlan → AuditedPlan
-    → PolicyAdmissionRecord(PolicyEvaluationResult + SafetyCase) → GateDecision
+    → WorldSnapshotFreshnessResult → PolicyAdmissionRecord(PolicyEvaluationResult + SafetyCase)
+    → GateDecision
 ```
 
 Disabled mode is observable but non-approved and does not call the final gate. Enforced
 mode requires explicit policy and capability inputs and fails closed when admission is
 missing, denied, stale, mismatched, forged, malformed, contradictory, or internally errored.
+ENFORCE approval additionally requires an explicit `world_snapshot`, an explicit
+`evaluation_time_ms`, and FRESH freshness binding across policy result, SafetyCase, and
+admission record.
 
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
 communication uses typed contracts in `contracts/`.
@@ -167,8 +194,11 @@ plan_validated_intent(validation_result) → CommandPlan
 build_audited_plan(plan) → AuditedPlan
     ↓
 if policy_admission.mode == ENFORCE:
+    validate WorldSnapshotStub freshness using caller-supplied evaluation_time_ms
+    if freshness is not FRESH → non-approved PipelineResult, gate not reached
     evaluate Policy + Capability + optional WorldSnapshotStub
-    build SafetyCase bound to AuditedPlan audit ID, plan, policy result, world snapshot, and capability
+    bind freshness evidence into PolicyEvaluationResult
+    build SafetyCase bound to AuditedPlan audit ID, plan, policy result, world snapshot, capability, and freshness
     assert PolicyAdmissionRecord integrity against AuditedPlan and SafetyCase
     if decision != ALLOW → non-approved PipelineResult, gate not reached
 else:
@@ -214,6 +244,11 @@ run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
     admission integrity `PASSED`, and matching allowed gate decision.
 28. Forged, stale, mismatched, skipped, malformed, or contradictory admission records fail closed.
 29. Security decision strings are exact; confusable, case-changed, or whitespace-marked `ALLOW` variants are rejected.
+30. `PipelineOutcome.ALLOWED` requires freshness status `FRESH` for the admitted world snapshot.
+31. Freshness age is computed only as `evaluation_time_ms - WorldSnapshotStub.captured_at_ms`.
+32. `evaluation_time_ms` is caller-supplied; the deterministic core never derives it from wall-clock time.
+33. Freshness snapshot identity, observed time, status, and checksum match across `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
+34. Missing, stale, future-dated, malformed, contradictory, or unchecked freshness evidence fails closed before final gate approval.
 
 ---
 
@@ -241,6 +276,7 @@ enforced = run_pipeline(
         capability=capability,
         world_snapshot=snapshot,
     ),
+    evaluation_time_ms=caller_supplied_evaluation_time_ms,
 )
 ```
 

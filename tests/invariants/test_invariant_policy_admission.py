@@ -6,6 +6,11 @@ from datetime import UTC, datetime
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -92,7 +97,10 @@ def test_invariant_policy_block_dominates_gate(command: str, velocity_mps: float
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(Constraint("max_velocity", {"max_mps": 0.1})),
             capability=_capability(velocity_mps),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is not PipelineOutcome.ALLOWED
@@ -115,7 +123,10 @@ def test_invariant_policy_review_dominates_gate(command: str, velocity_mps: floa
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(Constraint("max_velocity", {"max_mps": 0.1}, required=False)),
             capability=_capability(velocity_mps),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is not PipelineOutcome.ALLOWED
@@ -146,8 +157,11 @@ def test_invariant_safety_case_binds_actual_audited_plan(command: str, priority:
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(Constraint("max_velocity", {"max_mps": 0.5})),
             capability=_capability(0.2),
+            world_snapshot=fresh_world_snapshot(),
+            context=fresh_policy_context(),
             evidence={"audited_plan_id": "forged"},
         ),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -165,11 +179,22 @@ def test_invariant_policy_admission_is_deterministic(command: str, priority: int
         PolicyAdmissionMode.ENFORCE,
         policy=_policy(Constraint("max_velocity", {"max_mps": 0.5})),
         capability=_capability(0.2),
-        context={"authorisations": ["operator"]},
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context({"authorisations": ["operator"]}),
     )
 
-    result_a = run_pipeline(intent, context, policy_admission=admission)
-    result_b = run_pipeline(intent, context, policy_admission=admission)
+    result_a = run_pipeline(
+        intent,
+        context,
+        policy_admission=admission,
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
+    result_b = run_pipeline(
+        intent,
+        context,
+        policy_admission=admission,
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
 
     assert result_a == result_b
 
@@ -181,12 +206,23 @@ def test_invariant_source_context_mutation_cannot_change_constructed_admission()
         PolicyAdmissionMode.ENFORCE,
         policy=_policy(Constraint("requires_authorisation", {"authorisation": "admin"})),
         capability=_capability(0.2),
-        context=source_context,
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context(source_context),
     )
-    result_a = run_pipeline(_intent("move", 5, context), context, policy_admission=admission)
+    result_a = run_pipeline(
+        _intent("move", 5, context),
+        context,
+        policy_admission=admission,
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
 
     source_context["authorisations"].append("admin")
-    result_b = run_pipeline(_intent("move", 5, context), context, policy_admission=admission)
+    result_b = run_pipeline(
+        _intent("move", 5, context),
+        context,
+        policy_admission=admission,
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+    )
 
     assert result_a == result_b
     assert result_b.outcome is PipelineOutcome.BLOCKED

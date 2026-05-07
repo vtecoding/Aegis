@@ -6,6 +6,11 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import pytest
+from tests.policy_freshness_fixtures import (
+    bind_policy_result_to_freshness,
+    fresh_world_snapshot,
+    fresh_world_snapshot_result,
+)
 
 from aegis.audit import build_audited_plan
 from aegis.contracts.context import ExecutionContext
@@ -51,13 +56,15 @@ def _capability() -> Capability:
 
 
 def _allow_result() -> PolicyEvaluationResult:
-    return PolicyEvaluationResult(
-        PolicyDecision.ALLOW,
-        "policy-1",
-        ["rule-1"],
-        ["rule-1:0:max_velocity"],
-        [],
-        ["POLICY_ALLOWED"],
+    return bind_policy_result_to_freshness(
+        PolicyEvaluationResult(
+            PolicyDecision.ALLOW,
+            "policy-1",
+            ["rule-1"],
+            ["rule-1:0:max_velocity"],
+            [],
+            ["POLICY_ALLOWED"],
+        )
     )
 
 
@@ -73,18 +80,25 @@ def _block_result() -> PolicyEvaluationResult:
 
 
 def _safety_case(result: PolicyEvaluationResult) -> object:
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
     return build_safety_case(
         policy_result=result,
         audited_plan_id="audit-1",
+        world_snapshot=snapshot,
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id="plan-1",
         plan_checksum="checksum-1",
         capability=_capability(),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
 
 def _allowed_record(result: PolicyEvaluationResult) -> PolicyAdmissionRecord:
     safety_case = _safety_case(result)
+    freshness_result = fresh_world_snapshot_result()
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
         policy_result=result,
@@ -95,8 +109,13 @@ def _allowed_record(result: PolicyEvaluationResult) -> PolicyAdmissionRecord:
         audit_id="audit-1",
         plan_id="plan-1",
         plan_checksum="checksum-1",
+        world_snapshot_id=safety_case.world_snapshot_id,
+        world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name="locomotion.translation",
         capability_version="v1",
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
 
@@ -112,15 +131,20 @@ def _bound_allowed_record(
     *, world_snapshot: WorldSnapshotStub | None = None
 ) -> PolicyAdmissionRecord:
     audited_plan = _audited_plan()
-    result = _allow_result()
+    snapshot = world_snapshot or fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    result = bind_policy_result_to_freshness(_allow_result(), freshness_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
-        world_snapshot=world_snapshot,
+        world_snapshot=snapshot,
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
         capability=_capability(),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -136,6 +160,9 @@ def _bound_allowed_record(
         world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name=safety_case.capability_name,
         capability_version=safety_case.capability_version,
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
 
@@ -711,7 +738,7 @@ def test_allowed_record_rejects_safety_case_binding_mismatches(
     value: str,
     message: str,
 ) -> None:
-    snapshot = WorldSnapshotStub("snapshot-1", 0, 10, "fixture", 1.0, checksum="snap-check")
+    snapshot = fresh_world_snapshot("snapshot-1", checksum="snap-check")
     record = _bound_allowed_record(world_snapshot=snapshot)
     kwargs = {
         "audit_id": record.audit_id,
@@ -738,14 +765,20 @@ def test_allowed_record_rejects_safety_case_binding_mismatches(
 
 def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
     audited_plan = _audited_plan()
-    result = _allow_result()
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    result = bind_policy_result_to_freshness(_allow_result(), freshness_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
+        world_snapshot=snapshot,
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
         capability=_capability(),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
     record = PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -757,8 +790,13 @@ def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
         audit_id=audited_plan.audit_id,
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
+        world_snapshot_id=safety_case.world_snapshot_id,
+        world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name=safety_case.capability_name,
         capability_version=safety_case.capability_version,
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
 
     integrity = assert_policy_admission_integrity(audited_plan, record)
@@ -772,14 +810,20 @@ def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
 
 def test_policy_backed_approval_predicate_rejects_non_matching_gate_states() -> None:
     audited_plan = _audited_plan()
-    result = _allow_result()
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    result = bind_policy_result_to_freshness(_allow_result(), freshness_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
+        world_snapshot=snapshot,
         evidence={"capability_name": "locomotion.translation", "capability_version": "v1"},
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
         capability=_capability(),
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
     record = PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -791,8 +835,13 @@ def test_policy_backed_approval_predicate_rejects_non_matching_gate_states() -> 
         audit_id=audited_plan.audit_id,
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
+        world_snapshot_id=safety_case.world_snapshot_id,
+        world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name=safety_case.capability_name,
         capability_version=safety_case.capability_version,
+        world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
+        freshness_result_checksum=freshness_result.checksum,
+        freshness_status=freshness_result.status.value,
     )
     allowed_gate = gate_audited_plan(audited_plan)
     blocked_gate = GateDecision(

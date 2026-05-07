@@ -5,6 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+from tests.policy_freshness_fixtures import (
+    FRESH_EVALUATION_TIME_MS,
+    fresh_policy_context,
+    fresh_world_snapshot,
+)
+
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
 from aegis.contracts.intent import RawIntent
@@ -51,16 +57,26 @@ def _blocked_gate_decision() -> GateDecision:
     )
 
 
+def _admission(
+    policy: Policy, *, evidence: dict[str, object] | None = None
+) -> PolicyAdmissionInput:
+    return PolicyAdmissionInput(
+        PolicyAdmissionMode.ENFORCE,
+        policy=policy,
+        capability=_capability(),
+        world_snapshot=fresh_world_snapshot(),
+        context=fresh_policy_context(),
+        evidence=evidence,
+    )
+
+
 def test_policy_allow_and_valid_gate_approves() -> None:
     context = _context()
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=PolicyAdmissionInput(
-            PolicyAdmissionMode.ENFORCE,
-            policy=_policy(0.5),
-            capability=_capability(),
-        ),
+        policy_admission=_admission(_policy(0.5)),
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -77,11 +93,8 @@ def test_policy_allow_does_not_bypass_gate_integrity_failure() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_policy(0.5),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_policy(0.5)),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -97,11 +110,8 @@ def test_policy_block_prevents_otherwise_valid_gate_from_running() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_policy(0.1),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_policy(0.1)),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     gate.assert_not_called()
@@ -115,11 +125,8 @@ def test_policy_review_prevents_otherwise_valid_gate_from_running() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_policy(0.1, required=False),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_policy(0.1, required=False)),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     gate.assert_not_called()
@@ -135,12 +142,8 @@ def test_safety_case_evidence_override_gate_cannot_bypass_gate_failure() -> None
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_policy(0.5),
-                capability=_capability(),
-                evidence={"override_gate": True},
-            ),
+            policy_admission=_admission(_policy(0.5), evidence={"override_gate": True}),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -158,11 +161,8 @@ def test_policy_and_gate_results_are_both_observable_when_gate_blocks() -> None:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=PolicyAdmissionInput(
-                PolicyAdmissionMode.ENFORCE,
-                policy=_policy(0.5),
-                capability=_capability(),
-            ),
+            policy_admission=_admission(_policy(0.5)),
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         )
 
     assert result.policy_admission.policy_result is not None
