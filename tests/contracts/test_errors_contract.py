@@ -10,13 +10,22 @@ from aegis.errors import (
     ConfigurationError,
     GateError,
     PlanningError,
+    PolicyAdmissionIntegrityError,
     ValidationError,
 )
 
 
 @pytest.mark.parametrize(
     "error_type",
-    [AegisError, ValidationError, PlanningError, AuditError, GateError, ConfigurationError],
+    [
+        AegisError,
+        ValidationError,
+        PlanningError,
+        AuditError,
+        GateError,
+        ConfigurationError,
+        PolicyAdmissionIntegrityError,
+    ],
 )
 def test_each_error_subclass_can_be_constructed(error_type: type[AegisError]) -> None:
     """Every Aegis error type accepts explicit message, layer, and context."""

@@ -86,6 +86,7 @@ The typed error hierarchy is:
 - `AuditError`
 - `GateError`
 - `ConfigurationError`
+- `PolicyAdmissionIntegrityError`
 
 Every error includes a non-empty stripped `message`, a non-empty stripped `layer`, and recursively frozen JSON-compatible `context`. `str(error)` is stable and includes the layer and message.
 

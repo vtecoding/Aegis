@@ -97,12 +97,13 @@ def test_invariant_pipeline_is_deterministic_for_invalid_commands(command: str) 
 
 
 @pytest.mark.parametrize("command", _VALID_COMMANDS)
-def test_invariant_valid_commands_always_produce_allowed(command: str) -> None:
-    """Every supported, valid command must produce ALLOWED."""
+def test_invariant_valid_commands_without_policy_never_approve(command: str) -> None:
+    """Supported commands without policy admission must not produce ALLOWED."""
     context = make_context()
     intent = _make_intent(command, context)
     result = run_pipeline(intent, context)
-    assert result.outcome == PipelineOutcome.ALLOWED
+    assert result.outcome == PipelineOutcome.BLOCKED
+    assert result.gate_decision is None
 
 
 @pytest.mark.parametrize("command", _INVALID_COMMANDS)
@@ -114,17 +115,17 @@ def test_invariant_invalid_commands_always_produce_invalid(command: str) -> None
     assert result.outcome == PipelineOutcome.INVALID
 
 
-def test_invariant_allowed_implies_all_fields_populated() -> None:
-    """ALLOWED outcome must have all four fields populated."""
+def test_invariant_disabled_blocked_still_populates_plan_and_audit() -> None:
+    """Disabled policy mode blocks after audit while preserving observability."""
     context = make_context()
     intent = _make_intent("stop", context)
     result = run_pipeline(intent, context)
 
-    assert result.outcome == PipelineOutcome.ALLOWED
+    assert result.outcome == PipelineOutcome.BLOCKED
     assert result.validation_result is not None
     assert result.plan is not None
     assert result.audited_plan is not None
-    assert result.gate_decision is not None
+    assert result.gate_decision is None
 
 
 def test_invariant_invalid_implies_plan_and_gate_are_none() -> None:

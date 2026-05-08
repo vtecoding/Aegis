@@ -17,6 +17,11 @@ RawIntent -> validate_intent -> plan_validated_intent -> build_audited_plan -> g
 or create a new audit receipt. It only verifies whether an already-built audit
 receipt still matches its embedded command plan.
 
+As of Phase 2 Part 4, direct `gate_audited_plan(...).status == allowed` is not a full
+pipeline approval claim. `PipelineOutcome.ALLOWED` also requires enforced policy admission,
+a valid SafetyCase, passed admission integrity, and a gate decision bound to the same
+audited plan.
+
 ## Goals
 
 - Verify `AuditedPlan.checksum` by recomputing SHA-256 over executable-shaped command steps.
@@ -31,6 +36,7 @@ receipt still matches its embedded command plan.
 - No command execution, ROS publishing, hardware calls, or simulation.
 - No LLM, network, database, filesystem, environment, time, random, or UUID reads.
 - No policy evaluation beyond audit receipt integrity.
+- No policy-backed pipeline approval decision by itself.
 - No scenario runner coupling or scenario metrics.
 - No new audit receipt creation as a gate side effect.
 - No second schema validator for `CommandPlan` or `RawIntent`.
@@ -124,6 +130,8 @@ cannot be completed.
 Security:
 
 - Gate-v1 treats command steps as inert data and never executes them.
+- Gate-v1 allowed status means audit receipt integrity only; callers that need DIG pipeline
+    approval must use `run_pipeline` with enforced policy admission.
 - Checksum mismatches block changed executable-shaped command content.
 - Audit ID mismatches block changed receipt identity, plan ID, or execution context.
 - Hostile metadata added after audit changes the steps payload and blocks integrity.

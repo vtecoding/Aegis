@@ -5,6 +5,9 @@ Pipeline behaviour tests begin in feat/contracts-v1.
 """
 
 import aegis
+import aegis.intent  # noqa: F401 — exercises the intent stub __init__
+import aegis.policy  # noqa: F401 — exercises the policy contract namespace
+import aegis.policy.enums  # noqa: F401 — exercises policy enum re-exports
 
 
 def test_aegis_package_importable() -> None:

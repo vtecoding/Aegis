@@ -1,6 +1,6 @@
 # skills.md — Aegis Agent Authority File
 > **This is the canonical authority for all AI agents, Copilot sessions, and human contributors working on the Aegis codebase.**
-> Read this file first. Always. Every session.
+> Read this file first. Always. Every session. Every Line.
 
 ---
 
@@ -9,12 +9,12 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: Core Pipeline** (no robotics, no LLMs in core) |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 5: World snapshot freshness gate** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
 | Linter/formatter | ruff |
-| Can I use ROS 2? | **No.** Not until Phase 2. |
+| Can I use ROS 2? | **No.** Not until a later middleware phase. |
 | Can I use LLM SDKs in core? | **No.** Never in deterministic core. |
 | Coverage floor | 90% line — 100% on contracts/ and errors.py |
 | Run all checks | `python scripts/verify.py verify` (`make verify` delegates to it) |
@@ -78,15 +78,15 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 1 — Core Pipeline
+## 2. Current Phase: Phase 2 Part 5 — World Snapshot Freshness Gate
 
 ### Phase 1 Goals
-- [ ] Implement the full DIG pipeline in pure Python
-- [ ] 90%+ test coverage with property-based invariant tests
-- [ ] All 5 layers have typed contracts in `contracts/`
-- [ ] Full Hypothesis invariant suite for determinism properties
-- [ ] ADRs written for all major architectural decisions
-- [ ] `scripts/verify.py verify` passes cleanly with zero warnings
+- [x] Implement the full DIG pipeline in pure Python
+- [x] 90%+ test coverage with property-based invariant tests
+- [x] All 5 layers have typed contracts in `contracts/`
+- [x] Full Hypothesis invariant suite for determinism properties
+- [x] ADRs written for all major architectural decisions (ADR-0001–0008)
+- [x] `scripts/verify.py verify` passes cleanly with zero warnings
 
 ### Phase 1 Hard Constraints
 ```
@@ -108,10 +108,140 @@ FORBIDDEN (until Phase 2):
   - Any hardware interface library
 ```
 
-### Phase 2 Preview (Do Not Implement Yet)
-- ROS 2 integration adapter (wraps the core pipeline — does not modify it)
-- Hardware interface layer
-- Real-time audit streaming
+### Phase 1 — Release Statement
+
+Phase 1 is **RELEASE-COMPLETE**. This release completes the deterministic Aegis kernel.
+It does not include physical safety policy evaluation, environment awareness, simulation,
+ROS integration, or runtime actuation guards.
+
+**Phase 1 proves:**
+- Deterministic intent-to-gate pipeline
+- Typed immutable contracts
+- Tamper-evident audit binding
+- Pure approval boundary
+- Governance documentation
+- Invariant-backed test discipline
+
+**Phase 1 does not prove:**
+- Semantic physical safety
+- Policy enforcement at scale
+- Environment-aware decisions
+- Runtime safety monitoring
+- Simulation or collision checking
+- Middleware integration
+- Real robot actuation control
+
+### Phase 2 Part 1: Policy-v1 Contract Foundation
+
+Phase 2 Part 1 introduces deterministic immutable Policy-v1 contracts only. It does not
+implement real policy enforcement, real world-state ingestion, simulation, middleware
+integration, or robot safety decisions.
+
+The broader Phase 2 direction is policy-backed semantic admission. The core question a
+future pure policy evaluator must answer is:
+
+> Given a proposed plan, declared policy, and an immutable world snapshot — should this action be allowed, blocked, or require review?
+
+This is the jump from *secure command validator* to *deterministic safety-policy admission engine*.
+Part 1 is only the contract foundation for that jump.
+
+**Phase 2 contracts to introduce (in `contracts/`):**
+- `Policy` — declared rule set governing allowed commands and parameters
+- `PolicyRule` — a single evaluable rule with condition and consequence
+- `Capability` — a named permitted action class
+- `Constraint` — a typed bound on a parameter or state
+- `WorldSnapshotStub` — immutable, injected snapshot of environment state (Phase 2 stub; Phase 3+ real)
+- `PolicyEvaluationResult` — typed result: `ALLOW | BLOCK | REQUIRE_REVIEW | INVALID | ERROR`
+- `SafetyCase` — structured justification for a gate decision referencing policy and snapshot
+
+**Phase 2 new layer:**
+- `src/aegis/policy/` — Layer 2.5 namespace for Policy-v1. In Part 1 it exposes
+    contracts and pure structural validation only. Evaluation is a later slice.
+
+**Phase 2 hard constraints (same as Phase 1 plus):**
+- `WorldSnapshotStub` must be injected — never read from environment in core
+- Policy rules must be serialisable and replayable
+- No ROS 2, no LLM, no network in the policy layer
+- Future policy evaluation must be deterministic: same intent + same policy + same snapshot → same result
+- Unknown policy elements must fail closed and never imply allow
+
+**Phase 2 forbidden (still):**
+- ROS 2 integration (Phase 3)
+- Hardware interface layer (Phase 3)
+- Real-time audit streaming (Phase 3)
+- LLM policy generation in core (never)
+
+### Phase 2 Part 2: Policy-v1 Pure Evaluator
+
+Phase 2 Part 2 implements a deterministic evaluator over already-constructed immutable
+Policy-v1 contracts. It evaluates a `Capability` against a `Policy`, optional
+`WorldSnapshotStub`, and deterministic caller-supplied context, then emits a
+`PolicyEvaluationResult` and deterministic `SafetyCase` evidence package.
+
+This slice does not wire policy decisions into `run_pipeline()`. It does not ingest live
+world state, integrate ROS, simulation, middleware, hardware, network services, databases,
+or LLMs, and it does not prove real-world robot safety.
+
+**Honest Phase 2 Part 2 claim:** Aegis can deterministically evaluate declared Policy-v1
+rules over immutable supplied evidence, fail closed under ambiguity, and explain the
+decision through a SafetyCase.
+
+**Forbidden Phase 2 Part 2 claim:** Aegis proves a robot action is physically safe.
+
+### Phase 2 Part 3: Pipeline Policy Admission Wiring
+
+Phase 2 Part 3 wires deterministic Policy-v1 evaluation into the pipeline admission path.
+Policy admission runs after audited plan creation and before final gate approval when the
+caller explicitly selects ``PolicyAdmissionMode.ENFORCE``. Phase 2 Part 4 supersedes the
+earlier legacy-disabled approval path: disabled admission is now observable, non-approved,
+and does not call the final gate.
+
+Policy ENFORCE mode requires an explicit ``Policy`` and explicit ``Capability``. Missing
+policy or capability fails closed before the gate. Policy ``BLOCK``, ``REQUIRE_REVIEW``,
+``INVALID``, and ``ERROR`` prevent approval. Policy ``ALLOW`` is necessary but not sufficient:
+the existing gate integrity checks must still pass.
+
+This slice does not ingest live world state, integrate ROS, simulation, middleware, sensors,
+hardware, network services, databases, LLMs, or physical actuation. It does not prove a robot
+action is physically safe.
+
+### Phase 2 Part 4: Policy Admission Hardening & Bypass Audit
+
+Phase 2 Part 4 makes policy admission mandatory for pipeline approval. `PipelineOutcome.ALLOWED`
+requires all of the following: enforced policy mode, policy `ALLOW`, a valid SafetyCase, explicit
+plan/audit/policy/world/capability bindings, admission integrity status `PASSED`, no admission
+exception marker, and a final allowed gate decision bound to the same audited plan.
+
+Disabled or missing policy admission is explicit and fail-closed: it produces a disabled
+`PolicyAdmissionRecord`, does not call the final gate, and cannot produce `ALLOWED`. Policy
+admission records that are skipped, stale, mismatched, forged, contradictory, malformed, or
+internally errored are rejected before approval. Security-critical decision enum values are
+strict: strings such as `ALLOW `, `allow`, fullwidth `ALLOW`, and zero-width/bidi-marked variants
+are rejected rather than normalized.
+
+This slice still does not ingest live world state, integrate ROS, simulation, middleware,
+sensors, hardware, network services, databases, LLMs, or physical actuation. It does not prove
+semantic physical safety, runtime robot safety, collision safety, or certification readiness.
+
+### Phase 2 Part 5: World Snapshot Freshness & Staleness Gate
+
+Phase 2 Part 5 makes deterministic world snapshot freshness mandatory for ENFORCE approval
+paths. Policy admission now runs only after a caller-supplied `WorldSnapshotStub` is checked
+against a caller-supplied `evaluation_time_ms` and a deterministic `FreshnessPolicy`. The
+core computes `age_ms = evaluation_time_ms - snapshot.captured_at_ms`; it never reads wall-clock
+time, process state, environment state, files, networks, sensors, middleware, or hardware.
+
+`PipelineOutcome.ALLOWED` now requires all Part 4 policy-backed approval evidence plus a
+FRESH snapshot binding carried consistently through `PolicyEvaluationResult`, `SafetyCase`,
+and `PolicyAdmissionRecord`. Missing snapshots, missing evaluation time, stale snapshots,
+future-dated snapshots, malformed timestamps, invalid freshness policy values, contradictory
+snapshot metadata, forged freshness checksums, and mismatched freshness bindings fail closed
+before final gate approval.
+
+This slice proves deterministic freshness only: that supplied evidence is not older than the
+configured age bound at the supplied evaluation time. It does not prove real-world truth,
+source attestation, live sensing correctness, ROS/middleware safety, simulation safety,
+collision safety, actuator safety, certification readiness, or physical robot safety.
 
 ---
 
