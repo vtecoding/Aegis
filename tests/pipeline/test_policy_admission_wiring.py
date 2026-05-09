@@ -10,6 +10,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -69,6 +70,11 @@ def _admission(policy: Policy, capability: Capability | None = None) -> PolicyAd
         world_snapshot=fresh_world_snapshot(),
         context=fresh_policy_context(),
     )
+
+
+def _trusted_kwargs(admission: PolicyAdmissionInput) -> dict[str, object]:
+    assert admission.world_snapshot is not None
+    return trusted_pipeline_kwargs(admission.world_snapshot)
 
 
 def test_policy_admission_none_normalises_to_disabled_mode() -> None:
@@ -132,11 +138,13 @@ def test_enforce_missing_capability_blocks_before_gate() -> None:
 def test_invalid_intent_with_enforce_marks_policy_admission_not_run() -> None:
     context = _context()
     intent = RawIntent("unsupported", {}, "operator", 5, context)
+    admission = _admission(_allow_policy())
     result = run_pipeline(
         intent,
         context,
-        policy_admission=_admission(_allow_policy()),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.INVALID
@@ -147,11 +155,13 @@ def test_invalid_intent_with_enforce_marks_policy_admission_not_run() -> None:
 
 def test_policy_allow_continues_to_existing_gate() -> None:
     context = _context()
+    admission = _admission(_allow_policy())
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(_allow_policy()),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -166,12 +176,14 @@ def test_policy_allow_continues_to_existing_gate() -> None:
 
 def test_policy_block_prevents_gate_approval() -> None:
     context = _context()
+    admission = _admission(_block_policy())
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_block_policy()),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     gate.assert_not_called()
@@ -184,11 +196,13 @@ def test_policy_block_prevents_gate_approval() -> None:
 
 def test_policy_require_review_prevents_gate_approval() -> None:
     context = _context()
+    admission = _admission(_review_policy())
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(_review_policy()),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -209,12 +223,14 @@ def test_policy_invalid_prevents_gate_approval() -> None:
         ["POLICY_EVALUATION_CONTEXT_INVALID"],
     )
 
+    admission = _admission(_allow_policy())
     with patch("aegis.pipeline.orchestrator.evaluate_policy", return_value=invalid_result):
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_allow_policy()),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.outcome is PipelineOutcome.INVALID
@@ -235,12 +251,14 @@ def test_policy_error_prevents_gate_approval() -> None:
         ["POLICY_EVALUATOR_INTERNAL_ERROR"],
     )
 
+    admission = _admission(_allow_policy())
     with patch("aegis.pipeline.orchestrator.evaluate_policy", return_value=error_result):
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_allow_policy()),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -252,13 +270,15 @@ def test_policy_error_prevents_gate_approval() -> None:
 
 def test_policy_evaluator_exception_returns_error_without_gate_approval() -> None:
     context = _context()
+    admission = _admission(_allow_policy())
 
     with patch("aegis.pipeline.orchestrator.evaluate_policy", side_effect=RuntimeError("boom")):
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_allow_policy()),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -269,13 +289,15 @@ def test_policy_evaluator_exception_returns_error_without_gate_approval() -> Non
 
 def test_safety_case_exception_returns_error_without_gate_approval() -> None:
     context = _context()
+    admission = _admission(_allow_policy())
 
     with patch("aegis.pipeline.orchestrator.build_safety_case", side_effect=RuntimeError("boom")):
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_allow_policy()),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.outcome is PipelineOutcome.ERROR

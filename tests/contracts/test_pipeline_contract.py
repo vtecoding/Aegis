@@ -8,6 +8,7 @@ from tests.policy_freshness_fixtures import (
     fresh_world_snapshot,
     fresh_world_snapshot_result,
 )
+from tests.policy_trust_fixtures import bind_policy_result_to_trust, trusted_world_snapshot_result
 
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
@@ -16,6 +17,7 @@ from aegis.contracts.planning import CommandPlan
 from aegis.contracts.policy import Capability, PolicyDecision, PolicyEvaluationResult
 from aegis.contracts.policy_admission import PolicyAdmissionMode, PolicyAdmissionRecord
 from aegis.contracts.validation import ValidationResult, Violation
+from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.policy import build_safety_case
 
 # ---------------------------------------------------------------------------
@@ -58,16 +60,20 @@ def _make_allowed_result(
 def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
-    policy_result = bind_policy_result_to_freshness(
-        PolicyEvaluationResult(
-            PolicyDecision.ALLOW,
-            "policy-1",
-            ["rule-1"],
-            ["rule-1:0:max_velocity"],
-            [],
-            ["POLICY_ALLOWED"],
+    trust_result = trusted_world_snapshot_result(snapshot)
+    policy_result = bind_policy_result_to_trust(
+        bind_policy_result_to_freshness(
+            PolicyEvaluationResult(
+                PolicyDecision.ALLOW,
+                "policy-1",
+                ["rule-1"],
+                ["rule-1:0:max_velocity"],
+                [],
+                ["POLICY_ALLOWED"],
+            ),
+            freshness_result,
         ),
-        freshness_result,
+        trust_result,
     )
     safety_case = build_safety_case(
         policy_result=policy_result,
@@ -80,6 +86,7 @@ def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -98,7 +105,36 @@ def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trust_result),
     )
+
+
+def _trusted_record_kwargs(trust_result: WorldSnapshotTrustResult) -> dict[str, object]:
+    return {
+        "world_snapshot_trust_status": trust_result.status.value,
+        "world_snapshot_trust_reason_code": trust_result.reason_code,
+        "world_snapshot_trust_result_checksum": trust_result.checksum,
+        "evidence_envelope_checksum": trust_result.evidence_envelope_checksum,
+        "attestation_checksum": trust_result.attestation_checksum,
+        "trust_policy_checksum": trust_result.trust_policy_checksum,
+        "verifier_certification_status": "CERTIFIED",
+        "verifier_certification_reason_code": "ATTESTATION_VERIFIER_CERTIFIED",
+        "verifier_certification_checksum": trust_result.verifier_certification_checksum,
+        "verifier_id": trust_result.verifier_id,
+        "verifier_metadata_checksum": trust_result.verifier_metadata_checksum,
+        "trust_policy_config_status": "VALID",
+        "trust_policy_config_reason_code": "TRUST_POLICY_CONFIG_VALID",
+        "trust_policy_config_validation_checksum": (
+            trust_result.trust_policy_config_validation_checksum
+        ),
+        "source_id": trust_result.source_id,
+        "source_type": trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        "trust_domain": trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
+    }
 
 
 def test_pipeline_result_allowed_requires_allowed_gate_decision(

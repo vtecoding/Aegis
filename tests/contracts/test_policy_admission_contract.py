@@ -11,6 +11,7 @@ from tests.policy_freshness_fixtures import (
     fresh_world_snapshot,
     fresh_world_snapshot_result,
 )
+from tests.policy_trust_fixtures import bind_policy_result_to_trust, trusted_world_snapshot_result
 
 from aegis.audit import build_audited_plan
 from aegis.contracts.context import ExecutionContext
@@ -36,6 +37,7 @@ from aegis.contracts.policy_admission import (
     disabled_policy_admission_record,
     is_policy_backed_approval,
 )
+from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.errors import PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
@@ -56,7 +58,10 @@ def _capability() -> Capability:
 
 
 def _allow_result() -> PolicyEvaluationResult:
-    return bind_policy_result_to_freshness(
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    trust_result = trusted_world_snapshot_result(snapshot)
+    freshness_bound = bind_policy_result_to_freshness(
         PolicyEvaluationResult(
             PolicyDecision.ALLOW,
             "policy-1",
@@ -64,8 +69,10 @@ def _allow_result() -> PolicyEvaluationResult:
             ["rule-1:0:max_velocity"],
             [],
             ["POLICY_ALLOWED"],
-        )
+        ),
+        freshness_result,
     )
+    return bind_policy_result_to_trust(freshness_bound, trust_result)
 
 
 def _block_result() -> PolicyEvaluationResult:
@@ -82,6 +89,7 @@ def _block_result() -> PolicyEvaluationResult:
 def _safety_case(result: PolicyEvaluationResult) -> object:
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
+    trust_result = trusted_world_snapshot_result(snapshot)
     return build_safety_case(
         policy_result=result,
         audited_plan_id="audit-1",
@@ -93,12 +101,43 @@ def _safety_case(result: PolicyEvaluationResult) -> object:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
+
+
+def _trusted_record_kwargs(trust_result: WorldSnapshotTrustResult) -> dict[str, object]:
+    return {
+        "world_snapshot_trust_status": trust_result.status.value,
+        "world_snapshot_trust_reason_code": trust_result.reason_code,
+        "world_snapshot_trust_result_checksum": trust_result.checksum,
+        "evidence_envelope_checksum": trust_result.evidence_envelope_checksum,
+        "attestation_checksum": trust_result.attestation_checksum,
+        "trust_policy_checksum": trust_result.trust_policy_checksum,
+        "verifier_certification_status": "CERTIFIED",
+        "verifier_certification_reason_code": "ATTESTATION_VERIFIER_CERTIFIED",
+        "verifier_certification_checksum": trust_result.verifier_certification_checksum,
+        "verifier_id": trust_result.verifier_id,
+        "verifier_metadata_checksum": trust_result.verifier_metadata_checksum,
+        "trust_policy_config_status": "VALID",
+        "trust_policy_config_reason_code": "TRUST_POLICY_CONFIG_VALID",
+        "trust_policy_config_validation_checksum": (
+            trust_result.trust_policy_config_validation_checksum
+        ),
+        "source_id": trust_result.source_id,
+        "source_type": trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        "trust_domain": trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
+    }
 
 
 def _allowed_record(result: PolicyEvaluationResult) -> PolicyAdmissionRecord:
     safety_case = _safety_case(result)
-    freshness_result = fresh_world_snapshot_result()
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    trust_result = trusted_world_snapshot_result(snapshot)
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
         policy_result=result,
@@ -116,6 +155,7 @@ def _allowed_record(result: PolicyEvaluationResult) -> PolicyAdmissionRecord:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trust_result),
     )
 
 
@@ -134,6 +174,8 @@ def _bound_allowed_record(
     snapshot = world_snapshot or fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
     result = bind_policy_result_to_freshness(_allow_result(), freshness_result)
+    trust_result = trusted_world_snapshot_result(snapshot)
+    result = bind_policy_result_to_trust(result, trust_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
@@ -145,6 +187,7 @@ def _bound_allowed_record(
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -163,6 +206,7 @@ def _bound_allowed_record(
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trust_result),
     )
 
 
@@ -763,11 +807,79 @@ def test_allowed_record_rejects_safety_case_binding_mismatches(
         )
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value", "message"),
+    [
+        (
+            "verifier_certification_checksum",
+            "other-verifier-certification-checksum",
+            "verifier_certification_checksum",
+        ),
+        (
+            "trust_policy_config_validation_checksum",
+            "other-trust-policy-config-validation-checksum",
+            "trust_policy_config_validation_checksum",
+        ),
+        ("verifier_id", "other-verifier", "verifier_id"),
+        ("verifier_metadata_checksum", "other-verifier-metadata-checksum", "verifier_metadata"),
+    ],
+)
+def test_allowed_record_rejects_trust_authority_binding_mismatches(
+    field_name: str,
+    value: str,
+    message: str,
+) -> None:
+    record = _bound_allowed_record()
+    kwargs = {
+        "audit_id": record.audit_id,
+        "plan_id": record.plan_id,
+        "plan_checksum": record.plan_checksum,
+        "world_snapshot_id": record.world_snapshot_id,
+        "world_snapshot_checksum": record.world_snapshot_checksum,
+        "capability_name": record.capability_name,
+        "capability_version": record.capability_version,
+        "world_snapshot_observed_at_ms": record.world_snapshot_observed_at_ms,
+        "freshness_result_checksum": record.freshness_result_checksum,
+        "freshness_status": record.freshness_status,
+        "world_snapshot_trust_status": record.world_snapshot_trust_status,
+        "world_snapshot_trust_reason_code": record.world_snapshot_trust_reason_code,
+        "world_snapshot_trust_result_checksum": record.world_snapshot_trust_result_checksum,
+        "evidence_envelope_checksum": record.evidence_envelope_checksum,
+        "attestation_checksum": record.attestation_checksum,
+        "trust_policy_checksum": record.trust_policy_checksum,
+        "verifier_certification_status": record.verifier_certification_status,
+        "verifier_certification_reason_code": record.verifier_certification_reason_code,
+        "verifier_certification_checksum": record.verifier_certification_checksum,
+        "verifier_id": record.verifier_id,
+        "verifier_metadata_checksum": record.verifier_metadata_checksum,
+        "trust_policy_config_status": record.trust_policy_config_status,
+        "trust_policy_config_reason_code": record.trust_policy_config_reason_code,
+        "trust_policy_config_validation_checksum": (record.trust_policy_config_validation_checksum),
+        "source_id": record.source_id,
+        "source_type": record.source_type,
+        "trust_domain": record.trust_domain,
+    }
+    kwargs[field_name] = value
+
+    with pytest.raises(ValueError, match=message):
+        PolicyAdmissionRecord(
+            PolicyAdmissionMode.ENFORCE,
+            policy_result=record.policy_result,
+            safety_case=record.safety_case,
+            enforced=True,
+            admission_allowed=True,
+            reasons=("POLICY_ALLOWED",),
+            **kwargs,
+        )
+
+
 def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
     audited_plan = _audited_plan()
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
     result = bind_policy_result_to_freshness(_allow_result(), freshness_result)
+    trust_result = trusted_world_snapshot_result(snapshot)
+    result = bind_policy_result_to_trust(result, trust_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
@@ -779,6 +891,7 @@ def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
     record = PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -797,6 +910,7 @@ def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trust_result),
     )
 
     integrity = assert_policy_admission_integrity(audited_plan, record)
@@ -813,6 +927,8 @@ def test_policy_backed_approval_predicate_rejects_non_matching_gate_states() -> 
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
     result = bind_policy_result_to_freshness(_allow_result(), freshness_result)
+    trust_result = trusted_world_snapshot_result(snapshot)
+    result = bind_policy_result_to_trust(result, trust_result)
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
@@ -824,6 +940,7 @@ def test_policy_backed_approval_predicate_rejects_non_matching_gate_states() -> 
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
     record = PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -842,6 +959,7 @@ def test_policy_backed_approval_predicate_rejects_non_matching_gate_states() -> 
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trust_result),
     )
     allowed_gate = gate_audited_plan(audited_plan)
     blocked_gate = GateDecision(

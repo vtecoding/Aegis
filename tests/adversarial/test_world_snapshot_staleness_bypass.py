@@ -14,6 +14,7 @@ from tests.policy_freshness_fixtures import (
     fresh_world_snapshot,
     fresh_world_snapshot_result,
 )
+from tests.policy_trust_fixtures import bind_policy_result_to_trust, trusted_world_snapshot_result
 
 from aegis.audit import build_audited_plan
 from aegis.contracts.context import ExecutionContext
@@ -40,6 +41,7 @@ from aegis.contracts.world_snapshot_freshness import (
     WorldSnapshotFreshnessError,
     assert_world_snapshot_freshness_integrity,
 )
+from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.errors import PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
 from aegis.pipeline import run_pipeline
@@ -83,21 +85,27 @@ def _capability() -> Capability:
 
 def _allow_result(snapshot: WorldSnapshotStub | None = None) -> PolicyEvaluationResult:
     freshness_result = fresh_world_snapshot_result(snapshot or fresh_world_snapshot())
-    return bind_policy_result_to_freshness(
-        PolicyEvaluationResult(
-            PolicyDecision.ALLOW,
-            "freshness-adversarial-policy",
-            ["rule-1"],
-            ["rule-1:0:max_velocity"],
-            [],
-            ["POLICY_ALLOWED"],
+    trust_snapshot = snapshot or fresh_world_snapshot()
+    trust_result = trusted_world_snapshot_result(trust_snapshot)
+    return bind_policy_result_to_trust(
+        bind_policy_result_to_freshness(
+            PolicyEvaluationResult(
+                PolicyDecision.ALLOW,
+                "freshness-adversarial-policy",
+                ["rule-1"],
+                ["rule-1:0:max_velocity"],
+                [],
+                ["POLICY_ALLOWED"],
+            ),
+            freshness_result,
         ),
-        freshness_result,
+        trust_result,
     )
 
 
 def _safety_case(audited_plan, policy_result: PolicyEvaluationResult, snapshot: WorldSnapshotStub):
     freshness_result = fresh_world_snapshot_result(snapshot)
+    trust_result = trusted_world_snapshot_result(snapshot)
     return build_safety_case(
         policy_result=policy_result,
         audited_plan_id=audited_plan.audit_id,
@@ -109,7 +117,43 @@ def _safety_case(audited_plan, policy_result: PolicyEvaluationResult, snapshot: 
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
+
+
+def _trusted_record_kwargs(trust_result: WorldSnapshotTrustResult) -> dict[str, object]:
+    return {
+        "world_snapshot_admissibility_status": trust_result.world_snapshot_admissibility_status,
+        "world_snapshot_admissibility_reason_code": (
+            trust_result.world_snapshot_admissibility_reason_code
+        ),
+        "world_snapshot_admissibility_result_checksum": (
+            trust_result.world_snapshot_admissibility_result_checksum
+        ),
+        "world_snapshot_trust_status": trust_result.status.value,
+        "world_snapshot_trust_reason_code": trust_result.reason_code,
+        "world_snapshot_trust_result_checksum": trust_result.checksum,
+        "evidence_envelope_checksum": trust_result.evidence_envelope_checksum,
+        "attestation_checksum": trust_result.attestation_checksum,
+        "trust_policy_checksum": trust_result.trust_policy_checksum,
+        "verifier_certification_status": "CERTIFIED",
+        "verifier_certification_reason_code": "ATTESTATION_VERIFIER_CERTIFIED",
+        "verifier_certification_checksum": trust_result.verifier_certification_checksum,
+        "verifier_id": trust_result.verifier_id,
+        "verifier_metadata_checksum": trust_result.verifier_metadata_checksum,
+        "trust_policy_config_status": "VALID",
+        "trust_policy_config_reason_code": "TRUST_POLICY_CONFIG_VALID",
+        "trust_policy_config_validation_checksum": (
+            trust_result.trust_policy_config_validation_checksum
+        ),
+        "source_id": trust_result.source_id,
+        "source_type": trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        "trust_domain": trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
+    }
 
 
 def test_stale_snapshot_with_monkeypatched_allow_evaluator_still_blocks() -> None:
@@ -178,6 +222,7 @@ def test_safety_case_freshness_mismatch_is_rejected() -> None:
             world_snapshot_observed_at_ms=freshness_a.observed_at_ms,
             freshness_result_checksum=freshness_a.checksum,
             freshness_status=freshness_a.status.value,
+            **_trusted_record_kwargs(trusted_world_snapshot_result(snapshot_a)),
         )
 
 
@@ -207,6 +252,7 @@ def test_policy_evaluation_freshness_mismatch_is_rejected() -> None:
             world_snapshot_observed_at_ms=freshness_b.observed_at_ms,
             freshness_result_checksum=freshness_b.checksum,
             freshness_status=freshness_b.status.value,
+            **_trusted_record_kwargs(trusted_world_snapshot_result(snapshot_b)),
         )
 
 
@@ -233,6 +279,7 @@ def test_policy_admission_freshness_mismatch_is_rejected_by_integrity() -> None:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trusted_world_snapshot_result(snapshot)),
     )
     object.__setattr__(record, "freshness_result_checksum", "0" * 64)
 

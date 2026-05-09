@@ -1,4 +1,4 @@
-# Aegis Master Specification — Phase 1 + Phase 2 Part 5
+# Aegis Master Specification — Phase 1 + Phase 2 Part 7
 
 ## Purpose
 
@@ -14,6 +14,12 @@ approval. Phase 2 Part 4 hardens that boundary so pipeline approval requires enf
 integrity-passed policy admission and cannot be skipped, forged, mismatched, or degraded.
 Phase 2 Part 5 adds a deterministic freshness gate: ENFORCE approval now requires an
 explicit world snapshot that is FRESH at an explicit caller-supplied evaluation time.
+Phase 2 Part 6 adds a deterministic trust and attestation boundary: fresh but
+unauthenticated world state cannot approve physical or DIG-relevant plans under ENFORCE
+mode.
+Phase 2 Part 7 hardens that boundary: arbitrary verifier objects and arbitrary trust
+policies cannot become approval authority unless they pass deterministic verifier adapter
+certification and trust-policy configuration validation.
 
 Aegis does not execute robot commands. Phase 1 produces a typed decision (`ALLOWED` or
 `BLOCKED`) and an immutable audit receipt. Policy-v1 contracts, the pure evaluator, and
@@ -132,6 +138,44 @@ is physically safe.
 
 ---
 
+## Phase 2 Part 6 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Deterministic `WorldSnapshotEvidenceEnvelope`, `WorldSnapshotTrustPolicy`, attestation, verifier result, and trust result contracts | Proving physical-world truth or sensor correctness |
+| Trust evaluation after freshness and before policy evaluation | Live evidence ingestion, middleware calls, filesystem reads, network calls, hardware reads, or wall-clock reads |
+| Source ID, source type, trust domain, and capability allowlist checks | Dynamic trust registries, external policy lookup, or implicit trust from metadata |
+| Optional required attestation verification through an injected deterministic verifier result | Implementing cryptographic service calls inside the core |
+| Trust checksum binding through `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord` | ROS 2, simulation safety, collision checking, actuation, or certification |
+| Fail-closed handling for missing, malformed, contradictory, disallowed, invalid, replayed, expired, or unsupported trust evidence | Treating freshness as trust |
+
+Honest status after Part 6: Aegis can deterministically prove that an allowed pipeline
+result was backed by fresh snapshot evidence whose provenance, declared source, domain,
+capability, and required attestation satisfied an explicit trust policy.
+
+Forbidden status after Part 6: Aegis proves physical-world truth, sensor correctness,
+middleware safety, ROS safety, collision safety, actuator safety, or robot safety.
+
+## Phase 2 Part 7 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Deterministic `AttestationVerifierAdapterMetadata` and `VerifierAdapterCertificationResult` contracts | Cryptographic service calls, key management, or external verifier registries |
+| Required positive and negative verifier certification vectors with deterministic replay | Proving real-world truth or real cryptographic assurance beyond the injected adapter contract |
+| Deterministic `TrustPolicyConfigValidationResult` for runtime domain, verifier metadata, capability, and ENFORCE context | Dynamic policy lookup, filesystem config loading, network config, or environment-derived config |
+| Binding verifier certification/config checksums through trust result, policy result, SafetyCase, and admission record | ROS 2, simulation safety, collision checking, actuation, or certification |
+| Fail-closed handling for uncertified verifier adapters and invalid trust-policy configuration | Treating arbitrary verifier output as approval authority |
+
+Honest status after Part 7: Aegis can deterministically prove that an allowed pipeline
+result was backed by fresh and trusted snapshot evidence, a certified verifier adapter,
+and a valid trust-policy configuration bound into policy admission integrity.
+
+Forbidden status after Part 7: Aegis proves physical-world truth, cryptographic soundness,
+sensor correctness, middleware safety, ROS safety, collision safety, actuator safety, or
+robot safety.
+
+---
+
 ## Non-Goals
 
 - No production safety claims. Phase 1 correctness is bounded by typed contracts,
@@ -140,6 +184,8 @@ is physically safe.
 - No real-world robot safety certification.
 - No claim that Policy-v1 contracts prove semantic physical safety.
 - No claim that freshness proves real-world truth, source attestation, live sensing correctness, simulation safety, middleware safety, or actuator safety.
+- No claim that trust attestation proves physical-world truth, sensor correctness,
+  middleware safety, simulation safety, collision safety, actuator safety, or certification.
 - No LLM SDK dependencies anywhere in the deterministic core.
 - No ROS 2, hardware, or network I/O inside `src/aegis/`.
 
@@ -153,11 +199,16 @@ is physically safe.
    (stub)
 ```
 
-Phase 2 inserts freshness-backed policy admission after audit and before the final gate:
+Phase 2 inserts freshness-, verifier-, config-, and trust-backed policy admission after
+audit and before the final gate:
 
 ```text
 RawIntent → ValidationResult → CommandPlan → AuditedPlan
-    → WorldSnapshotFreshnessResult → PolicyAdmissionRecord(PolicyEvaluationResult + SafetyCase)
+    → WorldSnapshotFreshnessResult
+    → VerifierAdapterCertificationResult
+    → TrustPolicyConfigValidationResult
+    → WorldSnapshotTrustResult
+    → PolicyAdmissionRecord(PolicyEvaluationResult + SafetyCase)
     → GateDecision
 ```
 
@@ -165,8 +216,9 @@ Disabled mode is observable but non-approved and does not call the final gate. E
 mode requires explicit policy and capability inputs and fails closed when admission is
 missing, denied, stale, mismatched, forged, malformed, contradictory, or internally errored.
 ENFORCE approval additionally requires an explicit `world_snapshot`, an explicit
-`evaluation_time_ms`, and FRESH freshness binding across policy result, SafetyCase, and
-admission record.
+`evaluation_time_ms`, FRESH freshness binding, certified verifier binding, valid
+trust-policy config binding, and TRUSTED evidence binding across policy result,
+SafetyCase, and admission record.
 
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
 communication uses typed contracts in `contracts/`.
@@ -196,9 +248,15 @@ build_audited_plan(plan) → AuditedPlan
 if policy_admission.mode == ENFORCE:
     validate WorldSnapshotStub freshness using caller-supplied evaluation_time_ms
     if freshness is not FRESH → non-approved PipelineResult, gate not reached
+    certify injected attestation verifier adapter metadata and behavior
+    if verifier is not CERTIFIED → non-approved PipelineResult, gate not reached
+    validate WorldSnapshotTrustPolicy config for verifier metadata, runtime domain, and capability
+    if trust policy config is not VALID → non-approved PipelineResult, gate not reached
+    evaluate WorldSnapshotEvidenceEnvelope against WorldSnapshotTrustPolicy
+    if trust is not TRUSTED → non-approved PipelineResult, gate not reached
     evaluate Policy + Capability + optional WorldSnapshotStub
-    bind freshness evidence into PolicyEvaluationResult
-    build SafetyCase bound to AuditedPlan audit ID, plan, policy result, world snapshot, capability, and freshness
+    bind freshness, verifier/config authority, and trust evidence into PolicyEvaluationResult
+    build SafetyCase bound to AuditedPlan audit ID, plan, policy result, world snapshot, capability, freshness, verifier/config authority, and trust
     assert PolicyAdmissionRecord integrity against AuditedPlan and SafetyCase
     if decision != ALLOW → non-approved PipelineResult, gate not reached
 else:
@@ -249,6 +307,13 @@ run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
 32. `evaluation_time_ms` is caller-supplied; the deterministic core never derives it from wall-clock time.
 33. Freshness snapshot identity, observed time, status, and checksum match across `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
 34. Missing, stale, future-dated, malformed, contradictory, or unchecked freshness evidence fails closed before final gate approval.
+35. `PipelineOutcome.ALLOWED` requires world snapshot trust status `TRUSTED` for the admitted world snapshot.
+36. Trust result, evidence envelope, attestation, trust policy, source ID, source type, and trust domain bindings match across `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
+37. Fresh but missing, unauthenticated, disallowed, malformed, contradictory, invalid, expired, replayed, unsupported, or non-TRUSTED evidence fails closed before policy evaluation can approve.
+38. `PipelineOutcome.ALLOWED` requires verifier certification status `CERTIFIED` and trust-policy config status `VALID`.
+39. Verifier certification checksum, verifier ID, verifier metadata checksum, and trust-policy config validation checksum match across `WorldSnapshotTrustResult`, `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
+40. Missing, malformed, unsafe, non-deterministic, or uncertified verifier adapters fail closed before trust evaluation can approve.
+41. Empty, wildcard, mismatched, disabled-attestation, or runtime-incompatible trust-policy configurations fail closed before trust evaluation can approve.
 
 ---
 
@@ -277,6 +342,10 @@ enforced = run_pipeline(
         world_snapshot=snapshot,
     ),
     evaluation_time_ms=caller_supplied_evaluation_time_ms,
+    world_snapshot_evidence=evidence_envelope,
+    world_snapshot_trust_policy=trust_policy,
+    attestation_verifier=verifier,
+    runtime_trust_domain=runtime_domain,
 )
 ```
 
@@ -326,6 +395,23 @@ Policy admission hardening does **not** protect against:
 - False but internally consistent caller-supplied evidence.
 - Physical collision, dynamics, human-proximity hazards, or robot actuation outside the deterministic core.
 - Direct consumers that misuse `gate_audited_plan` as full policy approval rather than receipt integrity verification.
+
+World snapshot freshness does **not** protect against:
+
+- Fresh but unauthenticated or disallowed evidence.
+- Physical-world truth, sensor correctness, middleware safety, simulation safety, or actuation safety.
+
+World snapshot trust does **not** protect against:
+
+- A trusted source being wrong about the physical world.
+- Sensor faults, perception errors, middleware faults, collision hazards, actuator faults, or certification requirements.
+- Approval paths outside `run_pipeline` that ignore trust-backed policy admission.
+
+Verifier certification and trust-policy config validation do **not** protect against:
+
+- A certified verifier implementation being semantically wrong beyond the required deterministic vectors.
+- Key management, cryptographic library defects, or external trust registry compromise.
+- Physical-world truth, sensor correctness, middleware safety, collision hazards, actuator faults, or certification requirements.
 
 ---
 

@@ -1,5 +1,14 @@
 """Shared typed contracts between Aegis pipeline layers."""
 
+from aegis.contracts.attestation_verifier import (
+    AttestationVerifierAdapter,
+    AttestationVerifierAdapterMetadata,
+    AttestationVerifierTestVector,
+    VerifierAdapterCertificationResult,
+    VerifierCertificationStatus,
+    build_attestation_verifier_test_vectors,
+    certify_attestation_verifier_adapter,
+)
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
@@ -39,10 +48,31 @@ from aegis.contracts.policy_admission import (
     disabled_policy_admission_record,
     is_policy_backed_approval,
 )
+from aegis.contracts.trust_policy_config import (
+    TrustPolicyConfigStatus,
+    TrustPolicyConfigValidationResult,
+    trust_policy_config_validation_result_checksum,
+    validate_trust_policy_config,
+)
 from aegis.contracts.validation import ValidationResult, Violation
+from aegis.contracts.world_snapshot_trust import (
+    AttestationVerificationResult,
+    TrustDomain,
+    WorldSnapshotAttestation,
+    WorldSnapshotEvidenceEnvelope,
+    WorldSnapshotSourceType,
+    WorldSnapshotTrustPolicy,
+    WorldSnapshotTrustResult,
+    WorldSnapshotTrustStatus,
+    evaluate_world_snapshot_trust,
+)
 
 __all__ = [
     "AuditedPlan",
+    "AttestationVerificationResult",
+    "AttestationVerifierAdapter",
+    "AttestationVerifierAdapterMetadata",
+    "AttestationVerifierTestVector",
     "Capability",
     "CommandPlan",
     "CommandStep",
@@ -72,14 +102,30 @@ __all__ = [
     "PipelineResult",
     "RawIntent",
     "SafetyCase",
+    "TrustDomain",
+    "TrustPolicyConfigStatus",
+    "TrustPolicyConfigValidationResult",
     "ValidationResult",
+    "VerifierAdapterCertificationResult",
+    "VerifierCertificationStatus",
     "Violation",
     "WorldSnapshotStub",
+    "WorldSnapshotAttestation",
+    "WorldSnapshotEvidenceEnvelope",
+    "WorldSnapshotSourceType",
+    "WorldSnapshotTrustPolicy",
+    "WorldSnapshotTrustResult",
+    "WorldSnapshotTrustStatus",
     "assert_policy_admission_integrity",
+    "build_attestation_verifier_test_vectors",
+    "certify_attestation_verifier_adapter",
     "disabled_policy_admission_record",
+    "evaluate_world_snapshot_trust",
     "freeze_json_mapping",
     "freeze_json_value",
     "is_json_value",
     "is_policy_backed_approval",
     "policy_evaluation_result_checksum",
+    "trust_policy_config_validation_result_checksum",
+    "validate_trust_policy_config",
 ]

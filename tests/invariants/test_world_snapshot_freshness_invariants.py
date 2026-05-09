@@ -11,6 +11,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -22,6 +23,7 @@ from aegis.contracts.policy_admission import (
     PolicyAdmissionMode,
     assert_policy_admission_integrity,
 )
+from aegis.contracts.world_snapshot_admissibility import validate_world_snapshot_admissibility
 from aegis.contracts.world_snapshot_freshness import (
     DEFAULT_FRESHNESS_POLICY,
     WorldSnapshotFreshnessStatus,
@@ -81,15 +83,21 @@ def test_invariant_allowed_implies_freshness_backed_policy_admission(
             context=fresh_policy_context(),
         ),
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     if result.outcome is not PipelineOutcome.ALLOWED:
         return
 
+    admissibility_result = validate_world_snapshot_admissibility(
+        snapshot,
+        requested_capability="locomotion.translation",
+    )
     freshness_result = validate_world_snapshot_freshness(
         snapshot,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
         freshness_policy=DEFAULT_FRESHNESS_POLICY,
+        admissibility_result=admissibility_result,
     )
     assert_world_snapshot_freshness_integrity(
         snapshot=snapshot,
@@ -117,6 +125,8 @@ def test_invariant_allowed_implies_freshness_backed_policy_admission(
     assert admission.world_snapshot_observed_at_ms == snapshot.captured_at_ms
     assert admission.freshness_status == freshness_result.status.value
     assert admission.freshness_result_checksum == freshness_result.checksum
+    assert admission.world_snapshot_admissibility_status == admissibility_result.status.value
+    assert admission.world_snapshot_admissibility_result_checksum == admissibility_result.checksum
 
     assert admission.policy_result.world_snapshot_id == admission.world_snapshot_id
     assert admission.policy_result.world_snapshot_observed_at_ms == (

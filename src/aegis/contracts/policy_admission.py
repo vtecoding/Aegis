@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
+from re import fullmatch
 from types import MappingProxyType
 from typing import cast
 
@@ -143,6 +144,11 @@ class PolicyAdmissionRecord:
         admission_decision: Explicit admission decision, distinct from disabled mode.
         integrity_status: Integrity status for plan/admission binding.
         exception_reason: Optional exception marker. Any marker prevents approval.
+        world_snapshot_admissibility_status: Optional admissibility status carried from
+            admissibility evaluation.
+        world_snapshot_admissibility_result_checksum: Optional admissibility result checksum.
+        world_snapshot_trust_status: Optional trust status carried from trust evaluation.
+        world_snapshot_trust_result_checksum: Optional trust result checksum.
 
     Raises:
         ValueError: If the field combination contradicts admission semantics.
@@ -170,6 +176,26 @@ class PolicyAdmissionRecord:
     world_snapshot_observed_at_ms: int | None
     freshness_result_checksum: str | None
     freshness_status: str | None
+    world_snapshot_admissibility_status: str | None
+    world_snapshot_admissibility_reason_code: str | None
+    world_snapshot_admissibility_result_checksum: str | None
+    world_snapshot_trust_status: str | None
+    world_snapshot_trust_reason_code: str | None
+    world_snapshot_trust_result_checksum: str | None
+    evidence_envelope_checksum: str | None
+    attestation_checksum: str | None
+    trust_policy_checksum: str | None
+    verifier_certification_status: str | None
+    verifier_certification_reason_code: str | None
+    verifier_certification_checksum: str | None
+    verifier_id: str | None
+    verifier_metadata_checksum: str | None
+    trust_policy_config_status: str | None
+    trust_policy_config_reason_code: str | None
+    trust_policy_config_validation_checksum: str | None
+    source_id: str | None
+    source_type: str | None
+    trust_domain: str | None
 
     def __init__(
         self,
@@ -196,6 +222,26 @@ class PolicyAdmissionRecord:
         world_snapshot_observed_at_ms: int | None = None,
         freshness_result_checksum: str | None = None,
         freshness_status: str | None = None,
+        world_snapshot_admissibility_status: object = None,
+        world_snapshot_admissibility_reason_code: str | None = None,
+        world_snapshot_admissibility_result_checksum: str | None = None,
+        world_snapshot_trust_status: object = None,
+        world_snapshot_trust_reason_code: str | None = None,
+        world_snapshot_trust_result_checksum: str | None = None,
+        evidence_envelope_checksum: str | None = None,
+        attestation_checksum: str | None = None,
+        trust_policy_checksum: str | None = None,
+        verifier_certification_status: object = None,
+        verifier_certification_reason_code: str | None = None,
+        verifier_certification_checksum: str | None = None,
+        verifier_id: str | None = None,
+        verifier_metadata_checksum: str | None = None,
+        trust_policy_config_status: object = None,
+        trust_policy_config_reason_code: str | None = None,
+        trust_policy_config_validation_checksum: str | None = None,
+        source_id: str | None = None,
+        source_type: object = None,
+        trust_domain: object = None,
     ) -> None:
         normalized_mode = _normalize_mode(mode)
         if not isinstance(enforced, bool):
@@ -240,6 +286,113 @@ class PolicyAdmissionRecord:
             freshness_result_checksum, "freshness_result_checksum"
         )
         normalized_freshness_status = _normalize_optional_freshness_status(freshness_status)
+        admissibility_status_value = world_snapshot_admissibility_status
+        admissibility_reason_value = world_snapshot_admissibility_reason_code
+        admissibility_result_checksum_value = world_snapshot_admissibility_result_checksum
+        trust_status_value = world_snapshot_trust_status
+        trust_reason_value = world_snapshot_trust_reason_code
+        trust_result_checksum_value = world_snapshot_trust_result_checksum
+        evidence_envelope_checksum_value = evidence_envelope_checksum
+        attestation_checksum_value = attestation_checksum
+        trust_policy_checksum_value = trust_policy_checksum
+        verifier_certification_checksum_value = verifier_certification_checksum
+        trust_policy_config_validation_checksum_value = trust_policy_config_validation_checksum
+        verifier_id_value = verifier_id
+        verifier_metadata_checksum_value = verifier_metadata_checksum
+        source_id_value = source_id
+        source_type_value = source_type
+        trust_domain_value = trust_domain
+        if safety_case is not None:
+            admissibility_status_value = (
+                admissibility_status_value or safety_case.world_snapshot_admissibility_status
+            )
+            admissibility_reason_value = (
+                admissibility_reason_value or safety_case.world_snapshot_admissibility_reason_code
+            )
+            admissibility_result_checksum_value = (
+                admissibility_result_checksum_value
+                or safety_case.world_snapshot_admissibility_result_checksum
+            )
+            trust_status_value = trust_status_value or safety_case.world_snapshot_trust_status
+            trust_reason_value = trust_reason_value or safety_case.world_snapshot_trust_reason_code
+            trust_result_checksum_value = (
+                trust_result_checksum_value or safety_case.world_snapshot_trust_result_checksum
+            )
+            evidence_envelope_checksum_value = (
+                evidence_envelope_checksum_value or safety_case.evidence_envelope_checksum
+            )
+            attestation_checksum_value = (
+                attestation_checksum_value or safety_case.attestation_checksum
+            )
+            trust_policy_checksum_value = (
+                trust_policy_checksum_value or safety_case.trust_policy_checksum
+            )
+            verifier_certification_checksum_value = (
+                verifier_certification_checksum_value or safety_case.verifier_certification_checksum
+            )
+            trust_policy_config_validation_checksum_value = (
+                trust_policy_config_validation_checksum_value
+                or safety_case.trust_policy_config_validation_checksum
+            )
+            verifier_id_value = verifier_id_value or safety_case.verifier_id
+            verifier_metadata_checksum_value = (
+                verifier_metadata_checksum_value or safety_case.verifier_metadata_checksum
+            )
+            source_id_value = source_id_value or safety_case.source_id
+            source_type_value = source_type_value or safety_case.source_type
+            trust_domain_value = trust_domain_value or safety_case.trust_domain
+
+        normalized_admissibility_status = _normalize_optional_admissibility_status(
+            admissibility_status_value
+        )
+        normalized_admissibility_reason_code = _normalize_optional_reason_code(
+            admissibility_reason_value, "world_snapshot_admissibility_reason_code"
+        )
+        normalized_admissibility_result_checksum = _normalize_optional_text(
+            admissibility_result_checksum_value, "world_snapshot_admissibility_result_checksum"
+        )
+        normalized_trust_status = _normalize_optional_trust_status(trust_status_value)
+        normalized_trust_reason_code = _normalize_optional_reason_code(
+            trust_reason_value, "world_snapshot_trust_reason_code"
+        )
+        normalized_trust_result_checksum = _normalize_optional_text(
+            trust_result_checksum_value, "world_snapshot_trust_result_checksum"
+        )
+        normalized_evidence_envelope_checksum = _normalize_optional_text(
+            evidence_envelope_checksum_value, "evidence_envelope_checksum"
+        )
+        normalized_attestation_checksum = _normalize_optional_text(
+            attestation_checksum_value, "attestation_checksum"
+        )
+        normalized_trust_policy_checksum = _normalize_optional_text(
+            trust_policy_checksum_value, "trust_policy_checksum"
+        )
+        normalized_verifier_certification_status = _normalize_optional_certification_status(
+            verifier_certification_status
+        )
+        normalized_verifier_certification_reason_code = _normalize_optional_reason_code(
+            verifier_certification_reason_code, "verifier_certification_reason_code"
+        )
+        normalized_verifier_certification_checksum = _normalize_optional_text(
+            verifier_certification_checksum_value, "verifier_certification_checksum"
+        )
+        normalized_verifier_id = _normalize_optional_text(verifier_id_value, "verifier_id")
+        normalized_verifier_metadata_checksum = _normalize_optional_text(
+            verifier_metadata_checksum_value, "verifier_metadata_checksum"
+        )
+        normalized_trust_policy_config_status = _normalize_optional_config_status(
+            trust_policy_config_status
+        )
+        normalized_trust_policy_config_reason_code = _normalize_optional_reason_code(
+            trust_policy_config_reason_code, "trust_policy_config_reason_code"
+        )
+        normalized_trust_policy_config_validation_checksum = _normalize_optional_text(
+            trust_policy_config_validation_checksum_value,
+            "trust_policy_config_validation_checksum",
+        )
+        normalized_source_id = _normalize_optional_text(source_id_value, "source_id")
+        normalized_source_type = _normalize_optional_source_type(source_type_value)
+        normalized_trust_domain = _normalize_optional_trust_domain(trust_domain_value)
 
         if normalized_mode is PolicyAdmissionMode.DISABLED:
             _validate_disabled_record(
@@ -263,6 +416,26 @@ class PolicyAdmissionRecord:
                     normalized_exception_reason,
                     normalized_freshness_result_checksum,
                     normalized_freshness_status,
+                    normalized_admissibility_status,
+                    normalized_admissibility_reason_code,
+                    normalized_admissibility_result_checksum,
+                    normalized_trust_status,
+                    normalized_trust_reason_code,
+                    normalized_trust_result_checksum,
+                    normalized_evidence_envelope_checksum,
+                    normalized_attestation_checksum,
+                    normalized_trust_policy_checksum,
+                    normalized_verifier_certification_status,
+                    normalized_verifier_certification_reason_code,
+                    normalized_verifier_certification_checksum,
+                    normalized_verifier_id,
+                    normalized_verifier_metadata_checksum,
+                    normalized_trust_policy_config_status,
+                    normalized_trust_policy_config_reason_code,
+                    normalized_trust_policy_config_validation_checksum,
+                    normalized_source_id,
+                    normalized_source_type,
+                    normalized_trust_domain,
                 ),
                 disabled_observed_at_ms=normalized_world_snapshot_observed_at_ms,
             )
@@ -290,6 +463,30 @@ class PolicyAdmissionRecord:
                 world_snapshot_observed_at_ms=normalized_world_snapshot_observed_at_ms,
                 freshness_result_checksum=normalized_freshness_result_checksum,
                 freshness_status=normalized_freshness_status,
+                world_snapshot_admissibility_status=normalized_admissibility_status,
+                world_snapshot_admissibility_reason_code=normalized_admissibility_reason_code,
+                world_snapshot_admissibility_result_checksum=(
+                    normalized_admissibility_result_checksum
+                ),
+                world_snapshot_trust_status=normalized_trust_status,
+                world_snapshot_trust_reason_code=normalized_trust_reason_code,
+                world_snapshot_trust_result_checksum=normalized_trust_result_checksum,
+                evidence_envelope_checksum=normalized_evidence_envelope_checksum,
+                attestation_checksum=normalized_attestation_checksum,
+                trust_policy_checksum=normalized_trust_policy_checksum,
+                verifier_certification_status=normalized_verifier_certification_status,
+                verifier_certification_reason_code=normalized_verifier_certification_reason_code,
+                verifier_certification_checksum=normalized_verifier_certification_checksum,
+                verifier_id=normalized_verifier_id,
+                verifier_metadata_checksum=normalized_verifier_metadata_checksum,
+                trust_policy_config_status=normalized_trust_policy_config_status,
+                trust_policy_config_reason_code=normalized_trust_policy_config_reason_code,
+                trust_policy_config_validation_checksum=(
+                    normalized_trust_policy_config_validation_checksum
+                ),
+                source_id=normalized_source_id,
+                source_type=normalized_source_type,
+                trust_domain=normalized_trust_domain,
             )
 
         object.__setattr__(self, "mode", normalized_mode)
@@ -316,6 +513,56 @@ class PolicyAdmissionRecord:
         )
         object.__setattr__(self, "freshness_result_checksum", normalized_freshness_result_checksum)
         object.__setattr__(self, "freshness_status", normalized_freshness_status)
+        object.__setattr__(
+            self, "world_snapshot_admissibility_status", normalized_admissibility_status
+        )
+        object.__setattr__(
+            self, "world_snapshot_admissibility_reason_code", normalized_admissibility_reason_code
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_result_checksum",
+            normalized_admissibility_result_checksum,
+        )
+        object.__setattr__(self, "world_snapshot_trust_status", normalized_trust_status)
+        object.__setattr__(self, "world_snapshot_trust_reason_code", normalized_trust_reason_code)
+        object.__setattr__(
+            self, "world_snapshot_trust_result_checksum", normalized_trust_result_checksum
+        )
+        object.__setattr__(
+            self, "evidence_envelope_checksum", normalized_evidence_envelope_checksum
+        )
+        object.__setattr__(self, "attestation_checksum", normalized_attestation_checksum)
+        object.__setattr__(self, "trust_policy_checksum", normalized_trust_policy_checksum)
+        object.__setattr__(
+            self, "verifier_certification_status", normalized_verifier_certification_status
+        )
+        object.__setattr__(
+            self,
+            "verifier_certification_reason_code",
+            normalized_verifier_certification_reason_code,
+        )
+        object.__setattr__(
+            self, "verifier_certification_checksum", normalized_verifier_certification_checksum
+        )
+        object.__setattr__(self, "verifier_id", normalized_verifier_id)
+        object.__setattr__(
+            self, "verifier_metadata_checksum", normalized_verifier_metadata_checksum
+        )
+        object.__setattr__(
+            self, "trust_policy_config_status", normalized_trust_policy_config_status
+        )
+        object.__setattr__(
+            self, "trust_policy_config_reason_code", normalized_trust_policy_config_reason_code
+        )
+        object.__setattr__(
+            self,
+            "trust_policy_config_validation_checksum",
+            normalized_trust_policy_config_validation_checksum,
+        )
+        object.__setattr__(self, "source_id", normalized_source_id)
+        object.__setattr__(self, "source_type", normalized_source_type)
+        object.__setattr__(self, "trust_domain", normalized_trust_domain)
 
 
 def disabled_policy_admission_record() -> PolicyAdmissionRecord:
@@ -384,6 +631,26 @@ def _validate_enforced_record(
     world_snapshot_observed_at_ms: int | None = None,
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
+    world_snapshot_admissibility_status: str | None = None,
+    world_snapshot_admissibility_reason_code: str | None = None,
+    world_snapshot_admissibility_result_checksum: str | None = None,
+    world_snapshot_trust_status: str | None = None,
+    world_snapshot_trust_reason_code: str | None = None,
+    world_snapshot_trust_result_checksum: str | None = None,
+    evidence_envelope_checksum: str | None = None,
+    attestation_checksum: str | None = None,
+    trust_policy_checksum: str | None = None,
+    verifier_certification_status: str | None = None,
+    verifier_certification_reason_code: str | None = None,
+    verifier_certification_checksum: str | None = None,
+    verifier_id: str | None = None,
+    verifier_metadata_checksum: str | None = None,
+    trust_policy_config_status: str | None = None,
+    trust_policy_config_reason_code: str | None = None,
+    trust_policy_config_validation_checksum: str | None = None,
+    source_id: str | None = None,
+    source_type: str | None = None,
+    trust_domain: str | None = None,
 ) -> None:
     if not enforced:
         raise ValueError("ENFORCE admission records must be enforced")
@@ -428,6 +695,24 @@ def _validate_enforced_record(
             world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
             freshness_result_checksum=freshness_result_checksum,
             freshness_status=freshness_status,
+            world_snapshot_admissibility_status=world_snapshot_admissibility_status,
+            world_snapshot_admissibility_reason_code=world_snapshot_admissibility_reason_code,
+            world_snapshot_admissibility_result_checksum=(
+                world_snapshot_admissibility_result_checksum
+            ),
+            world_snapshot_trust_status=world_snapshot_trust_status,
+            world_snapshot_trust_reason_code=world_snapshot_trust_reason_code,
+            world_snapshot_trust_result_checksum=world_snapshot_trust_result_checksum,
+            evidence_envelope_checksum=evidence_envelope_checksum,
+            attestation_checksum=attestation_checksum,
+            trust_policy_checksum=trust_policy_checksum,
+            verifier_certification_checksum=verifier_certification_checksum,
+            trust_policy_config_validation_checksum=trust_policy_config_validation_checksum,
+            verifier_id=verifier_id,
+            verifier_metadata_checksum=verifier_metadata_checksum,
+            source_id=source_id,
+            source_type=source_type,
+            trust_domain=trust_domain,
         )
         _validate_policy_result_freshness_bindings(
             policy_result=policy_result,
@@ -436,11 +721,59 @@ def _validate_enforced_record(
             freshness_result_checksum=freshness_result_checksum,
             freshness_status=freshness_status,
         )
+        _validate_policy_result_trust_bindings(
+            policy_result=policy_result,
+            world_snapshot_admissibility_status=world_snapshot_admissibility_status,
+            world_snapshot_admissibility_reason_code=world_snapshot_admissibility_reason_code,
+            world_snapshot_admissibility_result_checksum=(
+                world_snapshot_admissibility_result_checksum
+            ),
+            world_snapshot_trust_status=world_snapshot_trust_status,
+            world_snapshot_trust_reason_code=world_snapshot_trust_reason_code,
+            world_snapshot_trust_result_checksum=world_snapshot_trust_result_checksum,
+            evidence_envelope_checksum=evidence_envelope_checksum,
+            attestation_checksum=attestation_checksum,
+            trust_policy_checksum=trust_policy_checksum,
+            verifier_certification_checksum=verifier_certification_checksum,
+            trust_policy_config_validation_checksum=trust_policy_config_validation_checksum,
+            verifier_id=verifier_id,
+            verifier_metadata_checksum=verifier_metadata_checksum,
+            source_id=source_id,
+            source_type=source_type,
+            trust_domain=trust_domain,
+        )
         _require_freshness_backed_admission(
             world_snapshot_id=world_snapshot_id,
             world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
             freshness_result_checksum=freshness_result_checksum,
             freshness_status=freshness_status,
+        )
+        _require_admissibility_backed_admission(
+            world_snapshot_admissibility_status=world_snapshot_admissibility_status,
+            world_snapshot_admissibility_reason_code=world_snapshot_admissibility_reason_code,
+            world_snapshot_admissibility_result_checksum=(
+                world_snapshot_admissibility_result_checksum
+            ),
+        )
+        _require_trust_backed_admission(
+            world_snapshot_trust_status=world_snapshot_trust_status,
+            world_snapshot_trust_reason_code=world_snapshot_trust_reason_code,
+            world_snapshot_trust_result_checksum=world_snapshot_trust_result_checksum,
+            evidence_envelope_checksum=evidence_envelope_checksum,
+            trust_policy_checksum=trust_policy_checksum,
+            source_id=source_id,
+            source_type=source_type,
+            trust_domain=trust_domain,
+        )
+        _require_trust_authority_backed_admission(
+            verifier_certification_status=verifier_certification_status,
+            verifier_certification_reason_code=verifier_certification_reason_code,
+            verifier_certification_checksum=verifier_certification_checksum,
+            verifier_id=verifier_id,
+            verifier_metadata_checksum=verifier_metadata_checksum,
+            trust_policy_config_status=trust_policy_config_status,
+            trust_policy_config_reason_code=trust_policy_config_reason_code,
+            trust_policy_config_validation_checksum=trust_policy_config_validation_checksum,
         )
     elif reasons == ():
         raise ValueError("denied ENFORCE admission requires reasons")
@@ -560,6 +893,62 @@ def _policy_admission_integrity_violations(
             violations.append("POLICY_RESULT_FRESHNESS_RESULT_CHECKSUM_MISMATCH")
         if policy_result.freshness_status != policy_admission.freshness_status:
             violations.append("POLICY_RESULT_FRESHNESS_STATUS_MISMATCH")
+        if (
+            policy_result.world_snapshot_admissibility_status
+            != policy_admission.world_snapshot_admissibility_status
+        ):
+            violations.append("POLICY_RESULT_ADMISSIBILITY_STATUS_MISMATCH")
+        if (
+            policy_result.world_snapshot_admissibility_reason_code
+            != policy_admission.world_snapshot_admissibility_reason_code
+        ):
+            violations.append("POLICY_RESULT_ADMISSIBILITY_REASON_CODE_MISMATCH")
+        if (
+            policy_result.world_snapshot_admissibility_result_checksum
+            != policy_admission.world_snapshot_admissibility_result_checksum
+        ):
+            violations.append("POLICY_RESULT_ADMISSIBILITY_RESULT_CHECKSUM_MISMATCH")
+        if (
+            policy_result.world_snapshot_trust_status
+            != policy_admission.world_snapshot_trust_status
+        ):
+            violations.append("POLICY_RESULT_TRUST_STATUS_MISMATCH")
+        if (
+            policy_result.world_snapshot_trust_reason_code
+            != policy_admission.world_snapshot_trust_reason_code
+        ):
+            violations.append("POLICY_RESULT_TRUST_REASON_CODE_MISMATCH")
+        if (
+            policy_result.world_snapshot_trust_result_checksum
+            != policy_admission.world_snapshot_trust_result_checksum
+        ):
+            violations.append("POLICY_RESULT_TRUST_RESULT_CHECKSUM_MISMATCH")
+        if policy_result.evidence_envelope_checksum != policy_admission.evidence_envelope_checksum:
+            violations.append("POLICY_RESULT_EVIDENCE_ENVELOPE_CHECKSUM_MISMATCH")
+        if policy_result.attestation_checksum != policy_admission.attestation_checksum:
+            violations.append("POLICY_RESULT_ATTESTATION_CHECKSUM_MISMATCH")
+        if policy_result.trust_policy_checksum != policy_admission.trust_policy_checksum:
+            violations.append("POLICY_RESULT_TRUST_POLICY_CHECKSUM_MISMATCH")
+        if (
+            policy_result.verifier_certification_checksum
+            != policy_admission.verifier_certification_checksum
+        ):
+            violations.append("POLICY_RESULT_VERIFIER_CERTIFICATION_CHECKSUM_MISMATCH")
+        if (
+            policy_result.trust_policy_config_validation_checksum
+            != policy_admission.trust_policy_config_validation_checksum
+        ):
+            violations.append("POLICY_RESULT_TRUST_POLICY_CONFIG_CHECKSUM_MISMATCH")
+        if policy_result.verifier_id != policy_admission.verifier_id:
+            violations.append("POLICY_RESULT_VERIFIER_ID_MISMATCH")
+        if policy_result.verifier_metadata_checksum != policy_admission.verifier_metadata_checksum:
+            violations.append("POLICY_RESULT_VERIFIER_METADATA_CHECKSUM_MISMATCH")
+        if policy_result.source_id != policy_admission.source_id:
+            violations.append("POLICY_RESULT_SOURCE_ID_MISMATCH")
+        if policy_result.source_type != policy_admission.source_type:
+            violations.append("POLICY_RESULT_SOURCE_TYPE_MISMATCH")
+        if policy_result.trust_domain != policy_admission.trust_domain:
+            violations.append("POLICY_RESULT_TRUST_DOMAIN_MISMATCH")
 
     expected_policy_result_checksum = (
         policy_evaluation_result_checksum(policy_result) if policy_result is not None else None
@@ -641,6 +1030,59 @@ def _policy_admission_integrity_violations(
             violations.append("SAFETY_CASE_FRESHNESS_RESULT_CHECKSUM_MISMATCH")
         if safety_case.freshness_status != policy_admission.freshness_status:
             violations.append("SAFETY_CASE_FRESHNESS_STATUS_MISMATCH")
+        if (
+            safety_case.world_snapshot_admissibility_status
+            != policy_admission.world_snapshot_admissibility_status
+        ):
+            violations.append("SAFETY_CASE_ADMISSIBILITY_STATUS_MISMATCH")
+        if (
+            safety_case.world_snapshot_admissibility_reason_code
+            != policy_admission.world_snapshot_admissibility_reason_code
+        ):
+            violations.append("SAFETY_CASE_ADMISSIBILITY_REASON_CODE_MISMATCH")
+        if (
+            safety_case.world_snapshot_admissibility_result_checksum
+            != policy_admission.world_snapshot_admissibility_result_checksum
+        ):
+            violations.append("SAFETY_CASE_ADMISSIBILITY_RESULT_CHECKSUM_MISMATCH")
+        if safety_case.world_snapshot_trust_status != policy_admission.world_snapshot_trust_status:
+            violations.append("SAFETY_CASE_TRUST_STATUS_MISMATCH")
+        if (
+            safety_case.world_snapshot_trust_reason_code
+            != policy_admission.world_snapshot_trust_reason_code
+        ):
+            violations.append("SAFETY_CASE_TRUST_REASON_CODE_MISMATCH")
+        if (
+            safety_case.world_snapshot_trust_result_checksum
+            != policy_admission.world_snapshot_trust_result_checksum
+        ):
+            violations.append("SAFETY_CASE_TRUST_RESULT_CHECKSUM_MISMATCH")
+        if safety_case.evidence_envelope_checksum != policy_admission.evidence_envelope_checksum:
+            violations.append("SAFETY_CASE_EVIDENCE_ENVELOPE_CHECKSUM_MISMATCH")
+        if safety_case.attestation_checksum != policy_admission.attestation_checksum:
+            violations.append("SAFETY_CASE_ATTESTATION_CHECKSUM_MISMATCH")
+        if safety_case.trust_policy_checksum != policy_admission.trust_policy_checksum:
+            violations.append("SAFETY_CASE_TRUST_POLICY_CHECKSUM_MISMATCH")
+        if (
+            safety_case.verifier_certification_checksum
+            != policy_admission.verifier_certification_checksum
+        ):
+            violations.append("SAFETY_CASE_VERIFIER_CERTIFICATION_CHECKSUM_MISMATCH")
+        if (
+            safety_case.trust_policy_config_validation_checksum
+            != policy_admission.trust_policy_config_validation_checksum
+        ):
+            violations.append("SAFETY_CASE_TRUST_POLICY_CONFIG_CHECKSUM_MISMATCH")
+        if safety_case.verifier_id != policy_admission.verifier_id:
+            violations.append("SAFETY_CASE_VERIFIER_ID_MISMATCH")
+        if safety_case.verifier_metadata_checksum != policy_admission.verifier_metadata_checksum:
+            violations.append("SAFETY_CASE_VERIFIER_METADATA_CHECKSUM_MISMATCH")
+        if safety_case.source_id != policy_admission.source_id:
+            violations.append("SAFETY_CASE_SOURCE_ID_MISMATCH")
+        if safety_case.source_type != policy_admission.source_type:
+            violations.append("SAFETY_CASE_SOURCE_TYPE_MISMATCH")
+        if safety_case.trust_domain != policy_admission.trust_domain:
+            violations.append("SAFETY_CASE_TRUST_DOMAIN_MISMATCH")
         if policy_result is not None and safety_case.policy_result != policy_result:
             violations.append("SAFETY_CASE_POLICY_RESULT_MISMATCH")
 
@@ -652,6 +1094,42 @@ def _policy_admission_integrity_violations(
         violations.append("FRESHNESS_WORLD_SNAPSHOT_ID_MISSING")
     if policy_admission.world_snapshot_observed_at_ms is None:
         violations.append("FRESHNESS_WORLD_SNAPSHOT_OBSERVED_AT_MS_MISSING")
+    if policy_admission.world_snapshot_admissibility_status != "ADMISSIBLE":
+        violations.append("ADMISSIBILITY_STATUS_NOT_ADMISSIBLE")
+    if policy_admission.world_snapshot_admissibility_reason_code is None:
+        violations.append("ADMISSIBILITY_REASON_MISSING")
+    if policy_admission.world_snapshot_admissibility_result_checksum is None:
+        violations.append("ADMISSIBILITY_RESULT_CHECKSUM_MISSING")
+    if policy_admission.world_snapshot_trust_status != "TRUSTED":
+        violations.append("TRUST_STATUS_NOT_TRUSTED")
+    if policy_admission.world_snapshot_trust_result_checksum is None:
+        violations.append("TRUST_RESULT_CHECKSUM_MISSING")
+    if policy_admission.evidence_envelope_checksum is None:
+        violations.append("TRUST_EVIDENCE_ENVELOPE_CHECKSUM_MISSING")
+    if policy_admission.trust_policy_checksum is None:
+        violations.append("TRUST_POLICY_CHECKSUM_MISSING")
+    if policy_admission.verifier_certification_status != "CERTIFIED":
+        violations.append("VERIFIER_CERTIFICATION_STATUS_NOT_CERTIFIED")
+    if policy_admission.verifier_certification_reason_code is None:
+        violations.append("VERIFIER_CERTIFICATION_REASON_MISSING")
+    if policy_admission.verifier_certification_checksum is None:
+        violations.append("VERIFIER_CERTIFICATION_CHECKSUM_MISSING")
+    if policy_admission.verifier_id is None:
+        violations.append("VERIFIER_ID_MISSING")
+    if policy_admission.verifier_metadata_checksum is None:
+        violations.append("VERIFIER_METADATA_CHECKSUM_MISSING")
+    if policy_admission.trust_policy_config_status != "VALID":
+        violations.append("TRUST_POLICY_CONFIG_STATUS_NOT_VALID")
+    if policy_admission.trust_policy_config_reason_code is None:
+        violations.append("TRUST_POLICY_CONFIG_REASON_MISSING")
+    if policy_admission.trust_policy_config_validation_checksum is None:
+        violations.append("TRUST_POLICY_CONFIG_VALIDATION_CHECKSUM_MISSING")
+    if policy_admission.source_id is None:
+        violations.append("TRUST_SOURCE_ID_MISSING")
+    if policy_admission.source_type is None:
+        violations.append("TRUST_SOURCE_TYPE_MISSING")
+    if policy_admission.trust_domain is None:
+        violations.append("TRUST_DOMAIN_MISSING")
 
     return tuple(violations)
 
@@ -707,6 +1185,22 @@ def _validate_safety_case_bindings(
     world_snapshot_observed_at_ms: int | None = None,
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
+    world_snapshot_admissibility_status: str | None = None,
+    world_snapshot_admissibility_reason_code: str | None = None,
+    world_snapshot_admissibility_result_checksum: str | None = None,
+    world_snapshot_trust_status: str | None = None,
+    world_snapshot_trust_reason_code: str | None = None,
+    world_snapshot_trust_result_checksum: str | None = None,
+    evidence_envelope_checksum: str | None = None,
+    attestation_checksum: str | None = None,
+    trust_policy_checksum: str | None = None,
+    verifier_certification_checksum: str | None = None,
+    trust_policy_config_validation_checksum: str | None = None,
+    verifier_id: str | None = None,
+    verifier_metadata_checksum: str | None = None,
+    source_id: str | None = None,
+    source_type: str | None = None,
+    trust_domain: str | None = None,
 ) -> None:
     if safety_case.audited_plan_id != audit_id:
         raise ValueError("safety_case audited plan binding must match admission audit_id")
@@ -728,6 +1222,51 @@ def _validate_safety_case_bindings(
         raise ValueError("safety_case freshness_result_checksum must match admission")
     if safety_case.freshness_status != freshness_status:
         raise ValueError("safety_case freshness_status must match admission")
+    if safety_case.world_snapshot_admissibility_status != world_snapshot_admissibility_status:
+        raise ValueError("safety_case world_snapshot_admissibility_status must match admission")
+    if (
+        safety_case.world_snapshot_admissibility_reason_code
+        != world_snapshot_admissibility_reason_code
+    ):
+        raise ValueError(
+            "safety_case world_snapshot_admissibility_reason_code must match admission"
+        )
+    if (
+        safety_case.world_snapshot_admissibility_result_checksum
+        != world_snapshot_admissibility_result_checksum
+    ):
+        raise ValueError(
+            "safety_case world_snapshot_admissibility_result_checksum must match admission"
+        )
+    if safety_case.world_snapshot_trust_status != world_snapshot_trust_status:
+        raise ValueError("safety_case world_snapshot_trust_status must match admission")
+    if safety_case.world_snapshot_trust_reason_code != world_snapshot_trust_reason_code:
+        raise ValueError("safety_case world_snapshot_trust_reason_code must match admission")
+    if safety_case.world_snapshot_trust_result_checksum != world_snapshot_trust_result_checksum:
+        raise ValueError("safety_case world_snapshot_trust_result_checksum must match admission")
+    if safety_case.evidence_envelope_checksum != evidence_envelope_checksum:
+        raise ValueError("safety_case evidence_envelope_checksum must match admission")
+    if safety_case.attestation_checksum != attestation_checksum:
+        raise ValueError("safety_case attestation_checksum must match admission")
+    if safety_case.trust_policy_checksum != trust_policy_checksum:
+        raise ValueError("safety_case trust_policy_checksum must match admission")
+    if safety_case.verifier_certification_checksum != verifier_certification_checksum:
+        raise ValueError("safety_case verifier_certification_checksum must match admission")
+    if (
+        safety_case.trust_policy_config_validation_checksum
+        != trust_policy_config_validation_checksum
+    ):
+        raise ValueError("safety_case trust_policy_config_validation_checksum must match admission")
+    if safety_case.verifier_id != verifier_id:
+        raise ValueError("safety_case verifier_id must match admission")
+    if safety_case.verifier_metadata_checksum != verifier_metadata_checksum:
+        raise ValueError("safety_case verifier_metadata_checksum must match admission")
+    if safety_case.source_id != source_id:
+        raise ValueError("safety_case source_id must match admission")
+    if safety_case.source_type != source_type:
+        raise ValueError("safety_case source_type must match admission")
+    if safety_case.trust_domain != trust_domain:
+        raise ValueError("safety_case trust_domain must match admission")
 
 
 def _validate_policy_result_freshness_bindings(
@@ -748,6 +1287,75 @@ def _validate_policy_result_freshness_bindings(
         raise ValueError("policy_result freshness_status must match admission")
 
 
+def _validate_policy_result_trust_bindings(
+    *,
+    policy_result: PolicyEvaluationResult,
+    world_snapshot_admissibility_status: str | None,
+    world_snapshot_admissibility_reason_code: str | None,
+    world_snapshot_admissibility_result_checksum: str | None,
+    world_snapshot_trust_status: str | None,
+    world_snapshot_trust_reason_code: str | None,
+    world_snapshot_trust_result_checksum: str | None,
+    evidence_envelope_checksum: str | None,
+    attestation_checksum: str | None,
+    trust_policy_checksum: str | None,
+    verifier_certification_checksum: str | None,
+    trust_policy_config_validation_checksum: str | None,
+    verifier_id: str | None,
+    verifier_metadata_checksum: str | None,
+    source_id: str | None,
+    source_type: str | None,
+    trust_domain: str | None,
+) -> None:
+    if policy_result.world_snapshot_admissibility_status != world_snapshot_admissibility_status:
+        raise ValueError("policy_result world_snapshot_admissibility_status must match admission")
+    if (
+        policy_result.world_snapshot_admissibility_reason_code
+        != world_snapshot_admissibility_reason_code
+    ):
+        raise ValueError(
+            "policy_result world_snapshot_admissibility_reason_code must match admission"
+        )
+    if (
+        policy_result.world_snapshot_admissibility_result_checksum
+        != world_snapshot_admissibility_result_checksum
+    ):
+        raise ValueError(
+            "policy_result world_snapshot_admissibility_result_checksum must match admission"
+        )
+    if policy_result.world_snapshot_trust_status != world_snapshot_trust_status:
+        raise ValueError("policy_result world_snapshot_trust_status must match admission")
+    if policy_result.world_snapshot_trust_reason_code != world_snapshot_trust_reason_code:
+        raise ValueError("policy_result world_snapshot_trust_reason_code must match admission")
+    if policy_result.world_snapshot_trust_result_checksum != world_snapshot_trust_result_checksum:
+        raise ValueError("policy_result world_snapshot_trust_result_checksum must match admission")
+    if policy_result.evidence_envelope_checksum != evidence_envelope_checksum:
+        raise ValueError("policy_result evidence_envelope_checksum must match admission")
+    if policy_result.attestation_checksum != attestation_checksum:
+        raise ValueError("policy_result attestation_checksum must match admission")
+    if policy_result.trust_policy_checksum != trust_policy_checksum:
+        raise ValueError("policy_result trust_policy_checksum must match admission")
+    if policy_result.verifier_certification_checksum != verifier_certification_checksum:
+        raise ValueError("policy_result verifier_certification_checksum must match admission")
+    if (
+        policy_result.trust_policy_config_validation_checksum
+        != trust_policy_config_validation_checksum
+    ):
+        raise ValueError(
+            "policy_result trust_policy_config_validation_checksum must match admission"
+        )
+    if policy_result.verifier_id != verifier_id:
+        raise ValueError("policy_result verifier_id must match admission")
+    if policy_result.verifier_metadata_checksum != verifier_metadata_checksum:
+        raise ValueError("policy_result verifier_metadata_checksum must match admission")
+    if policy_result.source_id != source_id:
+        raise ValueError("policy_result source_id must match admission")
+    if policy_result.source_type != source_type:
+        raise ValueError("policy_result source_type must match admission")
+    if policy_result.trust_domain != trust_domain:
+        raise ValueError("policy_result trust_domain must match admission")
+
+
 def _require_freshness_backed_admission(
     *,
     world_snapshot_id: str | None,
@@ -765,6 +1373,82 @@ def _require_freshness_backed_admission(
         raise ValueError("allowed ENFORCE admission requires freshness_result_checksum")
     if freshness_status != "FRESH":
         raise ValueError("allowed ENFORCE admission requires freshness_status FRESH")
+
+
+def _require_admissibility_backed_admission(
+    *,
+    world_snapshot_admissibility_status: str | None,
+    world_snapshot_admissibility_reason_code: str | None,
+    world_snapshot_admissibility_result_checksum: str | None,
+) -> None:
+    if world_snapshot_admissibility_status != "ADMISSIBLE":
+        raise ValueError(
+            "allowed ENFORCE admission requires world_snapshot_admissibility_status ADMISSIBLE"
+        )
+    if world_snapshot_admissibility_reason_code is None:
+        raise ValueError("allowed ENFORCE admission requires admissibility reason code")
+    if world_snapshot_admissibility_result_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires admissibility result checksum")
+
+
+def _require_trust_backed_admission(
+    *,
+    world_snapshot_trust_status: str | None,
+    world_snapshot_trust_reason_code: str | None,
+    world_snapshot_trust_result_checksum: str | None,
+    evidence_envelope_checksum: str | None,
+    trust_policy_checksum: str | None,
+    source_id: str | None,
+    source_type: str | None,
+    trust_domain: str | None,
+) -> None:
+    if world_snapshot_trust_status != "TRUSTED":
+        raise ValueError("allowed ENFORCE admission requires world_snapshot_trust_status TRUSTED")
+    if world_snapshot_trust_reason_code is None:
+        raise ValueError("allowed ENFORCE admission requires trust reason code")
+    if world_snapshot_trust_result_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires trust result checksum")
+    if evidence_envelope_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires evidence envelope checksum")
+    if trust_policy_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires trust policy checksum")
+    if source_id is None:
+        raise ValueError("allowed ENFORCE admission requires source_id")
+    if source_type is None:
+        raise ValueError("allowed ENFORCE admission requires source_type")
+    if trust_domain is None:
+        raise ValueError("allowed ENFORCE admission requires trust_domain")
+
+
+def _require_trust_authority_backed_admission(
+    *,
+    verifier_certification_status: str | None,
+    verifier_certification_reason_code: str | None,
+    verifier_certification_checksum: str | None,
+    verifier_id: str | None,
+    verifier_metadata_checksum: str | None,
+    trust_policy_config_status: str | None,
+    trust_policy_config_reason_code: str | None,
+    trust_policy_config_validation_checksum: str | None,
+) -> None:
+    if verifier_certification_status != "CERTIFIED":
+        raise ValueError("allowed ENFORCE admission requires certified verifier")
+    if verifier_certification_reason_code is None:
+        raise ValueError("allowed ENFORCE admission requires verifier certification reason")
+    if verifier_certification_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires verifier certification checksum")
+    if verifier_id is None:
+        raise ValueError("allowed ENFORCE admission requires verifier_id")
+    if verifier_metadata_checksum is None:
+        raise ValueError("allowed ENFORCE admission requires verifier metadata checksum")
+    if trust_policy_config_status != "VALID":
+        raise ValueError("allowed ENFORCE admission requires valid trust policy config")
+    if trust_policy_config_reason_code is None:
+        raise ValueError("allowed ENFORCE admission requires trust policy config reason")
+    if trust_policy_config_validation_checksum is None:
+        raise ValueError(
+            "allowed ENFORCE admission requires trust policy config validation checksum"
+        )
 
 
 def _normalize_mode(value: str | PolicyAdmissionMode) -> PolicyAdmissionMode:
@@ -865,6 +1549,106 @@ _VALID_FRESHNESS_STATUS_VALUES = frozenset(
     }
 )
 
+_VALID_ADMISSIBILITY_STATUS_VALUES = frozenset(
+    {
+        "ADMISSIBLE",
+        "SNAPSHOT_MISSING",
+        "SNAPSHOT_CHECKSUM_MISSING",
+        "SNAPSHOT_CHECKSUM_EMPTY",
+        "CAPABILITY_SCOPE_MISSING",
+        "CAPABILITY_SCOPE_EMPTY",
+        "CAPABILITY_SCOPE_MISMATCH",
+        "FACTS_MALFORMED",
+        "DECLARED_FACT_KEY_MISSING",
+        "REQUIRED_FACT_KEY_MISSING",
+        "REQUIRED_FACT_KEY_UNDECLARED",
+        "CONTRADICTORY_SNAPSHOT_EVIDENCE",
+    }
+)
+
+_VALID_TRUST_STATUS_VALUES = frozenset(
+    {
+        "TRUSTED",
+        "UNTRUSTED",
+        "MISSING_EVIDENCE",
+        "MISSING_TRUST_POLICY",
+        "MISSING_VERIFIER",
+        "SNAPSHOT_CHECKSUM_MISMATCH",
+        "SOURCE_NOT_ALLOWED",
+        "SOURCE_TYPE_NOT_ALLOWED",
+        "TRUST_DOMAIN_NOT_ALLOWED",
+        "CAPABILITY_NOT_ALLOWED",
+        "ATTESTATION_MISSING",
+        "ATTESTATION_INVALID",
+        "ATTESTATION_EXPIRED",
+        "ATTESTATION_NOT_YET_VALID",
+        "ATTESTATION_REPLAY_DETECTED",
+        "UNSUPPORTED_ATTESTATION_ALGORITHM",
+        "MALFORMED_EVIDENCE",
+        "CONTRADICTORY_EVIDENCE",
+    }
+)
+
+_VALID_VERIFIER_CERTIFICATION_STATUS_VALUES = frozenset(
+    {
+        "CERTIFIED",
+        "MISSING_VERIFIER",
+        "UNSUPPORTED_ADAPTER_TYPE",
+        "MISSING_VERIFIER_ID",
+        "MISSING_DECLARED_ALGORITHMS",
+        "MISSING_DECLARED_KEY_IDS",
+        "POSITIVE_VECTOR_FAILED",
+        "NEGATIVE_VECTOR_ACCEPTED",
+        "WRONG_SNAPSHOT_ACCEPTED",
+        "WRONG_ENVELOPE_ACCEPTED",
+        "WRONG_KEY_ACCEPTED",
+        "UNSUPPORTED_ALGORITHM_ACCEPTED",
+        "NON_DETERMINISTIC_RESULT",
+        "MALFORMED_RESULT",
+        "CHECKSUM_BINDING_MISSING",
+        "UNSAFE_FOR_ENFORCE",
+    }
+)
+
+_VALID_TRUST_POLICY_CONFIG_STATUS_VALUES = frozenset(
+    {
+        "VALID",
+        "MISSING_POLICY",
+        "EMPTY_ALLOWED_SOURCES",
+        "EMPTY_ALLOWED_SOURCE_TYPES",
+        "EMPTY_ALLOWED_DOMAINS",
+        "EMPTY_ALLOWED_CAPABILITIES",
+        "EMPTY_ALLOWED_ALGORITHMS",
+        "EMPTY_ALLOWED_KEY_IDS",
+        "WILDCARD_SOURCE_NOT_ALLOWED",
+        "WILDCARD_DOMAIN_NOT_ALLOWED",
+        "WILDCARD_CAPABILITY_NOT_ALLOWED",
+        "TEST_SOURCE_FOR_PHYSICAL_RUNTIME",
+        "SIMULATION_DOMAIN_FOR_PHYSICAL_RUNTIME",
+        "ATTESTATION_REQUIRED_FALSE_IN_ENFORCE",
+        "POLICY_VERIFIER_ALGORITHM_MISMATCH",
+        "POLICY_VERIFIER_KEY_MISMATCH",
+        "POLICY_CAPABILITY_CONTEXT_MISMATCH",
+        "CONFLICTING_POLICY_FIELDS",
+        "MALFORMED_POLICY",
+    }
+)
+
+_VALID_SOURCE_TYPE_VALUES = frozenset(
+    {
+        "TEST_FIXTURE",
+        "SIMULATOR",
+        "SENSOR_BRIDGE",
+        "HUMAN_OPERATOR",
+        "STATIC_SCENE",
+        "UNKNOWN",
+    }
+)
+
+_VALID_TRUST_DOMAIN_VALUES = frozenset(
+    {"TEST", "SIMULATION", "DEVELOPMENT", "STAGING", "PHYSICAL_RUNTIME"}
+)
+
 
 def _normalize_optional_freshness_status(value: object) -> str | None:
     if value is None:
@@ -876,6 +1660,89 @@ def _normalize_optional_freshness_status(value: object) -> str | None:
     if value not in _VALID_FRESHNESS_STATUS_VALUES:
         raise ValueError(f"freshness_status not recognised: {value!r}")
     return value
+
+
+def _normalize_optional_admissibility_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("world_snapshot_admissibility_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError(
+            "world_snapshot_admissibility_status must not contain surrounding whitespace"
+        )
+    if value not in _VALID_ADMISSIBILITY_STATUS_VALUES:
+        raise ValueError(f"world_snapshot_admissibility_status not recognised: {value!r}")
+    return value
+
+
+def _normalize_optional_trust_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("world_snapshot_trust_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("world_snapshot_trust_status must not contain surrounding whitespace")
+    if value not in _VALID_TRUST_STATUS_VALUES:
+        raise ValueError(f"world_snapshot_trust_status not recognised: {value!r}")
+    return value
+
+
+def _normalize_optional_certification_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("verifier_certification_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("verifier_certification_status must not contain surrounding whitespace")
+    if value not in _VALID_VERIFIER_CERTIFICATION_STATUS_VALUES:
+        raise ValueError(f"verifier_certification_status not recognised: {value!r}")
+    return value
+
+
+def _normalize_optional_config_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("trust_policy_config_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("trust_policy_config_status must not contain surrounding whitespace")
+    if value not in _VALID_TRUST_POLICY_CONFIG_STATUS_VALUES:
+        raise ValueError(f"trust_policy_config_status not recognised: {value!r}")
+    return value
+
+
+def _normalize_optional_source_type(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("source_type must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("source_type must not contain surrounding whitespace")
+    if value not in _VALID_SOURCE_TYPE_VALUES:
+        raise ValueError(f"source_type not recognised: {value!r}")
+    return value
+
+
+def _normalize_optional_trust_domain(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("trust_domain must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("trust_domain must not contain surrounding whitespace")
+    if value not in _VALID_TRUST_DOMAIN_VALUES:
+        raise ValueError(f"trust_domain not recognised: {value!r}")
+    return value
+
+
+def _normalize_optional_reason_code(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    normalized = _normalize_required_text(value, field_name)
+    if fullmatch(r"[A-Z][A-Z0-9_]*", normalized) is None:
+        raise ValueError(f"{field_name} must be a machine-readable uppercase reason code")
+    return normalized
 
 
 def _normalize_policy_id(

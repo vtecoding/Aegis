@@ -35,6 +35,13 @@ _FRESHNESS_INVALID_REASONS = frozenset(
     }
 )
 
+_TRUST_INVALID_REASONS = frozenset(
+    {
+        "WORLD_SNAPSHOT_TRUST_CONTRADICTORY_EVIDENCE",
+        "WORLD_SNAPSHOT_TRUST_MALFORMED_EVIDENCE",
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class PipelineResult:
@@ -112,9 +119,27 @@ class PipelineResult:
                     reason in _FRESHNESS_INVALID_REASONS for reason in self.policy_admission.reasons
                 )
             )
-            if self.plan is not None and not policy_invalid and not freshness_invalid:
+            trust_invalid = (
+                self.policy_admission.enforced
+                and not self.policy_admission.admission_allowed
+                and self.policy_admission.policy_result is None
+                and any(
+                    reason in _TRUST_INVALID_REASONS for reason in self.policy_admission.reasons
+                )
+            )
+            if (
+                self.plan is not None
+                and not policy_invalid
+                and not freshness_invalid
+                and not trust_invalid
+            ):
                 raise ValueError("PipelineResult outcome=INVALID must have plan=None")
-            if self.audited_plan is not None and not policy_invalid and not freshness_invalid:
+            if (
+                self.audited_plan is not None
+                and not policy_invalid
+                and not freshness_invalid
+                and not trust_invalid
+            ):
                 raise ValueError("PipelineResult outcome=INVALID must have audited_plan=None")
             if self.gate_decision is not None:
                 raise ValueError("PipelineResult outcome=INVALID must have gate_decision=None")

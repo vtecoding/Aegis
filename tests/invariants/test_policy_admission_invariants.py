@@ -11,6 +11,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -105,11 +106,18 @@ def test_invariant_allowed_implies_valid_policy_backed_approval(
     case: str,
 ) -> None:
     context = _context()
+    admission = _admission(case)
+    trust_kwargs = (
+        trusted_pipeline_kwargs(admission.world_snapshot)
+        if admission is not None and admission.world_snapshot is not None
+        else {}
+    )
     result = run_pipeline(
         _intent(command, priority, context),
         context,
-        policy_admission=_admission(case),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trust_kwargs,
     )
 
     if result.outcome is not PipelineOutcome.ALLOWED:
@@ -134,6 +142,8 @@ def test_invariant_allowed_implies_valid_policy_backed_approval(
     assert admission.policy_result.failed_constraints == ()
     assert admission.policy_result.freshness_status == "FRESH"
     assert admission.policy_result.freshness_result_checksum is not None
+    assert admission.policy_result.world_snapshot_trust_status == "TRUSTED"
+    assert admission.policy_result.world_snapshot_trust_result_checksum is not None
 
     assert admission.safety_case is not None
     assert admission.safety_case.audited_plan_id == result.audited_plan.audit_id
@@ -143,10 +153,15 @@ def test_invariant_allowed_implies_valid_policy_backed_approval(
     assert admission.safety_case.freshness_result_checksum == (
         admission.policy_result.freshness_result_checksum
     )
+    assert admission.safety_case.world_snapshot_trust_status == "TRUSTED"
+    assert admission.safety_case.world_snapshot_trust_result_checksum == (
+        admission.policy_result.world_snapshot_trust_result_checksum
+    )
     assert admission.audit_id == result.audited_plan.audit_id
     assert admission.plan_id == result.audited_plan.plan.plan_id
     assert admission.plan_checksum == result.audited_plan.checksum
     assert admission.freshness_status == "FRESH"
+    assert admission.world_snapshot_trust_status == "TRUSTED"
     assert admission.freshness_result_checksum == admission.policy_result.freshness_result_checksum
     assert admission.world_snapshot_observed_at_ms == (
         admission.policy_result.world_snapshot_observed_at_ms

@@ -1,4 +1,4 @@
-# Aegis Phase 1 + Policy-v1 Part 5 Failure Modes
+# Aegis Phase 1 + Policy-v1 Part 7 Failure Modes
 
 Each failure mode documents: trigger, expected outcome, allowed recovery, forbidden
 behaviour, and test coverage.
@@ -614,3 +614,107 @@ checking the snapshot/time/policy binding.
 
 **Required test coverage:** `tests/adversarial/test_world_snapshot_staleness_bypass.py`,
 `tests/invariants/test_world_snapshot_freshness_invariants.py`.
+
+---
+
+## FM-32: Missing or Non-Trusted World Snapshot Evidence
+
+**Trigger:** ENFORCE mode receives a FRESH `WorldSnapshotStub` and certified trust
+authority, but no evidence envelope, no trust policy, a disallowed source ID, disallowed
+source type, disallowed trust domain, disallowed capability, missing required attestation,
+invalid attestation, expired/not-yet-valid attestation, replayed attestation, or
+unsupported attestation algorithm.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit and freshness, before
+policy evaluation or final gate approval.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=False`, no policy `ALLOW`, certified
+verifier/config evidence when available, and trust status/reason evidence identifying the
+non-TRUSTED trust result.
+
+**Forbidden behaviour:** Treating fresh evidence as trusted, trusting snapshot metadata
+flags, letting policy evaluation approve before trust passes, or calling external services
+from the deterministic core.
+
+**Required test coverage:** `tests/contracts/test_world_snapshot_trust_contract.py`,
+`tests/integration/test_pipeline_world_snapshot_trust.py`,
+`tests/adversarial/test_world_snapshot_trust_bypass.py`,
+`tests/invariants/test_world_snapshot_trust_invariants.py`.
+
+---
+
+## FM-33: Malformed, Contradictory, or Forged Trust Binding
+
+**Trigger:** Trust evidence is structurally malformed, contradicts the snapshot checksum,
+or trust fields/checksums are forged or mismatched between `WorldSnapshotTrustResult`,
+`PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
+
+**Expected outcome:** `PipelineOutcome.INVALID`, `ValueError`, or
+`PolicyAdmissionIntegrityError` at the relevant contract or integrity boundary. Pipeline
+approval is impossible.
+
+**Expected gate behaviour:** Gate is not called for pre-gate trust or admission integrity
+failures.
+
+**Forbidden behaviour:** Trusting caller-provided trust status without recomputing and
+checking snapshot, envelope, policy, attestation, verifier certification, trust-policy
+config validation, source, domain, and capability bindings.
+
+**Required test coverage:** `tests/contracts/test_world_snapshot_trust_contract.py`,
+`tests/contracts/test_policy_admission_contract.py`,
+`tests/adversarial/test_world_snapshot_trust_bypass.py`,
+`tests/integration/test_pipeline_world_snapshot_trust.py`.
+
+---
+
+## FM-34: Uncertified Attestation Verifier Adapter
+
+**Trigger:** ENFORCE mode receives no verifier, a verifier without
+`AttestationVerifierAdapterMetadata`, a verifier with unsupported metadata, an unsafe
+test-only verifier for physical runtime, a non-deterministic verifier, a verifier returning
+malformed results, or a verifier that accepts required negative certification vectors.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit and freshness, before
+world snapshot trust evaluation, policy evaluation, or final gate approval.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=False`, no policy `ALLOW`,
+`verifier_certification_status` and reason evidence identifying the certification failure,
+and no TRUSTED world snapshot trust status.
+
+**Forbidden behaviour:** Treating arbitrary verifier output, metadata self-claims, or a
+plain object with a `verify()` method as approval authority.
+
+**Required test coverage:** `tests/contracts/test_attestation_verifier_contract.py`,
+`tests/adversarial/test_attestation_verifier_adapter_bypass.py`,
+`tests/integration/test_pipeline_trust_authority_hardening.py`,
+`tests/invariants/test_attestation_verifier_hardening_invariants.py`.
+
+---
+
+## FM-35: Invalid Trust Policy Configuration
+
+**Trigger:** ENFORCE mode receives an empty or wildcard trust policy allowlist, a test or
+fixture source in physical runtime, a simulation trust domain in physical runtime,
+attestation disabled in ENFORCE, verifier algorithm/key mismatch, capability mismatch, or
+runtime-domain conflict.
+
+**Expected pipeline outcome:** `PipelineOutcome.BLOCKED` after audit, freshness, and
+verifier certification, before world snapshot trust evaluation, policy evaluation, or final
+gate approval.
+
+**Expected gate behaviour:** Gate is not called.
+
+**Expected PolicyAdmissionRecord:** `admission_allowed=False`, no policy `ALLOW`, certified
+verifier evidence, `trust_policy_config_status` and reason evidence identifying the config
+failure, and no TRUSTED world snapshot trust status.
+
+**Forbidden behaviour:** Allowing an arbitrary trust policy to define approval authority,
+using wildcard authority in ENFORCE, or disabling attestation for ENFORCE approval.
+
+**Required test coverage:** `tests/contracts/test_trust_policy_config_contract.py`,
+`tests/integration/test_pipeline_trust_authority_hardening.py`,
+`tests/invariants/test_attestation_verifier_hardening_invariants.py`.

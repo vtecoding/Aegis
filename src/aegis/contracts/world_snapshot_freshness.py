@@ -7,8 +7,8 @@ timestamp. No wall-clock time, environment reads, or randomness are used.
 
 Part 5 proves only deterministic freshness against caller-supplied evaluation
 time. It does not prove the snapshot corresponds to physical reality. Evidence
-trust, attestation, source identity signatures, and live sensing remain
-future work.
+trust and attestation are evaluated separately by ``world_snapshot_trust``;
+live sensing remains future work.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from aegis.contracts.policy import WorldSnapshotStub
+from aegis.contracts.world_snapshot_admissibility import WorldSnapshotAdmissibilityResult
 from aegis.errors import AegisError
 
 
@@ -113,6 +114,9 @@ class WorldSnapshotFreshnessResult:
         status: Reason status. ``FRESH`` only when all checks passed.
         is_fresh: Convenience flag — True only when ``status == FRESH``.
         reason: Stable machine-readable reason code.
+        world_snapshot_checksum: Optional checksum from the admissible snapshot.
+        world_snapshot_admissibility_status: Optional pre-freshness admissibility status.
+        world_snapshot_admissibility_result_checksum: Optional admissibility result checksum.
         checksum: Deterministic SHA-256 over the canonical content.
 
     Raises:
@@ -128,6 +132,10 @@ class WorldSnapshotFreshnessResult:
     status: WorldSnapshotFreshnessStatus
     is_fresh: bool
     reason: str
+    world_snapshot_checksum: str | None
+    world_snapshot_admissibility_status: str | None
+    world_snapshot_admissibility_reason_code: str | None
+    world_snapshot_admissibility_result_checksum: str | None
     checksum: str
 
     def __init__(
@@ -142,6 +150,10 @@ class WorldSnapshotFreshnessResult:
         is_fresh: bool,
         reason: str,
         checksum: str,
+        world_snapshot_checksum: str | None = None,
+        world_snapshot_admissibility_status: str | None = None,
+        world_snapshot_admissibility_reason_code: str | None = None,
+        world_snapshot_admissibility_result_checksum: str | None = None,
     ) -> None:
         if not isinstance(status, WorldSnapshotFreshnessStatus):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise ValueError("status must be a WorldSnapshotFreshnessStatus")
@@ -173,6 +185,20 @@ class WorldSnapshotFreshnessResult:
         object.__setattr__(self, "status", status)
         object.__setattr__(self, "is_fresh", is_fresh)
         object.__setattr__(self, "reason", reason)
+        object.__setattr__(self, "world_snapshot_checksum", world_snapshot_checksum)
+        object.__setattr__(
+            self, "world_snapshot_admissibility_status", world_snapshot_admissibility_status
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_reason_code",
+            world_snapshot_admissibility_reason_code,
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_result_checksum",
+            world_snapshot_admissibility_result_checksum,
+        )
         object.__setattr__(self, "checksum", checksum)
 
 
@@ -186,6 +212,10 @@ def world_snapshot_freshness_checksum(
     status: WorldSnapshotFreshnessStatus,
     is_fresh: bool,
     reason: str,
+    world_snapshot_checksum: str | None = None,
+    world_snapshot_admissibility_status: str | None = None,
+    world_snapshot_admissibility_reason_code: str | None = None,
+    world_snapshot_admissibility_result_checksum: str | None = None,
 ) -> str:
     """Compute a deterministic SHA-256 checksum over canonical freshness fields."""
     payload = {
@@ -197,6 +227,12 @@ def world_snapshot_freshness_checksum(
         "status": status.value,
         "is_fresh": is_fresh,
         "reason": reason,
+        "world_snapshot_checksum": world_snapshot_checksum,
+        "world_snapshot_admissibility_status": world_snapshot_admissibility_status,
+        "world_snapshot_admissibility_reason_code": world_snapshot_admissibility_reason_code,
+        "world_snapshot_admissibility_result_checksum": (
+            world_snapshot_admissibility_result_checksum
+        ),
     }
     canonical = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
@@ -213,8 +249,21 @@ def _build_result(
     max_allowed_age_ms: int,
     status: WorldSnapshotFreshnessStatus,
     reason: str,
+    admissibility_result: WorldSnapshotAdmissibilityResult | None = None,
 ) -> WorldSnapshotFreshnessResult:
     is_fresh = status is WorldSnapshotFreshnessStatus.FRESH
+    world_snapshot_checksum = (
+        admissibility_result.world_snapshot_checksum if admissibility_result is not None else None
+    )
+    admissibility_status = (
+        admissibility_result.status.value if admissibility_result is not None else None
+    )
+    admissibility_reason_code = (
+        admissibility_result.reason_code if admissibility_result is not None else None
+    )
+    admissibility_checksum = (
+        admissibility_result.checksum if admissibility_result is not None else None
+    )
     checksum = world_snapshot_freshness_checksum(
         snapshot_id=snapshot_id,
         observed_at_ms=observed_at_ms,
@@ -224,6 +273,10 @@ def _build_result(
         status=status,
         is_fresh=is_fresh,
         reason=reason,
+        world_snapshot_checksum=world_snapshot_checksum,
+        world_snapshot_admissibility_status=admissibility_status,
+        world_snapshot_admissibility_reason_code=admissibility_reason_code,
+        world_snapshot_admissibility_result_checksum=admissibility_checksum,
     )
     return WorldSnapshotFreshnessResult(
         snapshot_id=snapshot_id,
@@ -234,6 +287,10 @@ def _build_result(
         status=status,
         is_fresh=is_fresh,
         reason=reason,
+        world_snapshot_checksum=world_snapshot_checksum,
+        world_snapshot_admissibility_status=admissibility_status,
+        world_snapshot_admissibility_reason_code=admissibility_reason_code,
+        world_snapshot_admissibility_result_checksum=admissibility_checksum,
         checksum=checksum,
     )
 
@@ -243,6 +300,7 @@ def validate_world_snapshot_freshness(
     *,
     evaluation_time_ms: object,
     freshness_policy: object,
+    admissibility_result: WorldSnapshotAdmissibilityResult | None = None,
 ) -> WorldSnapshotFreshnessResult:
     """Deterministically validate a world snapshot's freshness.
 
@@ -257,8 +315,30 @@ def validate_world_snapshot_freshness(
         checks pass; otherwise a structured non-fresh result with a stable
         reason code.
     """
-    if not isinstance(freshness_policy, FreshnessPolicy):
+
+    def build_result(
+        *,
+        snapshot_id: str,
+        observed_at_ms: int,
+        evaluation_time_ms: int,
+        age_ms: int,
+        max_allowed_age_ms: int,
+        status: WorldSnapshotFreshnessStatus,
+        reason: str,
+    ) -> WorldSnapshotFreshnessResult:
         return _build_result(
+            snapshot_id=snapshot_id,
+            observed_at_ms=observed_at_ms,
+            evaluation_time_ms=evaluation_time_ms,
+            age_ms=age_ms,
+            max_allowed_age_ms=max_allowed_age_ms,
+            status=status,
+            reason=reason,
+            admissibility_result=admissibility_result,
+        )
+
+    if not isinstance(freshness_policy, FreshnessPolicy):
+        return build_result(
             snapshot_id="",
             observed_at_ms=-1,
             evaluation_time_ms=-1,
@@ -270,7 +350,7 @@ def validate_world_snapshot_freshness(
 
     max_age_value = _runtime_attribute(freshness_policy, "max_snapshot_age_ms")
     if isinstance(max_age_value, bool) or not isinstance(max_age_value, int) or max_age_value <= 0:
-        return _build_result(
+        return build_result(
             snapshot_id="",
             observed_at_ms=-1,
             evaluation_time_ms=-1,
@@ -284,7 +364,7 @@ def validate_world_snapshot_freshness(
     allow_future_value = _runtime_attribute(freshness_policy, "allow_future_observed_at")
     max_future_skew_value = _runtime_attribute(freshness_policy, "max_future_skew_ms")
     if not isinstance(allow_future_value, bool):
-        return _build_result(
+        return build_result(
             snapshot_id="",
             observed_at_ms=-1,
             evaluation_time_ms=-1,
@@ -298,7 +378,7 @@ def validate_world_snapshot_freshness(
         or not isinstance(max_future_skew_value, int)
         or max_future_skew_value < 0
     ):
-        return _build_result(
+        return build_result(
             snapshot_id="",
             observed_at_ms=-1,
             evaluation_time_ms=-1,
@@ -309,7 +389,7 @@ def validate_world_snapshot_freshness(
         )
 
     if snapshot is None:
-        return _build_result(
+        return build_result(
             snapshot_id="",
             observed_at_ms=-1,
             evaluation_time_ms=-1,
@@ -329,7 +409,7 @@ def validate_world_snapshot_freshness(
     )
 
     if isinstance(evaluation_time_ms, bool) or not isinstance(evaluation_time_ms, int):
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_for_error,
             evaluation_time_ms=-1,
@@ -339,7 +419,7 @@ def validate_world_snapshot_freshness(
             reason="EVALUATION_TIME_REQUIRED",
         )
     if evaluation_time_ms < 0:
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_for_error,
             evaluation_time_ms=evaluation_time_ms,
@@ -350,7 +430,7 @@ def validate_world_snapshot_freshness(
         )
 
     if snapshot_id == "":
-        return _build_result(
+        return build_result(
             snapshot_id="",
             observed_at_ms=observed_at_for_error,
             evaluation_time_ms=evaluation_time_ms,
@@ -361,7 +441,7 @@ def validate_world_snapshot_freshness(
         )
 
     if observed_at_value is None:
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=-1,
             evaluation_time_ms=evaluation_time_ms,
@@ -371,7 +451,7 @@ def validate_world_snapshot_freshness(
             reason="OBSERVED_AT_REQUIRED",
         )
     if isinstance(observed_at_value, bool) or not isinstance(observed_at_value, int):
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=-1,
             evaluation_time_ms=evaluation_time_ms,
@@ -383,7 +463,7 @@ def validate_world_snapshot_freshness(
 
     observed_at_ms = observed_at_value
     if observed_at_ms < 0:
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_ms,
             evaluation_time_ms=evaluation_time_ms,
@@ -395,7 +475,7 @@ def validate_world_snapshot_freshness(
 
     expires_at_value = _runtime_attribute(snapshot, "expires_at_ms")
     if isinstance(expires_at_value, bool) or not isinstance(expires_at_value, int):
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_ms,
             evaluation_time_ms=evaluation_time_ms,
@@ -405,7 +485,7 @@ def validate_world_snapshot_freshness(
             reason="EXPIRES_AT_INVALID",
         )
     if expires_at_value < observed_at_ms:
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_ms,
             evaluation_time_ms=evaluation_time_ms,
@@ -418,7 +498,7 @@ def validate_world_snapshot_freshness(
     if observed_at_ms > evaluation_time_ms:
         skew = observed_at_ms - evaluation_time_ms
         if not allow_future_value or skew > max_future_skew_value:
-            return _build_result(
+            return build_result(
                 snapshot_id=snapshot_id,
                 observed_at_ms=observed_at_ms,
                 evaluation_time_ms=evaluation_time_ms,
@@ -428,7 +508,7 @@ def validate_world_snapshot_freshness(
                 reason="OBSERVED_AT_IN_FUTURE",
             )
         # Within future skew: treat age as 0 for evaluation purposes.
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_ms,
             evaluation_time_ms=evaluation_time_ms,
@@ -440,7 +520,7 @@ def validate_world_snapshot_freshness(
 
     age_ms = evaluation_time_ms - observed_at_ms
     if age_ms > max_age:
-        return _build_result(
+        return build_result(
             snapshot_id=snapshot_id,
             observed_at_ms=observed_at_ms,
             evaluation_time_ms=evaluation_time_ms,
@@ -450,7 +530,7 @@ def validate_world_snapshot_freshness(
             reason="WORLD_SNAPSHOT_STALE",
         )
 
-    return _build_result(
+    return build_result(
         snapshot_id=snapshot_id,
         observed_at_ms=observed_at_ms,
         evaluation_time_ms=evaluation_time_ms,
@@ -501,6 +581,14 @@ def assert_world_snapshot_freshness_integrity(
         status=freshness_result.status,
         is_fresh=freshness_result.is_fresh,
         reason=freshness_result.reason,
+        world_snapshot_checksum=freshness_result.world_snapshot_checksum,
+        world_snapshot_admissibility_status=(freshness_result.world_snapshot_admissibility_status),
+        world_snapshot_admissibility_reason_code=(
+            freshness_result.world_snapshot_admissibility_reason_code
+        ),
+        world_snapshot_admissibility_result_checksum=(
+            freshness_result.world_snapshot_admissibility_result_checksum
+        ),
     )
     if freshness_result.checksum != expected_checksum:
         violations.append("CHECKSUM_MISMATCH")

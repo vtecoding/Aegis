@@ -10,6 +10,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Verifier adapter and trust-policy configuration hardening for Phase 2 Part 7: deterministic `AttestationVerifierAdapterMetadata`, `VerifierAdapterCertificationResult`, `TrustPolicyConfigValidationResult`, required verifier certification vectors, runtime-domain config validation, and ENFORCE-mode blocking for missing, unsafe, malformed, non-deterministic, or uncertified verifier adapters and invalid trust-policy configs
+- Trust authority evidence propagation through `WorldSnapshotTrustResult`, `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`, making `PipelineOutcome.ALLOWED` require certified verifier metadata and valid trust-policy config bindings in addition to FRESH and TRUSTED snapshot evidence
+- Contract, integration, adversarial, and Hypothesis invariant tests proving arbitrary verifier objects, disabled-attestation policies, physical-runtime test sources, verifier key mismatches, and forged verifier/config admission bindings cannot produce approval
+- World snapshot evidence trust and attestation boundary for Phase 2 Part 6: deterministic `WorldSnapshotEvidenceEnvelope`, `WorldSnapshotTrustPolicy`, `WorldSnapshotTrustResult`, source/domain/capability allowlist checks, injected attestation verifier results, and ENFORCE-mode blocking for fresh but missing, unauthenticated, disallowed, invalid, replayed, malformed, contradictory, or non-TRUSTED snapshot evidence
+- Trust evidence propagation through `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`, making `PipelineOutcome.ALLOWED` require TRUSTED snapshot provenance and matching trust bindings in addition to FRESH snapshot evidence
+- Contract, integration, adversarial, and Hypothesis invariant tests proving freshness does not imply trust, snapshot metadata cannot self-attest, trust bindings cannot be forged, and direct gate approval is not policy-backed approval
 - World snapshot freshness gate for Phase 2 Part 5: deterministic `FreshnessPolicy`, `WorldSnapshotFreshnessResult`, freshness checksum binding, and ENFORCE-mode pipeline blocking for missing, stale, future-dated, malformed, contradictory, or unchecked snapshot evidence
 - Freshness evidence propagation through `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`, making `PipelineOutcome.ALLOWED` require FRESH snapshot identity, observed timestamp, status, and checksum bindings
 - Contract, integration, adversarial, and Hypothesis invariant tests proving caller-supplied `evaluation_time_ms`, fail-closed freshness semantics, no wall-clock fallback, and rejection of reused or forged freshness evidence
@@ -33,6 +39,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bootstrap import test and invariant test
 
 ### Changed
+- ENFORCE-mode approval paths now certify the injected verifier adapter and validate trust-policy configuration after freshness and before world snapshot trust evaluation
+- ENFORCE-mode approval paths now require explicit world snapshot trust evidence, an explicit trust policy, and a TRUSTED trust result before policy evaluation can approve
 - ENFORCE-mode approval paths now require an explicit `world_snapshot` and caller-supplied `evaluation_time_ms`; disabled or non-fresh admission paths remain non-approved and do not reach final gate approval
 - Disabled or missing policy admission no longer preserves legacy approval; it returns an explicit non-approved disabled admission record and skips the final gate
 - `RawIntent` now rejects bool priority values instead of accepting them as integers

@@ -10,6 +10,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -91,6 +92,7 @@ def test_policy_enforced_pipeline_with_world_snapshot_allows_then_gates() -> Non
         context,
         policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(admission.world_snapshot),
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -103,11 +105,13 @@ def test_policy_enforced_pipeline_with_world_snapshot_allows_then_gates() -> Non
 
 def test_policy_block_returns_blocked_without_gate() -> None:
     context = _context("policy-integration-block")
+    admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 0.1})))
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 0.1}))),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(admission.world_snapshot),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -118,13 +122,13 @@ def test_policy_block_returns_blocked_without_gate() -> None:
 
 def test_policy_require_review_returns_non_approved_without_gate() -> None:
     context = _context("policy-integration-review")
+    admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 0.1}, required=False)))
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(
-            _policy(Constraint("max_velocity", {"max_mps": 0.1}, required=False))
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(admission.world_snapshot),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -145,11 +149,13 @@ def test_policy_invalid_returns_invalid_without_gate() -> None:
     )
 
     with patch("aegis.pipeline.orchestrator.evaluate_policy", return_value=invalid_result):
+        admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(admission.world_snapshot),
         )
 
     assert result.outcome is PipelineOutcome.INVALID
@@ -159,11 +165,13 @@ def test_policy_invalid_returns_invalid_without_gate() -> None:
 def test_policy_evaluator_exception_returns_error_without_approval() -> None:
     context = _context("policy-integration-evaluator-error")
     with patch("aegis.pipeline.orchestrator.evaluate_policy", side_effect=RuntimeError("boom")):
+        admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(admission.world_snapshot),
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -174,11 +182,13 @@ def test_policy_evaluator_exception_returns_error_without_approval() -> None:
 def test_safety_case_exception_returns_error_without_approval() -> None:
     context = _context("policy-integration-safety-case-error")
     with patch("aegis.pipeline.orchestrator.build_safety_case", side_effect=RuntimeError("boom")):
+        admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(admission.world_snapshot),
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -190,11 +200,13 @@ def test_admission_integrity_exception_returns_error_without_approval() -> None:
     context = _context("policy-integration-integrity-error")
     error = PolicyAdmissionIntegrityError("forced", "policy", {"reason": "test"})
     with patch("aegis.pipeline.orchestrator.assert_policy_admission_integrity", side_effect=error):
+        admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(Constraint("max_velocity", {"max_mps": 1.0}))),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(admission.world_snapshot),
         )
 
     assert result.outcome is PipelineOutcome.ERROR

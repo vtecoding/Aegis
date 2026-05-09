@@ -9,6 +9,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -54,13 +55,20 @@ def _admission(max_mps: float) -> PolicyAdmissionInput:
     )
 
 
+def _trusted_kwargs(admission: PolicyAdmissionInput) -> dict[str, object]:
+    assert admission.world_snapshot is not None
+    return trusted_pipeline_kwargs(admission.world_snapshot)
+
+
 def test_phase2_part3_policy_allow_still_runs_before_gate_approval() -> None:
     context = _context()
+    admission = _admission(1.0)
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(1.0),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -72,11 +80,13 @@ def test_phase2_part3_policy_allow_still_runs_before_gate_approval() -> None:
 
 def test_phase2_part3_policy_block_still_prevents_gate_approval() -> None:
     context = _context()
+    admission = _admission(0.1)
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(0.1),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED

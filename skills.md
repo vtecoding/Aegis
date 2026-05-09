@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 5: World snapshot freshness gate** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 7: Verifier adapter and trust policy hardening** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 2 Part 5 — World Snapshot Freshness Gate
+## 2. Current Phase: Phase 2 Part 7 — Verifier Adapter and Trust Policy Hardening
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -242,6 +242,56 @@ This slice proves deterministic freshness only: that supplied evidence is not ol
 configured age bound at the supplied evaluation time. It does not prove real-world truth,
 source attestation, live sensing correctness, ROS/middleware safety, simulation safety,
 collision safety, actuator safety, certification readiness, or physical robot safety.
+
+### Phase 2 Part 6: World Snapshot Evidence Trust & Attestation Boundary
+
+Phase 2 Part 6 makes deterministic world snapshot trust mandatory for ENFORCE approval
+paths. Policy admission now runs only after a FRESH snapshot is also evaluated against an
+explicit `WorldSnapshotEvidenceEnvelope`, explicit `WorldSnapshotTrustPolicy`, and injected
+deterministic attestation verifier result when attestation is required.
+
+`PipelineOutcome.ALLOWED` now requires all Part 5 freshness evidence plus a TRUSTED trust
+binding carried consistently through `PolicyEvaluationResult`, `SafetyCase`, and
+`PolicyAdmissionRecord`. Missing evidence, missing trust policy, missing verifier, snapshot
+checksum mismatch, disallowed source ID, disallowed source type, disallowed trust domain,
+disallowed capability, missing/invalid/expired/not-yet-valid/replayed/unsupported
+attestation, malformed evidence, contradictory evidence, forged trust checksums, and
+mismatched trust bindings fail closed before final gate approval.
+
+Freshness is not trust. Snapshot metadata is inert and cannot self-attest. The core never
+reads wall-clock time, process state, environment state, files, networks, sensors,
+middleware, or hardware to establish trust.
+
+This slice proves deterministic provenance-policy enforcement only. It does not prove
+physical-world truth, sensor correctness, ROS/middleware safety, simulation safety,
+collision safety, actuator safety, certification readiness, or physical robot safety.
+
+### Phase 2 Part 7: Verifier Adapter & Trust Policy Hardening
+
+Phase 2 Part 7 makes verifier authority explicit. Aegis must not accept an arbitrary
+verifier object or arbitrary trust policy as approval authority. Before `ENFORCE`
+approval can reach world snapshot trust evaluation, the injected attestation verifier
+must pass deterministic adapter certification and the supplied trust policy must pass
+deterministic configuration validation for the runtime domain, verifier metadata, and
+capability context.
+
+`PipelineOutcome.ALLOWED` now requires all Part 6 trust evidence plus a certified verifier
+adapter and a valid trust-policy configuration. The certification checksum, verifier ID,
+verifier metadata checksum, and trust-policy config validation checksum are bound through
+`WorldSnapshotTrustResult`, `PolicyEvaluationResult`, `SafetyCase`, and
+`PolicyAdmissionRecord`; mismatches fail admission integrity before final gate approval.
+
+Certification requires immutable verifier metadata, deterministic replay over required
+positive and negative attestation vectors, exact reason-code matching, checksum binding,
+and rejection of unsafe test-only verifiers for physical runtime enforcement. Trust-policy
+configuration rejects empty or wildcard authority, test/fixture sources in physical runtime,
+simulation domains in physical runtime, ENFORCE policies with attestation disabled,
+verifier algorithm/key mismatches, and capability/runtime conflicts.
+
+This slice proves deterministic certification and configuration hardening only. It does
+not prove physical-world truth, cryptographic soundness beyond the injected verifier
+contract, sensor correctness, ROS/middleware safety, collision safety, actuator safety,
+certification readiness, or physical robot safety.
 
 ---
 

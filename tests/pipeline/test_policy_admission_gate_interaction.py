@@ -10,6 +10,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
@@ -70,13 +71,20 @@ def _admission(
     )
 
 
+def _trusted_kwargs(admission: PolicyAdmissionInput) -> dict[str, object]:
+    assert admission.world_snapshot is not None
+    return trusted_pipeline_kwargs(admission.world_snapshot)
+
+
 def test_policy_allow_and_valid_gate_approves() -> None:
     context = _context()
+    admission = _admission(_policy(0.5))
     result = run_pipeline(
         _intent(context),
         context,
-        policy_admission=_admission(_policy(0.5)),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -90,11 +98,13 @@ def test_policy_allow_does_not_bypass_gate_integrity_failure() -> None:
     with patch(
         "aegis.pipeline.orchestrator.gate_audited_plan", return_value=_blocked_gate_decision()
     ):
+        admission = _admission(_policy(0.5))
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(0.5)),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -106,12 +116,14 @@ def test_policy_allow_does_not_bypass_gate_integrity_failure() -> None:
 
 def test_policy_block_prevents_otherwise_valid_gate_from_running() -> None:
     context = _context()
+    admission = _admission(_policy(0.1))
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(0.1)),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     gate.assert_not_called()
@@ -121,12 +133,14 @@ def test_policy_block_prevents_otherwise_valid_gate_from_running() -> None:
 
 def test_policy_review_prevents_otherwise_valid_gate_from_running() -> None:
     context = _context()
+    admission = _admission(_policy(0.1, required=False))
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(0.1, required=False)),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     gate.assert_not_called()
@@ -139,11 +153,13 @@ def test_safety_case_evidence_override_gate_cannot_bypass_gate_failure() -> None
     with patch(
         "aegis.pipeline.orchestrator.gate_audited_plan", return_value=_blocked_gate_decision()
     ):
+        admission = _admission(_policy(0.5), evidence={"override_gate": True})
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(0.5), evidence={"override_gate": True}),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -158,11 +174,13 @@ def test_policy_and_gate_results_are_both_observable_when_gate_blocks() -> None:
     with patch(
         "aegis.pipeline.orchestrator.gate_audited_plan", return_value=_blocked_gate_decision()
     ):
+        admission = _admission(_policy(0.5))
         result = run_pipeline(
             _intent(context),
             context,
-            policy_admission=_admission(_policy(0.5)),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **_trusted_kwargs(admission),
         )
 
     assert result.policy_admission.policy_result is not None

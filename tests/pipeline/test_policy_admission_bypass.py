@@ -9,6 +9,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -86,6 +87,11 @@ def _admission(
     )
 
 
+def _trusted_kwargs(admission: PolicyAdmissionInput) -> dict[str, object]:
+    assert admission.world_snapshot is not None
+    return trusted_pipeline_kwargs(admission.world_snapshot)
+
+
 def test_raw_intent_force_allow_metadata_cannot_override_missing_policy() -> None:
     context = _context()
     result = run_pipeline(
@@ -104,11 +110,13 @@ def test_raw_intent_force_allow_metadata_cannot_override_missing_policy() -> Non
 
 def test_raw_intent_policy_decision_metadata_cannot_override_policy_block() -> None:
     context = _context()
+    admission = _admission(_blocking_policy())
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(_blocking_policy()),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -118,16 +126,18 @@ def test_raw_intent_policy_decision_metadata_cannot_override_policy_block() -> N
 
 def test_context_force_allow_cannot_override_policy_block() -> None:
     context = _context()
+    admission = _admission(
+        _blocking_policy(),
+        context=fresh_policy_context(
+            {"force_allow": True, "decision": "ALLOW", "override_gate": True}
+        ),
+    )
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(
-            _blocking_policy(),
-            context=fresh_policy_context(
-                {"force_allow": True, "decision": "ALLOW", "override_gate": True}
-            ),
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -136,14 +146,16 @@ def test_context_force_allow_cannot_override_policy_block() -> None:
 
 def test_evidence_admission_allowed_cannot_override_policy_block() -> None:
     context = _context()
+    admission = _admission(
+        _blocking_policy(),
+        evidence={"admission_allowed": True, "override": "ALLOW"},
+    )
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(
-            _blocking_policy(),
-            evidence={"admission_allowed": True, "override": "ALLOW"},
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -155,14 +167,16 @@ def test_evidence_admission_allowed_cannot_override_policy_block() -> None:
 
 def test_fake_audited_plan_id_evidence_cannot_forge_safety_case_binding() -> None:
     context = _context()
+    admission = _admission(
+        _policy(Constraint("max_velocity", {"max_mps": 1.0})),
+        evidence={"audited_plan_id": "fake-audit-id"},
+    )
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(
-            _policy(Constraint("max_velocity", {"max_mps": 1.0})),
-            evidence={"audited_plan_id": "fake-audit-id"},
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -187,14 +201,16 @@ def test_disabled_mode_with_policy_looking_metadata_does_not_create_policy_allow
 
 def test_world_snapshot_override_fact_cannot_override_failed_constraint() -> None:
     context = _context()
+    admission = _admission(
+        _blocking_policy(),
+        world_snapshot=fresh_world_snapshot("snapshot-1", facts={"override": True}),
+    )
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(
-            _blocking_policy(),
-            world_snapshot=fresh_world_snapshot("snapshot-1", facts={"override": True}),
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -220,17 +236,17 @@ def test_required_world_snapshot_missing_blocks_pipeline() -> None:
 
 def test_expired_world_snapshot_blocks_pipeline() -> None:
     context = _context()
+    admission = _admission(
+        _policy(Constraint("snapshot_freshness")),
+        world_snapshot=fresh_world_snapshot("snapshot-1", expires_at_ms=FRESH_EVALUATION_TIME_MS),
+        context={"requested_at_ms": FRESH_EVALUATION_TIME_MS + 1},
+    )
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(
-            _policy(Constraint("snapshot_freshness")),
-            world_snapshot=fresh_world_snapshot(
-                "snapshot-1", expires_at_ms=FRESH_EVALUATION_TIME_MS
-            ),
-            context={"requested_at_ms": FRESH_EVALUATION_TIME_MS + 1},
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -239,14 +255,16 @@ def test_expired_world_snapshot_blocks_pipeline() -> None:
 
 def test_low_confidence_world_snapshot_blocks_pipeline() -> None:
     context = _context()
+    admission = _admission(
+        _policy(Constraint("min_sensor_confidence", {"min_confidence": 0.8})),
+        world_snapshot=fresh_world_snapshot("snapshot-1", confidence=0.7),
+    )
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(
-            _policy(Constraint("min_sensor_confidence", {"min_confidence": 0.8})),
-            world_snapshot=fresh_world_snapshot("snapshot-1", confidence=0.7),
-        ),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -255,11 +273,13 @@ def test_low_confidence_world_snapshot_blocks_pipeline() -> None:
 
 def test_unknown_required_constraint_blocks_pipeline() -> None:
     context = _context()
+    admission = _admission(_policy(Constraint("unknown_constraint")))
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(_policy(Constraint("unknown_constraint"))),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -268,11 +288,13 @@ def test_unknown_required_constraint_blocks_pipeline() -> None:
 
 def test_unknown_optional_constraint_requires_review_and_prevents_approval() -> None:
     context = _context()
+    admission = _admission(_policy(Constraint("unknown_constraint", required=False)))
     result = run_pipeline(
         _hostile_intent(context),
         context,
-        policy_admission=_admission(_policy(Constraint("unknown_constraint", required=False))),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **_trusted_kwargs(admission),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED

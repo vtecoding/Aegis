@@ -24,6 +24,7 @@ from aegis.contracts.world_snapshot_freshness import (
     WorldSnapshotFreshnessResult,
     WorldSnapshotFreshnessStatus,
 )
+from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult, WorldSnapshotTrustStatus
 from aegis.policy.safety_case import build_safety_case
 from aegis.policy.validation import validate_policy
 
@@ -49,6 +50,7 @@ def evaluate_policy(
     world_snapshot: WorldSnapshotStub | None = None,
     context: Mapping[str, object] | None = None,
     freshness_result: WorldSnapshotFreshnessResult | None = None,
+    trust_result: WorldSnapshotTrustResult | None = None,
 ) -> PolicyEvaluationResult:
     """Evaluate a Capability against a Policy-v1 bundle and optional evidence.
 
@@ -59,6 +61,8 @@ def evaluate_policy(
         context: Optional deterministic caller-supplied evaluation context.
         freshness_result: Optional deterministic freshness result to bind into
             the policy result. A non-FRESH result forces BLOCK.
+        trust_result: Optional deterministic trust result to bind into the
+            policy result. A non-TRUSTED result forces BLOCK.
 
     Returns:
         A PolicyEvaluationResult explaining ALLOW, BLOCK, REQUIRE_REVIEW, or
@@ -73,7 +77,8 @@ def evaluate_policy(
         world_snapshot=world_snapshot,
         context=context,
     )
-    return _bind_freshness_to_policy_result(result, freshness_result)
+    result = _bind_freshness_to_policy_result(result, freshness_result)
+    return _bind_trust_to_policy_result(result, trust_result)
 
 
 def evaluate_policy_with_safety_case(
@@ -85,6 +90,7 @@ def evaluate_policy_with_safety_case(
     context: Mapping[str, object] | None = None,
     evidence: Mapping[str, object] | None = None,
     freshness_result: WorldSnapshotFreshnessResult | None = None,
+    trust_result: WorldSnapshotTrustResult | None = None,
 ) -> tuple[PolicyEvaluationResult, SafetyCase]:
     """Evaluate policy and build a deterministic SafetyCase explanation.
 
@@ -96,6 +102,7 @@ def evaluate_policy_with_safety_case(
         context: Optional deterministic caller-supplied evaluation context.
         evidence: Optional extra deterministic evidence to include.
         freshness_result: Optional deterministic freshness result to bind.
+        trust_result: Optional deterministic trust result to bind.
 
     Returns:
         A tuple of policy evaluation result and SafetyCase.
@@ -110,6 +117,7 @@ def evaluate_policy_with_safety_case(
         context=context,
     )
     result = _bind_freshness_to_policy_result(result, freshness_result)
+    result = _bind_trust_to_policy_result(result, trust_result)
     safety_evidence: dict[str, object] = dict(evidence or {})
     safety_evidence["capability_name"] = capability.name
     safety_evidence["capability_version"] = capability.version
@@ -127,6 +135,7 @@ def evaluate_policy_with_safety_case(
             freshness_result.checksum if freshness_result is not None else None
         ),
         freshness_status=freshness_result.status.value if freshness_result is not None else None,
+        trust_result=trust_result,
     )
     return result, safety_case
 
@@ -158,6 +167,21 @@ def _bind_freshness_to_policy_result(
             world_snapshot_observed_at_ms=observed_at_ms,
             freshness_result_checksum=freshness_checksum,
             freshness_status=freshness_status,
+            world_snapshot_admissibility_status=(
+                freshness_result.world_snapshot_admissibility_status
+            ),
+            world_snapshot_admissibility_reason_code=(
+                freshness_result.world_snapshot_admissibility_reason_code
+            ),
+            world_snapshot_admissibility_result_checksum=(
+                freshness_result.world_snapshot_admissibility_result_checksum
+            ),
+            requested_capability=policy_result.requested_capability,
+            declared_capability_scope=policy_result.declared_capability_scope,
+            declared_fact_keys=policy_result.declared_fact_keys,
+            missing_declared_fact_keys=policy_result.missing_declared_fact_keys,
+            missing_required_fact_keys=policy_result.missing_required_fact_keys,
+            undeclared_required_fact_keys=policy_result.undeclared_required_fact_keys,
         )
     return PolicyEvaluationResult(
         policy_result.decision,
@@ -170,6 +194,95 @@ def _bind_freshness_to_policy_result(
         world_snapshot_observed_at_ms=observed_at_ms,
         freshness_result_checksum=freshness_checksum,
         freshness_status=freshness_status,
+        world_snapshot_admissibility_status=(freshness_result.world_snapshot_admissibility_status),
+        world_snapshot_admissibility_reason_code=(
+            freshness_result.world_snapshot_admissibility_reason_code
+        ),
+        world_snapshot_admissibility_result_checksum=(
+            freshness_result.world_snapshot_admissibility_result_checksum
+        ),
+        requested_capability=policy_result.requested_capability,
+        declared_capability_scope=policy_result.declared_capability_scope,
+        declared_fact_keys=policy_result.declared_fact_keys,
+        missing_declared_fact_keys=policy_result.missing_declared_fact_keys,
+        missing_required_fact_keys=policy_result.missing_required_fact_keys,
+        undeclared_required_fact_keys=policy_result.undeclared_required_fact_keys,
+        world_snapshot_trust_status=policy_result.world_snapshot_trust_status,
+        world_snapshot_trust_reason_code=policy_result.world_snapshot_trust_reason_code,
+        world_snapshot_trust_result_checksum=policy_result.world_snapshot_trust_result_checksum,
+        evidence_envelope_checksum=policy_result.evidence_envelope_checksum,
+        attestation_checksum=policy_result.attestation_checksum,
+        trust_policy_checksum=policy_result.trust_policy_checksum,
+        verifier_certification_checksum=policy_result.verifier_certification_checksum,
+        trust_policy_config_validation_checksum=(
+            policy_result.trust_policy_config_validation_checksum
+        ),
+        verifier_id=policy_result.verifier_id,
+        verifier_metadata_checksum=policy_result.verifier_metadata_checksum,
+        source_id=policy_result.source_id,
+        source_type=policy_result.source_type,
+        trust_domain=policy_result.trust_domain,
+    )
+
+
+def _bind_trust_to_policy_result(
+    policy_result: PolicyEvaluationResult,
+    trust_result: WorldSnapshotTrustResult | None,
+) -> PolicyEvaluationResult:
+    if trust_result is None:
+        return policy_result
+
+    decision = policy_result.decision
+    failed_constraints = policy_result.failed_constraints
+    reasons = policy_result.reasons
+    if trust_result.status is not WorldSnapshotTrustStatus.TRUSTED:
+        decision = PolicyDecision.BLOCK
+        failed_constraints = _append_unique(failed_constraints, "world_snapshot_trust")
+        reasons = _append_unique(reasons, "WORLD_SNAPSHOT_NOT_TRUSTED")
+
+    return PolicyEvaluationResult(
+        decision,
+        policy_result.policy_id,
+        policy_result.matched_rule_ids,
+        policy_result.passed_constraints,
+        failed_constraints,
+        reasons,
+        world_snapshot_id=policy_result.world_snapshot_id,
+        world_snapshot_observed_at_ms=policy_result.world_snapshot_observed_at_ms,
+        freshness_result_checksum=policy_result.freshness_result_checksum,
+        freshness_status=policy_result.freshness_status,
+        world_snapshot_admissibility_status=trust_result.world_snapshot_admissibility_status,
+        world_snapshot_admissibility_reason_code=(
+            trust_result.world_snapshot_admissibility_reason_code
+        ),
+        world_snapshot_admissibility_result_checksum=(
+            trust_result.world_snapshot_admissibility_result_checksum
+        ),
+        requested_capability=policy_result.requested_capability,
+        declared_capability_scope=policy_result.declared_capability_scope,
+        declared_fact_keys=policy_result.declared_fact_keys,
+        missing_declared_fact_keys=policy_result.missing_declared_fact_keys,
+        missing_required_fact_keys=policy_result.missing_required_fact_keys,
+        undeclared_required_fact_keys=policy_result.undeclared_required_fact_keys,
+        world_snapshot_trust_status=trust_result.status.value,
+        world_snapshot_trust_reason_code=trust_result.reason_code,
+        world_snapshot_trust_result_checksum=trust_result.checksum,
+        evidence_envelope_checksum=trust_result.evidence_envelope_checksum,
+        attestation_checksum=trust_result.attestation_checksum,
+        trust_policy_checksum=trust_result.trust_policy_checksum,
+        verifier_certification_checksum=trust_result.verifier_certification_checksum,
+        trust_policy_config_validation_checksum=(
+            trust_result.trust_policy_config_validation_checksum
+        ),
+        verifier_id=trust_result.verifier_id,
+        verifier_metadata_checksum=trust_result.verifier_metadata_checksum,
+        source_id=trust_result.source_id,
+        source_type=trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        trust_domain=trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
     )
 
 

@@ -1,4 +1,4 @@
-# Aegis Phase 1 + Policy-v1 Part 5 Invariants
+# Aegis Phase 1 + Policy-v1 Part 7 Invariants
 
 These are the invariants that must hold for **all inputs** in Aegis Phase 1.
 Each invariant maps to Hypothesis property-based tests. See `docs/specs/test_matrix.md`
@@ -468,3 +468,92 @@ unchecked freshness evidence cannot produce final gate approval.
 
 **Integration and adversarial tests:** `tests/integration/test_pipeline_world_snapshot_freshness.py`,
 `tests/adversarial/test_world_snapshot_staleness_bypass.py`
+
+---
+
+## INV-POLICY-TRUST-001: Allowed Implies Trusted Snapshot Evidence
+
+**Statement:** `PipelineOutcome.ALLOWED` implies the enforced admission record,
+`PolicyEvaluationResult`, and `SafetyCase` carry `world_snapshot_trust_status == "TRUSTED"`
+and a non-empty trust result checksum.
+
+**Invariant test:** `tests/invariants/test_world_snapshot_trust_invariants.py`
+
+---
+
+## INV-POLICY-TRUST-002: Trust Binding Propagates Through Admission
+
+**Statement:** For any allowed pipeline result, source ID, source type, trust domain,
+trust result checksum, evidence envelope checksum, attestation checksum when present,
+trust policy checksum, verifier certification checksum, verifier ID, verifier metadata
+checksum, and trust-policy config validation checksum match across `WorldSnapshotTrustResult`,
+`PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
+
+**Contract and integration tests:** `tests/contracts/test_policy_admission_contract.py`,
+`tests/integration/test_pipeline_world_snapshot_trust.py`
+
+---
+
+## INV-POLICY-TRUST-003: Freshness Does Not Imply Trust
+
+**Statement:** Fresh but missing, unauthenticated, disallowed, malformed, contradictory,
+invalid, replayed, unsupported, or non-TRUSTED world snapshot evidence cannot produce
+final gate approval.
+
+**Integration and adversarial tests:** `tests/integration/test_pipeline_world_snapshot_trust.py`,
+`tests/adversarial/test_world_snapshot_trust_bypass.py`
+
+---
+
+## INV-POLICY-TRUST-004: Snapshot Metadata Cannot Self-Attest
+
+**Statement:** Caller-controlled snapshot facts or metadata that claim trusted status,
+attestation validity, source approval, or admission approval are inert. They never convert
+missing or invalid trust evidence into `TRUSTED`.
+
+**Invariant and adversarial tests:** `tests/invariants/test_world_snapshot_trust_invariants.py`,
+`tests/adversarial/test_world_snapshot_trust_bypass.py`
+
+---
+
+## INV-POLICY-TRUST-005: Allowed Implies Certified Verifier And Valid Config
+
+**Statement:** `PipelineOutcome.ALLOWED` implies the enforced admission record carries
+`verifier_certification_status == "CERTIFIED"` and `trust_policy_config_status == "VALID"`.
+
+**Integration and contract tests:** `tests/integration/test_pipeline_trust_authority_hardening.py`,
+`tests/contracts/test_policy_admission_contract.py`
+
+---
+
+## INV-POLICY-TRUST-006: Verifier Certification Is Deterministic
+
+**Statement:** Certifying the same verifier adapter with the same runtime domain, enforce
+mode, vectors, and replay count produces an equal `VerifierAdapterCertificationResult` and
+checksum every time.
+
+**Invariant test:** `tests/invariants/test_attestation_verifier_hardening_invariants.py`
+
+---
+
+## INV-POLICY-TRUST-007: Trust Policy Config Validation Is Deterministic
+
+**Statement:** Validating the same `WorldSnapshotTrustPolicy` with the same verifier
+metadata, runtime domain, capability, and enforce mode produces an equal
+`TrustPolicyConfigValidationResult` and checksum every time.
+
+**Invariant test:** `tests/invariants/test_attestation_verifier_hardening_invariants.py`
+
+---
+
+## INV-POLICY-TRUST-008: Arbitrary Verifier Or Trust Policy Cannot Approve
+
+**Statement:** Missing, malformed, unsafe, non-deterministic, or uncertified verifier
+adapters, and empty, wildcard, mismatched, disabled-attestation, or runtime-incompatible
+trust-policy configs, cannot participate in `ENFORCE` approval.
+
+**Contract, integration, and adversarial tests:**
+`tests/contracts/test_attestation_verifier_contract.py`,
+`tests/contracts/test_trust_policy_config_contract.py`,
+`tests/integration/test_pipeline_trust_authority_hardening.py`,
+`tests/adversarial/test_attestation_verifier_adapter_bypass.py`

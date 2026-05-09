@@ -11,6 +11,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -90,6 +91,7 @@ def test_invariant_enforce_missing_capability_never_approves(command: str, prior
 @settings(max_examples=30)
 def test_invariant_policy_block_dominates_gate(command: str, velocity_mps: float) -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     result = run_pipeline(
         _intent(command, 5, context),
         context,
@@ -97,10 +99,11 @@ def test_invariant_policy_block_dominates_gate(command: str, velocity_mps: float
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(Constraint("max_velocity", {"max_mps": 0.1})),
             capability=_capability(velocity_mps),
-            world_snapshot=fresh_world_snapshot(),
+            world_snapshot=snapshot,
             context=fresh_policy_context(),
         ),
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result.outcome is not PipelineOutcome.ALLOWED
@@ -116,6 +119,7 @@ def test_invariant_policy_block_dominates_gate(command: str, velocity_mps: float
 @settings(max_examples=30)
 def test_invariant_policy_review_dominates_gate(command: str, velocity_mps: float) -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     result = run_pipeline(
         _intent(command, 5, context),
         context,
@@ -123,10 +127,11 @@ def test_invariant_policy_review_dominates_gate(command: str, velocity_mps: floa
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(Constraint("max_velocity", {"max_mps": 0.1}, required=False)),
             capability=_capability(velocity_mps),
-            world_snapshot=fresh_world_snapshot(),
+            world_snapshot=snapshot,
             context=fresh_policy_context(),
         ),
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result.outcome is not PipelineOutcome.ALLOWED
@@ -150,6 +155,7 @@ def test_invariant_disabled_mode_never_creates_policy_allow_result() -> None:
 @settings(max_examples=30)
 def test_invariant_safety_case_binds_actual_audited_plan(command: str, priority: int) -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     result = run_pipeline(
         _intent(command, priority, context),
         context,
@@ -157,11 +163,12 @@ def test_invariant_safety_case_binds_actual_audited_plan(command: str, priority:
             PolicyAdmissionMode.ENFORCE,
             policy=_policy(Constraint("max_velocity", {"max_mps": 0.5})),
             capability=_capability(0.2),
-            world_snapshot=fresh_world_snapshot(),
+            world_snapshot=snapshot,
             context=fresh_policy_context(),
             evidence={"audited_plan_id": "forged"},
         ),
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result.outcome is PipelineOutcome.ALLOWED
@@ -175,11 +182,12 @@ def test_invariant_safety_case_binds_actual_audited_plan(command: str, priority:
 def test_invariant_policy_admission_is_deterministic(command: str, priority: int) -> None:
     context = _context()
     intent = _intent(command, priority, context)
+    snapshot = fresh_world_snapshot()
     admission = PolicyAdmissionInput(
         PolicyAdmissionMode.ENFORCE,
         policy=_policy(Constraint("max_velocity", {"max_mps": 0.5})),
         capability=_capability(0.2),
-        world_snapshot=fresh_world_snapshot(),
+        world_snapshot=snapshot,
         context=fresh_policy_context({"authorisations": ["operator"]}),
     )
 
@@ -188,12 +196,14 @@ def test_invariant_policy_admission_is_deterministic(command: str, priority: int
         context,
         policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
     result_b = run_pipeline(
         intent,
         context,
         policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result_a == result_b
@@ -202,11 +212,12 @@ def test_invariant_policy_admission_is_deterministic(command: str, priority: int
 def test_invariant_source_context_mutation_cannot_change_constructed_admission() -> None:
     context = _context()
     source_context = {"authorisations": ["operator"]}
+    snapshot = fresh_world_snapshot()
     admission = PolicyAdmissionInput(
         PolicyAdmissionMode.ENFORCE,
         policy=_policy(Constraint("requires_authorisation", {"authorisation": "admin"})),
         capability=_capability(0.2),
-        world_snapshot=fresh_world_snapshot(),
+        world_snapshot=snapshot,
         context=fresh_policy_context(source_context),
     )
     result_a = run_pipeline(
@@ -214,6 +225,7 @@ def test_invariant_source_context_mutation_cannot_change_constructed_admission()
         context,
         policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     source_context["authorisations"].append("admin")
@@ -222,6 +234,7 @@ def test_invariant_source_context_mutation_cannot_change_constructed_admission()
         context,
         policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result_a == result_b

@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from aegis.audit import build_audited_plan
 from aegis.constants import GATE_VERSION, PIPELINE_VERSION
+from aegis.contracts.attestation_verifier import (
+    VerifierAdapterCertificationResult,
+    VerifierCertificationStatus,
+    certify_attestation_verifier_adapter,
+)
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -19,6 +26,15 @@ from aegis.contracts.policy_admission import (
     disabled_policy_admission_record,
     is_policy_backed_approval,
 )
+from aegis.contracts.trust_policy_config import (
+    TrustPolicyConfigStatus,
+    TrustPolicyConfigValidationResult,
+    validate_trust_policy_config,
+)
+from aegis.contracts.world_snapshot_admissibility import (
+    WorldSnapshotAdmissibilityStatus,
+    validate_world_snapshot_admissibility,
+)
 from aegis.contracts.world_snapshot_freshness import (
     DEFAULT_FRESHNESS_POLICY,
     FreshnessPolicy,
@@ -26,11 +42,43 @@ from aegis.contracts.world_snapshot_freshness import (
     WorldSnapshotFreshnessStatus,
     validate_world_snapshot_freshness,
 )
+from aegis.contracts.world_snapshot_trust import (
+    AttestationVerifier,
+    TrustDomain,
+    WorldSnapshotEvidenceEnvelope,
+    WorldSnapshotTrustPolicy,
+    WorldSnapshotTrustResult,
+    WorldSnapshotTrustStatus,
+    evaluate_world_snapshot_trust,
+)
 from aegis.errors import AegisError, PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case, evaluate_policy
 from aegis.validation import validate_intent
+
+
+class _TrustRecordKwargs(TypedDict, total=False):
+    world_snapshot_admissibility_status: str | None
+    world_snapshot_admissibility_reason_code: str | None
+    world_snapshot_admissibility_result_checksum: str | None
+    world_snapshot_trust_status: str
+    world_snapshot_trust_reason_code: str
+    world_snapshot_trust_result_checksum: str
+    evidence_envelope_checksum: str | None
+    attestation_checksum: str | None
+    trust_policy_checksum: str | None
+    verifier_certification_status: str | None
+    verifier_certification_reason_code: str | None
+    verifier_certification_checksum: str | None
+    verifier_id: str | None
+    verifier_metadata_checksum: str | None
+    trust_policy_config_status: str | None
+    trust_policy_config_reason_code: str | None
+    trust_policy_config_validation_checksum: str | None
+    source_id: str | None
+    source_type: str | None
+    trust_domain: str | None
 
 
 def run_pipeline(
@@ -40,6 +88,10 @@ def run_pipeline(
     policy_admission: PolicyAdmissionInput | None = None,
     evaluation_time_ms: int | None = None,
     freshness_policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
+    world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None = None,
+    world_snapshot_trust_policy: WorldSnapshotTrustPolicy | None = None,
+    attestation_verifier: AttestationVerifier | None = None,
+    runtime_trust_domain: TrustDomain = TrustDomain.SIMULATION,
 ) -> PipelineResult:
     """Run raw intent through the Aegis pipeline.
 
@@ -59,6 +111,10 @@ def run_pipeline(
     before policy evaluation. Stale, missing, malformed, or freshness-unchecked
     snapshots fail closed and cannot produce ``PipelineOutcome.ALLOWED``.
 
+    Phase 2 Part 6: enforced admission also requires deterministic world
+    snapshot trust evaluation after freshness and before policy evaluation.
+    Fresh but untrusted evidence fails closed before policy evaluation.
+
     Args:
         raw_intent: Validated boundary object carrying raw intent data.
         context: Injected execution context for deterministic replay.
@@ -69,13 +125,31 @@ def run_pipeline(
             Never derived from system time.
         freshness_policy: Caller-supplied freshness policy. Defaults to
             ``DEFAULT_FRESHNESS_POLICY``.
+        world_snapshot_evidence: Optional provenance envelope for the supplied
+            world snapshot. Required for enforced approval.
+        world_snapshot_trust_policy: Optional deterministic source/domain/
+            capability trust policy. Required for enforced approval.
+        attestation_verifier: Optional deterministic verifier used when the
+            trust policy requires attestation.
+        runtime_trust_domain: Caller-supplied runtime domain for deterministic
+            verifier and trust-policy configuration certification.
 
     Returns:
         A ``PipelineResult`` with outcome ``ALLOWED``, ``BLOCKED``,
         ``INVALID``, or ``ERROR``.
     """
     admission_input = _normalize_policy_admission(policy_admission)
-    return _run(raw_intent, context, admission_input, evaluation_time_ms, freshness_policy)
+    return _run(
+        raw_intent,
+        context,
+        admission_input,
+        evaluation_time_ms,
+        freshness_policy,
+        world_snapshot_evidence,
+        world_snapshot_trust_policy,
+        attestation_verifier,
+        runtime_trust_domain,
+    )
 
 
 def _run(
@@ -84,6 +158,10 @@ def _run(
     policy_admission: PolicyAdmissionInput,
     evaluation_time_ms: int | None,
     freshness_policy: FreshnessPolicy,
+    world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None,
+    world_snapshot_trust_policy: WorldSnapshotTrustPolicy | None,
+    attestation_verifier: AttestationVerifier | None,
+    runtime_trust_domain: TrustDomain,
 ) -> PipelineResult:
     """Inner pipeline composition — separated for testability."""
     initial_policy_record = _not_run_policy_record(policy_admission)
@@ -153,6 +231,10 @@ def _run(
         audited_plan=audited_plan,
         evaluation_time_ms=evaluation_time_ms,
         freshness_policy=freshness_policy,
+        world_snapshot_evidence=world_snapshot_evidence,
+        world_snapshot_trust_policy=world_snapshot_trust_policy,
+        attestation_verifier=attestation_verifier,
+        runtime_trust_domain=runtime_trust_domain,
     )
     if blocked_outcome is not None:
         return PipelineResult(
@@ -236,6 +318,10 @@ def _evaluate_policy_admission(
     audited_plan: AuditedPlan,
     evaluation_time_ms: int | None,
     freshness_policy: FreshnessPolicy,
+    world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None,
+    world_snapshot_trust_policy: WorldSnapshotTrustPolicy | None,
+    attestation_verifier: AttestationVerifier | None,
+    runtime_trust_domain: TrustDomain,
 ) -> tuple[PolicyAdmissionRecord, PipelineOutcome | None]:
     if policy_admission.mode is PolicyAdmissionMode.DISABLED:
         return disabled_policy_admission_record(), PipelineOutcome.BLOCKED
@@ -245,12 +331,28 @@ def _evaluate_policy_admission(
     if policy_admission.capability is None:
         return _denied_policy_record("CAPABILITY_REQUIRED"), PipelineOutcome.BLOCKED
 
+    admissibility_result = validate_world_snapshot_admissibility(
+        policy_admission.world_snapshot,
+        requested_capability=policy_admission.capability.name,
+    )
+    if admissibility_result.status is not WorldSnapshotAdmissibilityStatus.ADMISSIBLE:
+        return (
+            _denied_policy_record(
+                _admissibility_block_reason(admissibility_result.status),
+                world_snapshot_admissibility_status=admissibility_result.status.value,
+                world_snapshot_admissibility_reason_code=admissibility_result.reason_code,
+                world_snapshot_admissibility_result_checksum=admissibility_result.checksum,
+            ),
+            PipelineOutcome.BLOCKED,
+        )
+
     # Phase 2 Part 5: deterministic world snapshot freshness gate.
     try:
         freshness_result = validate_world_snapshot_freshness(
             policy_admission.world_snapshot,
             evaluation_time_ms=evaluation_time_ms,
             freshness_policy=freshness_policy,
+            admissibility_result=admissibility_result,
         )
     except AegisError:
         raise
@@ -261,6 +363,9 @@ def _evaluate_policy_admission(
                 admission_decision=PolicyAdmissionDecision.ERROR,
                 integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
                 exception_reason="WORLD_SNAPSHOT_FRESHNESS_FAILED",
+                world_snapshot_admissibility_status=admissibility_result.status.value,
+                world_snapshot_admissibility_reason_code=admissibility_result.reason_code,
+                world_snapshot_admissibility_result_checksum=admissibility_result.checksum,
             ),
             PipelineOutcome.ERROR,
         )
@@ -273,6 +378,102 @@ def _evaluate_policy_admission(
                 world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
                 freshness_result_checksum=freshness_result.checksum,
                 freshness_status=freshness_result.status.value,
+                world_snapshot_admissibility_status=admissibility_result.status.value,
+                world_snapshot_admissibility_reason_code=admissibility_result.reason_code,
+                world_snapshot_admissibility_result_checksum=admissibility_result.checksum,
+            ),
+            outcome,
+        )
+
+    verifier_certification = certify_attestation_verifier_adapter(
+        attestation_verifier,
+        enforce_mode=True,
+        runtime_domain=runtime_trust_domain,
+    )
+    if verifier_certification.status is not VerifierCertificationStatus.CERTIFIED:
+        return (
+            _denied_policy_record(
+                verifier_certification.reason_code,
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
+                world_snapshot_admissibility_status=admissibility_result.status.value,
+                world_snapshot_admissibility_reason_code=admissibility_result.reason_code,
+                world_snapshot_admissibility_result_checksum=admissibility_result.checksum,
+                verifier_certification=verifier_certification,
+            ),
+            PipelineOutcome.BLOCKED,
+        )
+
+    verifier_metadata = attestation_verifier.metadata if attestation_verifier is not None else None
+    trust_policy_config_validation = validate_trust_policy_config(
+        world_snapshot_trust_policy,
+        verifier_metadata=verifier_metadata,
+        runtime_domain=runtime_trust_domain,
+        capability=policy_admission.capability.name,
+        enforce_mode=True,
+    )
+    if trust_policy_config_validation.status is not TrustPolicyConfigStatus.VALID:
+        return (
+            _denied_policy_record(
+                trust_policy_config_validation.reason_code,
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
+                world_snapshot_admissibility_status=admissibility_result.status.value,
+                world_snapshot_admissibility_reason_code=admissibility_result.reason_code,
+                world_snapshot_admissibility_result_checksum=admissibility_result.checksum,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
+            ),
+            PipelineOutcome.BLOCKED,
+        )
+
+    try:
+        trust_result = evaluate_world_snapshot_trust(
+            world_snapshot=policy_admission.world_snapshot,
+            freshness_result=freshness_result,
+            evidence_envelope=world_snapshot_evidence,
+            trust_policy=world_snapshot_trust_policy,
+            capability=policy_admission.capability.name,
+            evaluation_time_ms=evaluation_time_ms,
+            admissibility_result=admissibility_result,
+            attestation_verifier=attestation_verifier,
+            verifier_certification=verifier_certification,
+            trust_policy_config_validation=trust_policy_config_validation,
+        )
+    except AegisError:
+        raise
+    except Exception:  # noqa: BLE001
+        return (
+            _denied_policy_record(
+                "WORLD_SNAPSHOT_TRUST_FAILED",
+                admission_decision=PolicyAdmissionDecision.ERROR,
+                integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                exception_reason="WORLD_SNAPSHOT_TRUST_FAILED",
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
+                world_snapshot_admissibility_status=admissibility_result.status.value,
+                world_snapshot_admissibility_reason_code=admissibility_result.reason_code,
+                world_snapshot_admissibility_result_checksum=admissibility_result.checksum,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
+            ),
+            PipelineOutcome.ERROR,
+        )
+
+    if trust_result.status is not WorldSnapshotTrustStatus.TRUSTED:
+        reason, outcome = _trust_block_reason_and_outcome(trust_result.status)
+        return (
+            _denied_policy_record(
+                reason,
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
+                trust_result=trust_result,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
             ),
             outcome,
         )
@@ -284,6 +485,7 @@ def _evaluate_policy_admission(
             world_snapshot=policy_admission.world_snapshot,
             context=policy_admission.context,
             freshness_result=freshness_result,
+            trust_result=trust_result,
         )
     except AegisError:
         raise
@@ -297,6 +499,9 @@ def _evaluate_policy_admission(
                 world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
                 freshness_result_checksum=freshness_result.checksum,
                 freshness_status=freshness_result.status.value,
+                trust_result=trust_result,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
             ),
             PipelineOutcome.ERROR,
         )
@@ -313,6 +518,7 @@ def _evaluate_policy_admission(
             world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
             freshness_result_checksum=freshness_result.checksum,
             freshness_status=freshness_result.status.value,
+            trust_result=trust_result,
         )
     except AegisError:
         raise
@@ -328,6 +534,9 @@ def _evaluate_policy_admission(
                 world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
                 freshness_result_checksum=freshness_result.checksum,
                 freshness_status=freshness_result.status.value,
+                trust_result=trust_result,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
             ),
             PipelineOutcome.ERROR,
         )
@@ -335,7 +544,13 @@ def _evaluate_policy_admission(
     policy_record: PolicyAdmissionRecord | None = None
     try:
         policy_record = _policy_record_from_result(
-            policy_result, safety_case, audited_plan, freshness_result
+            policy_result,
+            safety_case,
+            audited_plan,
+            freshness_result,
+            trust_result,
+            verifier_certification,
+            trust_policy_config_validation,
         )
         if policy_record.admission_allowed:
             assert_policy_admission_integrity(audited_plan, policy_record)
@@ -352,6 +567,9 @@ def _evaluate_policy_admission(
                     world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
                     freshness_result_checksum=freshness_result.checksum,
                     freshness_status=freshness_result.status.value,
+                    trust_result=trust_result,
+                    verifier_certification=verifier_certification,
+                    trust_policy_config_validation=trust_policy_config_validation,
                 ),
                 PipelineOutcome.ERROR,
             )
@@ -368,6 +586,9 @@ def _evaluate_policy_admission(
                 world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
                 freshness_result_checksum=freshness_result.checksum,
                 freshness_status=freshness_result.status.value,
+                trust_result=trust_result,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
             ),
             PipelineOutcome.ERROR,
         )
@@ -403,6 +624,68 @@ def _freshness_block_reason_and_outcome(
     return "WORLD_SNAPSHOT_FRESHNESS_ERROR", PipelineOutcome.ERROR
 
 
+def _admissibility_block_reason(status: WorldSnapshotAdmissibilityStatus) -> str:
+    if status is WorldSnapshotAdmissibilityStatus.SNAPSHOT_MISSING:
+        return "WORLD_SNAPSHOT_MISSING"
+    if status is WorldSnapshotAdmissibilityStatus.FACTS_MALFORMED:
+        return "WORLD_SNAPSHOT_MALFORMED"
+    if status is WorldSnapshotAdmissibilityStatus.SNAPSHOT_CHECKSUM_MISSING:
+        return "WORLD_SNAPSHOT_CHECKSUM_MISSING"
+    if status is WorldSnapshotAdmissibilityStatus.SNAPSHOT_CHECKSUM_EMPTY:
+        return "WORLD_SNAPSHOT_CHECKSUM_EMPTY"
+    if status is WorldSnapshotAdmissibilityStatus.CAPABILITY_SCOPE_MISMATCH:
+        return "WORLD_SNAPSHOT_CAPABILITY_SCOPE_MISMATCH"
+    if status is WorldSnapshotAdmissibilityStatus.CAPABILITY_SCOPE_MISSING:
+        return "WORLD_SNAPSHOT_CAPABILITY_SCOPE_MISSING"
+    if status is WorldSnapshotAdmissibilityStatus.CAPABILITY_SCOPE_EMPTY:
+        return "WORLD_SNAPSHOT_CAPABILITY_SCOPE_EMPTY"
+    if status is WorldSnapshotAdmissibilityStatus.DECLARED_FACT_KEY_MISSING:
+        return "WORLD_SNAPSHOT_DECLARED_FACT_KEY_MISSING"
+    if status is WorldSnapshotAdmissibilityStatus.REQUIRED_FACT_KEY_MISSING:
+        return "WORLD_SNAPSHOT_REQUIRED_FACT_KEY_MISSING"
+    if status is WorldSnapshotAdmissibilityStatus.REQUIRED_FACT_KEY_UNDECLARED:
+        return "WORLD_SNAPSHOT_REQUIRED_FACT_KEY_UNDECLARED"
+    if status is WorldSnapshotAdmissibilityStatus.CONTRADICTORY_SNAPSHOT_EVIDENCE:
+        return "WORLD_SNAPSHOT_CONTRADICTORY_EVIDENCE"
+    return "WORLD_SNAPSHOT_NOT_ADMISSIBLE"
+
+
+def _trust_block_reason_and_outcome(
+    status: WorldSnapshotTrustStatus,
+) -> tuple[str, PipelineOutcome]:
+    if status is WorldSnapshotTrustStatus.MISSING_EVIDENCE:
+        return "WORLD_SNAPSHOT_EVIDENCE_MISSING", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.MISSING_TRUST_POLICY:
+        return "WORLD_SNAPSHOT_TRUST_POLICY_MISSING", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.MISSING_VERIFIER:
+        return "WORLD_SNAPSHOT_ATTESTATION_VERIFIER_MISSING", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.MALFORMED_EVIDENCE:
+        return "WORLD_SNAPSHOT_TRUST_MALFORMED_EVIDENCE", PipelineOutcome.INVALID
+    if status is WorldSnapshotTrustStatus.CONTRADICTORY_EVIDENCE:
+        return "WORLD_SNAPSHOT_TRUST_CONTRADICTORY_EVIDENCE", PipelineOutcome.INVALID
+    if status is WorldSnapshotTrustStatus.SNAPSHOT_CHECKSUM_MISMATCH:
+        return "WORLD_SNAPSHOT_TRUST_CHECKSUM_MISMATCH", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.SOURCE_NOT_ALLOWED:
+        return "WORLD_SNAPSHOT_SOURCE_NOT_ALLOWED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.SOURCE_TYPE_NOT_ALLOWED:
+        return "WORLD_SNAPSHOT_SOURCE_TYPE_NOT_ALLOWED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.TRUST_DOMAIN_NOT_ALLOWED:
+        return "WORLD_SNAPSHOT_TRUST_DOMAIN_NOT_ALLOWED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.CAPABILITY_NOT_ALLOWED:
+        return "WORLD_SNAPSHOT_CAPABILITY_NOT_ALLOWED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.ATTESTATION_MISSING:
+        return "WORLD_SNAPSHOT_ATTESTATION_MISSING", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.ATTESTATION_EXPIRED:
+        return "WORLD_SNAPSHOT_ATTESTATION_EXPIRED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.ATTESTATION_NOT_YET_VALID:
+        return "WORLD_SNAPSHOT_ATTESTATION_NOT_YET_VALID", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.UNSUPPORTED_ATTESTATION_ALGORITHM:
+        return "WORLD_SNAPSHOT_ATTESTATION_ALGORITHM_UNSUPPORTED", PipelineOutcome.BLOCKED
+    if status is WorldSnapshotTrustStatus.ATTESTATION_INVALID:
+        return "WORLD_SNAPSHOT_ATTESTATION_INVALID", PipelineOutcome.BLOCKED
+    return "WORLD_SNAPSHOT_UNTRUSTED", PipelineOutcome.BLOCKED
+
+
 def _denied_policy_record(
     reason: str,
     *,
@@ -414,8 +697,27 @@ def _denied_policy_record(
     world_snapshot_observed_at_ms: int | None = None,
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
+    world_snapshot_admissibility_status: str | None = None,
+    world_snapshot_admissibility_reason_code: str | None = None,
+    world_snapshot_admissibility_result_checksum: str | None = None,
+    trust_result: WorldSnapshotTrustResult | None = None,
+    verifier_certification: VerifierAdapterCertificationResult | None = None,
+    trust_policy_config_validation: TrustPolicyConfigValidationResult | None = None,
 ) -> PolicyAdmissionRecord:
     reasons = (reason,) if policy_result is None else _with_reason(policy_result.reasons, reason)
+    trust_kwargs = _record_binding_kwargs(
+        trust_result, verifier_certification, trust_policy_config_validation
+    )
+    if world_snapshot_admissibility_status is not None:
+        trust_kwargs["world_snapshot_admissibility_status"] = world_snapshot_admissibility_status
+    if world_snapshot_admissibility_reason_code is not None:
+        trust_kwargs["world_snapshot_admissibility_reason_code"] = (
+            world_snapshot_admissibility_reason_code
+        )
+    if world_snapshot_admissibility_result_checksum is not None:
+        trust_kwargs["world_snapshot_admissibility_result_checksum"] = (
+            world_snapshot_admissibility_result_checksum
+        )
     return PolicyAdmissionRecord(
         mode=PolicyAdmissionMode.ENFORCE,
         policy_result=policy_result,
@@ -429,6 +731,7 @@ def _denied_policy_record(
         world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
         freshness_result_checksum=freshness_result_checksum,
         freshness_status=freshness_status,
+        **trust_kwargs,
     )
 
 
@@ -443,6 +746,9 @@ def _policy_record_from_result(
     safety_case: SafetyCase,
     audited_plan: AuditedPlan,
     freshness_result: WorldSnapshotFreshnessResult,
+    trust_result: WorldSnapshotTrustResult,
+    verifier_certification: VerifierAdapterCertificationResult,
+    trust_policy_config_validation: TrustPolicyConfigValidationResult,
 ) -> PolicyAdmissionRecord:
     admission_allowed = policy_result.decision is PolicyDecision.ALLOW
     return PolicyAdmissionRecord(
@@ -470,6 +776,34 @@ def _policy_record_from_result(
         world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        world_snapshot_admissibility_status=trust_result.world_snapshot_admissibility_status,
+        world_snapshot_admissibility_reason_code=(
+            trust_result.world_snapshot_admissibility_reason_code
+        ),
+        world_snapshot_admissibility_result_checksum=(
+            trust_result.world_snapshot_admissibility_result_checksum
+        ),
+        world_snapshot_trust_status=trust_result.status.value,
+        world_snapshot_trust_reason_code=trust_result.reason_code,
+        world_snapshot_trust_result_checksum=trust_result.checksum,
+        evidence_envelope_checksum=trust_result.evidence_envelope_checksum,
+        attestation_checksum=trust_result.attestation_checksum,
+        trust_policy_checksum=trust_result.trust_policy_checksum,
+        verifier_certification_status=verifier_certification.status.value,
+        verifier_certification_reason_code=verifier_certification.reason_code,
+        verifier_certification_checksum=verifier_certification.checksum,
+        verifier_id=verifier_certification.verifier_id,
+        verifier_metadata_checksum=verifier_certification.verifier_metadata_checksum,
+        trust_policy_config_status=trust_policy_config_validation.status.value,
+        trust_policy_config_reason_code=trust_policy_config_validation.reason_code,
+        trust_policy_config_validation_checksum=trust_policy_config_validation.checksum,
+        source_id=trust_result.source_id,
+        source_type=trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        trust_domain=trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
     )
 
 
@@ -504,7 +838,99 @@ def _error_policy_record(
         world_snapshot_observed_at_ms=policy_record.world_snapshot_observed_at_ms,
         freshness_result_checksum=policy_record.freshness_result_checksum,
         freshness_status=policy_record.freshness_status,
+        world_snapshot_admissibility_status=policy_record.world_snapshot_admissibility_status,
+        world_snapshot_admissibility_reason_code=(
+            policy_record.world_snapshot_admissibility_reason_code
+        ),
+        world_snapshot_admissibility_result_checksum=(
+            policy_record.world_snapshot_admissibility_result_checksum
+        ),
+        world_snapshot_trust_status=policy_record.world_snapshot_trust_status,
+        world_snapshot_trust_reason_code=policy_record.world_snapshot_trust_reason_code,
+        world_snapshot_trust_result_checksum=policy_record.world_snapshot_trust_result_checksum,
+        evidence_envelope_checksum=policy_record.evidence_envelope_checksum,
+        attestation_checksum=policy_record.attestation_checksum,
+        trust_policy_checksum=policy_record.trust_policy_checksum,
+        verifier_certification_status=policy_record.verifier_certification_status,
+        verifier_certification_reason_code=policy_record.verifier_certification_reason_code,
+        verifier_certification_checksum=policy_record.verifier_certification_checksum,
+        verifier_id=policy_record.verifier_id,
+        verifier_metadata_checksum=policy_record.verifier_metadata_checksum,
+        trust_policy_config_status=policy_record.trust_policy_config_status,
+        trust_policy_config_reason_code=policy_record.trust_policy_config_reason_code,
+        trust_policy_config_validation_checksum=(
+            policy_record.trust_policy_config_validation_checksum
+        ),
+        source_id=policy_record.source_id,
+        source_type=policy_record.source_type,
+        trust_domain=policy_record.trust_domain,
     )
+
+
+def _trust_record_kwargs(trust_result: WorldSnapshotTrustResult | None) -> _TrustRecordKwargs:
+    if trust_result is None:
+        return {}
+    return {
+        "world_snapshot_admissibility_status": trust_result.world_snapshot_admissibility_status,
+        "world_snapshot_admissibility_reason_code": (
+            trust_result.world_snapshot_admissibility_reason_code
+        ),
+        "world_snapshot_admissibility_result_checksum": (
+            trust_result.world_snapshot_admissibility_result_checksum
+        ),
+        "world_snapshot_trust_status": trust_result.status.value,
+        "world_snapshot_trust_reason_code": trust_result.reason_code,
+        "world_snapshot_trust_result_checksum": trust_result.checksum,
+        "evidence_envelope_checksum": _none_if_empty(trust_result.evidence_envelope_checksum),
+        "attestation_checksum": _none_if_empty(trust_result.attestation_checksum),
+        "trust_policy_checksum": _none_if_empty(trust_result.trust_policy_checksum),
+        "source_id": _none_if_empty(trust_result.source_id),
+        "source_type": trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        "trust_domain": trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
+    }
+
+
+def _record_binding_kwargs(
+    trust_result: WorldSnapshotTrustResult | None,
+    verifier_certification: VerifierAdapterCertificationResult | None,
+    trust_policy_config_validation: TrustPolicyConfigValidationResult | None,
+) -> _TrustRecordKwargs:
+    kwargs = _trust_record_kwargs(trust_result)
+    if verifier_certification is not None:
+        kwargs["verifier_certification_status"] = verifier_certification.status.value
+        kwargs["verifier_certification_reason_code"] = verifier_certification.reason_code
+        kwargs["verifier_certification_checksum"] = verifier_certification.checksum
+        kwargs["verifier_id"] = _none_if_empty(verifier_certification.verifier_id)
+        kwargs["verifier_metadata_checksum"] = _none_if_empty(
+            verifier_certification.verifier_metadata_checksum
+        )
+    elif trust_result is not None:
+        kwargs["verifier_certification_checksum"] = _none_if_empty(
+            trust_result.verifier_certification_checksum
+        )
+        kwargs["verifier_id"] = _none_if_empty(trust_result.verifier_id)
+        kwargs["verifier_metadata_checksum"] = _none_if_empty(
+            trust_result.verifier_metadata_checksum
+        )
+    if trust_policy_config_validation is not None:
+        kwargs["trust_policy_config_status"] = trust_policy_config_validation.status.value
+        kwargs["trust_policy_config_reason_code"] = trust_policy_config_validation.reason_code
+        kwargs["trust_policy_config_validation_checksum"] = trust_policy_config_validation.checksum
+    elif trust_result is not None:
+        kwargs["trust_policy_config_validation_checksum"] = _none_if_empty(
+            trust_result.trust_policy_config_validation_checksum
+        )
+    return kwargs
+
+
+def _none_if_empty(value: str | None) -> str | None:
+    if value == "":
+        return None
+    return value
 
 
 def _blocked_policy_outcome(policy_result: PolicyEvaluationResult) -> PipelineOutcome:

@@ -16,6 +16,7 @@ from aegis.contracts.policy import (
     WorldSnapshotStub,
     policy_evaluation_result_checksum,
 )
+from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 
 type CanonicalHashValue = (
     str | int | float | bool | None | list[CanonicalHashValue] | dict[str, CanonicalHashValue]
@@ -40,6 +41,22 @@ _RESERVED_EVIDENCE_FIELDS = frozenset(
         "world_snapshot_observed_at_ms",
         "freshness_result_checksum",
         "freshness_status",
+        "world_snapshot_admissibility_status",
+        "world_snapshot_admissibility_reason_code",
+        "world_snapshot_admissibility_result_checksum",
+        "world_snapshot_trust_status",
+        "world_snapshot_trust_reason_code",
+        "world_snapshot_trust_result_checksum",
+        "evidence_envelope_checksum",
+        "attestation_checksum",
+        "trust_policy_checksum",
+        "verifier_certification_checksum",
+        "trust_policy_config_validation_checksum",
+        "verifier_id",
+        "verifier_metadata_checksum",
+        "source_id",
+        "source_type",
+        "trust_domain",
     }
 )
 
@@ -56,6 +73,7 @@ def build_safety_case(
     world_snapshot_observed_at_ms: int | None = None,
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
+    trust_result: WorldSnapshotTrustResult | None = None,
 ) -> SafetyCase:
     """Build a deterministic SafetyCase for a Policy-v1 evaluation result.
 
@@ -72,6 +90,8 @@ def build_safety_case(
         freshness_result_checksum: Optional checksum from the freshness result
             (Phase 2 Part 5).
         freshness_status: Optional freshness status string (Phase 2 Part 5).
+        trust_result: Optional deterministic world snapshot trust result to bind
+            into the SafetyCase (Phase 2 Part 6).
 
     Returns:
         A SafetyCase with a deterministic SHA-256 identifier.
@@ -87,6 +107,7 @@ def build_safety_case(
     capability_name = capability.name if capability is not None else None
     capability_version = capability.version if capability is not None else None
     result_checksum = policy_evaluation_result_checksum(policy_result)
+    trust_fields = _trust_fields(trust_result)
     combined_evidence = _combined_safety_evidence(
         policy_result=policy_result,
         world_snapshot_id=world_snapshot_id,
@@ -100,6 +121,7 @@ def build_safety_case(
         world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
         freshness_result_checksum=freshness_result_checksum,
         freshness_status=freshness_status,
+        trust_fields=trust_fields,
     )
 
     if policy_result.decision.value == "ALLOW" and not policy_result.passed_constraints:
@@ -126,6 +148,28 @@ def build_safety_case(
         world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
         freshness_result_checksum=freshness_result_checksum,
         freshness_status=freshness_status,
+        world_snapshot_admissibility_status=policy_result.world_snapshot_admissibility_status,
+        world_snapshot_admissibility_reason_code=(
+            policy_result.world_snapshot_admissibility_reason_code
+        ),
+        world_snapshot_admissibility_result_checksum=(
+            policy_result.world_snapshot_admissibility_result_checksum
+        ),
+        world_snapshot_trust_status=trust_fields["world_snapshot_trust_status"],
+        world_snapshot_trust_reason_code=trust_fields["world_snapshot_trust_reason_code"],
+        world_snapshot_trust_result_checksum=trust_fields["world_snapshot_trust_result_checksum"],
+        evidence_envelope_checksum=trust_fields["evidence_envelope_checksum"],
+        attestation_checksum=trust_fields["attestation_checksum"],
+        trust_policy_checksum=trust_fields["trust_policy_checksum"],
+        verifier_certification_checksum=trust_fields["verifier_certification_checksum"],
+        trust_policy_config_validation_checksum=trust_fields[
+            "trust_policy_config_validation_checksum"
+        ],
+        verifier_id=trust_fields["verifier_id"],
+        verifier_metadata_checksum=trust_fields["verifier_metadata_checksum"],
+        source_id=trust_fields["source_id"],
+        source_type=trust_fields["source_type"],
+        trust_domain=trust_fields["trust_domain"],
     )
 
 
@@ -165,6 +209,57 @@ def canonicalise_for_hash(value: object) -> CanonicalHashValue:
             "world_snapshot_observed_at_ms": value.world_snapshot_observed_at_ms,
             "freshness_result_checksum": value.freshness_result_checksum,
             "freshness_status": value.freshness_status,
+            "world_snapshot_admissibility_status": value.world_snapshot_admissibility_status,
+            "world_snapshot_admissibility_reason_code": (
+                value.world_snapshot_admissibility_reason_code
+            ),
+            "world_snapshot_admissibility_result_checksum": (
+                value.world_snapshot_admissibility_result_checksum
+            ),
+            "world_snapshot_trust_status": value.world_snapshot_trust_status,
+            "world_snapshot_trust_reason_code": value.world_snapshot_trust_reason_code,
+            "world_snapshot_trust_result_checksum": (value.world_snapshot_trust_result_checksum),
+            "evidence_envelope_checksum": value.evidence_envelope_checksum,
+            "attestation_checksum": value.attestation_checksum,
+            "trust_policy_checksum": value.trust_policy_checksum,
+            "verifier_certification_checksum": value.verifier_certification_checksum,
+            "trust_policy_config_validation_checksum": (
+                value.trust_policy_config_validation_checksum
+            ),
+            "verifier_id": value.verifier_id,
+            "verifier_metadata_checksum": value.verifier_metadata_checksum,
+            "source_id": value.source_id,
+            "source_type": value.source_type,
+            "trust_domain": value.trust_domain,
+        }
+    if isinstance(value, WorldSnapshotTrustResult):
+        return {
+            "status": value.status.value,
+            "reason_code": value.reason_code,
+            "world_snapshot_checksum": value.world_snapshot_checksum,
+            "world_snapshot_admissibility_status": value.world_snapshot_admissibility_status,
+            "world_snapshot_admissibility_reason_code": (
+                value.world_snapshot_admissibility_reason_code
+            ),
+            "world_snapshot_admissibility_result_checksum": (
+                value.world_snapshot_admissibility_result_checksum
+            ),
+            "evidence_envelope_checksum": value.evidence_envelope_checksum,
+            "attestation_checksum": value.attestation_checksum,
+            "trust_policy_checksum": value.trust_policy_checksum,
+            "verifier_certification_checksum": value.verifier_certification_checksum,
+            "trust_policy_config_validation_checksum": (
+                value.trust_policy_config_validation_checksum
+            ),
+            "verifier_id": value.verifier_id,
+            "verifier_metadata_checksum": value.verifier_metadata_checksum,
+            "source_id": value.source_id,
+            "source_type": value.source_type.value if value.source_type is not None else None,
+            "trust_domain": value.trust_domain.value if value.trust_domain is not None else None,
+            "capability": value.capability,
+            "verification_result_checksum": value.verification_result_checksum,
+            "evaluation_time_ms": value.evaluation_time_ms,
+            "checksum": value.checksum,
         }
     if isinstance(value, Capability):
         return {
@@ -222,8 +317,10 @@ def _combined_safety_evidence(
     world_snapshot_observed_at_ms: int | None = None,
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
+    trust_fields: Mapping[str, str | None] | None = None,
 ) -> dict[str, object]:
     constraint_evaluations = supplied_evidence.get("constraint_evaluations", ())
+    normalized_trust_fields = trust_fields or _trust_fields(None)
 
     combined: dict[str, object] = {
         "policy_id": policy_result.policy_id,
@@ -243,12 +340,80 @@ def _combined_safety_evidence(
         "world_snapshot_observed_at_ms": world_snapshot_observed_at_ms,
         "freshness_result_checksum": freshness_result_checksum,
         "freshness_status": freshness_status,
+        "world_snapshot_admissibility_status": (policy_result.world_snapshot_admissibility_status),
+        "world_snapshot_admissibility_reason_code": (
+            policy_result.world_snapshot_admissibility_reason_code
+        ),
+        "world_snapshot_admissibility_result_checksum": (
+            policy_result.world_snapshot_admissibility_result_checksum
+        ),
+        "world_snapshot_trust_status": normalized_trust_fields["world_snapshot_trust_status"],
+        "world_snapshot_trust_reason_code": normalized_trust_fields[
+            "world_snapshot_trust_reason_code"
+        ],
+        "world_snapshot_trust_result_checksum": normalized_trust_fields[
+            "world_snapshot_trust_result_checksum"
+        ],
+        "evidence_envelope_checksum": normalized_trust_fields["evidence_envelope_checksum"],
+        "attestation_checksum": normalized_trust_fields["attestation_checksum"],
+        "trust_policy_checksum": normalized_trust_fields["trust_policy_checksum"],
+        "verifier_certification_checksum": normalized_trust_fields[
+            "verifier_certification_checksum"
+        ],
+        "trust_policy_config_validation_checksum": normalized_trust_fields[
+            "trust_policy_config_validation_checksum"
+        ],
+        "verifier_id": normalized_trust_fields["verifier_id"],
+        "verifier_metadata_checksum": normalized_trust_fields["verifier_metadata_checksum"],
+        "source_id": normalized_trust_fields["source_id"],
+        "source_type": normalized_trust_fields["source_type"],
+        "trust_domain": normalized_trust_fields["trust_domain"],
     }
     for key, value in supplied_evidence.items():
         if key not in _RESERVED_EVIDENCE_FIELDS:
             combined[key] = value
     canonicalise_for_hash(combined)
     return combined
+
+
+def _trust_fields(trust_result: WorldSnapshotTrustResult | None) -> dict[str, str | None]:
+    if trust_result is None:
+        return {
+            "world_snapshot_trust_status": None,
+            "world_snapshot_trust_reason_code": None,
+            "world_snapshot_trust_result_checksum": None,
+            "evidence_envelope_checksum": None,
+            "attestation_checksum": None,
+            "trust_policy_checksum": None,
+            "verifier_certification_checksum": None,
+            "trust_policy_config_validation_checksum": None,
+            "verifier_id": None,
+            "verifier_metadata_checksum": None,
+            "source_id": None,
+            "source_type": None,
+            "trust_domain": None,
+        }
+    return {
+        "world_snapshot_trust_status": trust_result.status.value,
+        "world_snapshot_trust_reason_code": trust_result.reason_code,
+        "world_snapshot_trust_result_checksum": trust_result.checksum,
+        "evidence_envelope_checksum": trust_result.evidence_envelope_checksum,
+        "attestation_checksum": trust_result.attestation_checksum,
+        "trust_policy_checksum": trust_result.trust_policy_checksum,
+        "verifier_certification_checksum": trust_result.verifier_certification_checksum,
+        "trust_policy_config_validation_checksum": (
+            trust_result.trust_policy_config_validation_checksum
+        ),
+        "verifier_id": trust_result.verifier_id,
+        "verifier_metadata_checksum": trust_result.verifier_metadata_checksum,
+        "source_id": trust_result.source_id,
+        "source_type": trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        "trust_domain": trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
+    }
 
 
 def _safety_case_id(

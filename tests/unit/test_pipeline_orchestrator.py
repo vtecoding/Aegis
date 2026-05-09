@@ -11,6 +11,7 @@ from tests.policy_freshness_fixtures import (
     fresh_policy_context,
     fresh_world_snapshot,
 )
+from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.intent import RawIntent
@@ -65,6 +66,11 @@ def make_allowing_admission() -> PolicyAdmissionInput:
     )
 
 
+def trusted_kwargs(admission: PolicyAdmissionInput) -> dict[str, object]:
+    assert admission.world_snapshot is not None
+    return trusted_pipeline_kwargs(admission.world_snapshot)
+
+
 # ---------------------------------------------------------------------------
 # Happy paths
 # ---------------------------------------------------------------------------
@@ -93,11 +99,13 @@ def test_run_pipeline_valid_move_returns_allowed() -> None:
         priority=3,
         context=context,
     )
+    admission = make_allowing_admission()
     result = run_pipeline(
         intent,
         context,
-        policy_admission=make_allowing_admission(),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_kwargs(admission),
     )
     assert result.outcome == PipelineOutcome.ALLOWED
 
@@ -146,11 +154,13 @@ def test_run_pipeline_all_valid_commands_return_allowed(command: str, parameters
         priority=5,
         context=context,
     )
+    admission = make_allowing_admission()
     result = run_pipeline(
         intent,
         context,
-        policy_admission=make_allowing_admission(),
+        policy_admission=admission,
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_kwargs(admission),
     )
     assert result.outcome == PipelineOutcome.ALLOWED
 
@@ -230,11 +240,13 @@ def test_run_pipeline_unexpected_exception_in_gate_returns_error() -> None:
 
     with patch("aegis.pipeline.orchestrator.gate_audited_plan") as mock_gate:
         mock_gate.side_effect = RuntimeError("simulated gate framework failure")
+        admission = make_allowing_admission()
         result = run_pipeline(
             intent,
             context,
-            policy_admission=make_allowing_admission(),
+            policy_admission=admission,
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_kwargs(admission),
         )
 
     assert result.outcome == PipelineOutcome.ERROR

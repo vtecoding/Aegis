@@ -200,6 +200,8 @@ class WorldSnapshotStub:
         confidence: Confidence in [0.0, 1.0].
         facts: Explicit immutable evidence facts.
         checksum: Optional non-empty checksum supplied by the caller.
+        declared_capability_scope: Optional declared capability names the snapshot covers.
+        declared_fact_keys: Optional declared fact keys carried by the snapshot.
 
     Raises:
         ValueError: If identifiers are empty, timestamps are invalid,
@@ -213,6 +215,8 @@ class WorldSnapshotStub:
     confidence: float
     facts: Mapping[str, FrozenPolicyValue]
     checksum: str | None
+    declared_capability_scope: frozenset[str] | None
+    declared_fact_keys: frozenset[str] | None
 
     def __init__(
         self,
@@ -223,6 +227,9 @@ class WorldSnapshotStub:
         confidence: object,
         facts: Mapping[str, object] | None = None,
         checksum: str | None = None,
+        *,
+        declared_capability_scope: Iterable[str] | None = None,
+        declared_fact_keys: Iterable[str] | None = None,
     ) -> None:
         normalized_captured_at_ms = _normalize_non_negative_int(captured_at_ms, "captured_at_ms")
         normalized_expires_at_ms = _normalize_non_negative_int(expires_at_ms, "expires_at_ms")
@@ -238,6 +245,16 @@ class WorldSnapshotStub:
         object.__setattr__(self, "confidence", _normalize_confidence(confidence))
         object.__setattr__(self, "facts", _freeze_policy_mapping(facts or {}))
         object.__setattr__(self, "checksum", _normalize_optional_text(checksum, "checksum"))
+        object.__setattr__(
+            self,
+            "declared_capability_scope",
+            _normalize_optional_capability_scope(declared_capability_scope),
+        )
+        object.__setattr__(
+            self,
+            "declared_fact_keys",
+            _normalize_optional_fact_keys(declared_fact_keys),
+        )
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -256,6 +273,10 @@ class PolicyEvaluationResult:
             freshness gate.
         freshness_result_checksum: Optional deterministic freshness result checksum.
         freshness_status: Optional freshness status string.
+        world_snapshot_admissibility_status: Optional admissibility status string.
+        world_snapshot_admissibility_result_checksum: Optional admissibility result checksum.
+        world_snapshot_trust_status: Optional trust status string.
+        world_snapshot_trust_result_checksum: Optional trust result checksum.
 
     Raises:
         ValueError: If decision is invalid, ALLOW has no matched rules, failure
@@ -272,6 +293,28 @@ class PolicyEvaluationResult:
     world_snapshot_observed_at_ms: int | None
     freshness_result_checksum: str | None
     freshness_status: str | None
+    world_snapshot_admissibility_status: str | None
+    world_snapshot_admissibility_reason_code: str | None
+    world_snapshot_admissibility_result_checksum: str | None
+    requested_capability: str | None
+    declared_capability_scope: tuple[str, ...]
+    declared_fact_keys: tuple[str, ...] | None
+    missing_declared_fact_keys: tuple[str, ...]
+    missing_required_fact_keys: tuple[str, ...]
+    undeclared_required_fact_keys: tuple[str, ...]
+    world_snapshot_trust_status: str | None
+    world_snapshot_trust_reason_code: str | None
+    world_snapshot_trust_result_checksum: str | None
+    evidence_envelope_checksum: str | None
+    attestation_checksum: str | None
+    trust_policy_checksum: str | None
+    verifier_certification_checksum: str | None
+    trust_policy_config_validation_checksum: str | None
+    verifier_id: str | None
+    verifier_metadata_checksum: str | None
+    source_id: str | None
+    source_type: str | None
+    trust_domain: str | None
 
     def __init__(
         self,
@@ -286,6 +329,28 @@ class PolicyEvaluationResult:
         world_snapshot_observed_at_ms: object = None,
         freshness_result_checksum: str | None = None,
         freshness_status: object = None,
+        world_snapshot_admissibility_status: object = None,
+        world_snapshot_admissibility_reason_code: str | None = None,
+        world_snapshot_admissibility_result_checksum: str | None = None,
+        requested_capability: str | None = None,
+        declared_capability_scope: Iterable[str] = (),
+        declared_fact_keys: Iterable[str] | None = None,
+        missing_declared_fact_keys: Iterable[str] = (),
+        missing_required_fact_keys: Iterable[str] = (),
+        undeclared_required_fact_keys: Iterable[str] = (),
+        world_snapshot_trust_status: object = None,
+        world_snapshot_trust_reason_code: str | None = None,
+        world_snapshot_trust_result_checksum: str | None = None,
+        evidence_envelope_checksum: str | None = None,
+        attestation_checksum: str | None = None,
+        trust_policy_checksum: str | None = None,
+        verifier_certification_checksum: str | None = None,
+        trust_policy_config_validation_checksum: str | None = None,
+        verifier_id: str | None = None,
+        verifier_metadata_checksum: str | None = None,
+        source_id: str | None = None,
+        source_type: object = None,
+        trust_domain: object = None,
     ) -> None:
         normalized_decision = _normalize_policy_decision(decision)
         normalized_matched_rule_ids = _normalize_text_tuple(matched_rule_ids, "matched_rule_ids")
@@ -338,6 +403,119 @@ class PolicyEvaluationResult:
             "freshness_status",
             _normalize_optional_freshness_status(freshness_status),
         )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_status",
+            _normalize_optional_admissibility_status(world_snapshot_admissibility_status),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_reason_code",
+            _normalize_optional_reason_code(
+                world_snapshot_admissibility_reason_code,
+                "world_snapshot_admissibility_reason_code",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_result_checksum",
+            _normalize_optional_text(
+                world_snapshot_admissibility_result_checksum,
+                "world_snapshot_admissibility_result_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "requested_capability",
+            _normalize_optional_capability_name(requested_capability, "requested_capability"),
+        )
+        object.__setattr__(
+            self,
+            "declared_capability_scope",
+            _normalize_capability_tuple(declared_capability_scope, "declared_capability_scope"),
+        )
+        object.__setattr__(
+            self,
+            "declared_fact_keys",
+            _normalize_optional_fact_key_tuple(declared_fact_keys, "declared_fact_keys"),
+        )
+        object.__setattr__(
+            self,
+            "missing_declared_fact_keys",
+            _normalize_fact_key_tuple(missing_declared_fact_keys, "missing_declared_fact_keys"),
+        )
+        object.__setattr__(
+            self,
+            "missing_required_fact_keys",
+            _normalize_fact_key_tuple(missing_required_fact_keys, "missing_required_fact_keys"),
+        )
+        object.__setattr__(
+            self,
+            "undeclared_required_fact_keys",
+            _normalize_fact_key_tuple(
+                undeclared_required_fact_keys, "undeclared_required_fact_keys"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_trust_status",
+            _normalize_optional_trust_status(world_snapshot_trust_status),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_trust_reason_code",
+            _normalize_optional_reason_code(
+                world_snapshot_trust_reason_code, "world_snapshot_trust_reason_code"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_trust_result_checksum",
+            _normalize_optional_text(
+                world_snapshot_trust_result_checksum, "world_snapshot_trust_result_checksum"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "evidence_envelope_checksum",
+            _normalize_optional_text(evidence_envelope_checksum, "evidence_envelope_checksum"),
+        )
+        object.__setattr__(
+            self,
+            "attestation_checksum",
+            _normalize_optional_text(attestation_checksum, "attestation_checksum"),
+        )
+        object.__setattr__(
+            self,
+            "trust_policy_checksum",
+            _normalize_optional_text(trust_policy_checksum, "trust_policy_checksum"),
+        )
+        object.__setattr__(
+            self,
+            "verifier_certification_checksum",
+            _normalize_optional_text(
+                verifier_certification_checksum, "verifier_certification_checksum"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "trust_policy_config_validation_checksum",
+            _normalize_optional_text(
+                trust_policy_config_validation_checksum,
+                "trust_policy_config_validation_checksum",
+            ),
+        )
+        object.__setattr__(
+            self, "verifier_id", _normalize_optional_text(verifier_id, "verifier_id")
+        )
+        object.__setattr__(
+            self,
+            "verifier_metadata_checksum",
+            _normalize_optional_text(verifier_metadata_checksum, "verifier_metadata_checksum"),
+        )
+        object.__setattr__(self, "source_id", _normalize_optional_text(source_id, "source_id"))
+        object.__setattr__(self, "source_type", _normalize_optional_source_type(source_type))
+        object.__setattr__(self, "trust_domain", _normalize_optional_trust_domain(trust_domain))
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -356,6 +534,10 @@ class SafetyCase:
         world_snapshot_checksum: Optional checksum from the world snapshot stub.
         capability_name: Optional capability name evaluated by policy admission.
         capability_version: Optional capability version evaluated by policy admission.
+        world_snapshot_admissibility_status: Optional admissibility status bound by admission.
+        world_snapshot_admissibility_result_checksum: Optional admissibility result checksum.
+        world_snapshot_trust_status: Optional trust status bound by admission.
+        world_snapshot_trust_result_checksum: Optional trust result checksum.
 
     Raises:
         ValueError: If identifiers are empty, evidence contains unsupported
@@ -376,6 +558,28 @@ class SafetyCase:
     world_snapshot_observed_at_ms: int | None
     freshness_result_checksum: str | None
     freshness_status: str | None
+    world_snapshot_admissibility_status: str | None
+    world_snapshot_admissibility_reason_code: str | None
+    world_snapshot_admissibility_result_checksum: str | None
+    requested_capability: str | None
+    declared_capability_scope: tuple[str, ...]
+    declared_fact_keys: tuple[str, ...] | None
+    missing_declared_fact_keys: tuple[str, ...]
+    missing_required_fact_keys: tuple[str, ...]
+    undeclared_required_fact_keys: tuple[str, ...]
+    world_snapshot_trust_status: str | None
+    world_snapshot_trust_reason_code: str | None
+    world_snapshot_trust_result_checksum: str | None
+    evidence_envelope_checksum: str | None
+    attestation_checksum: str | None
+    trust_policy_checksum: str | None
+    verifier_certification_checksum: str | None
+    trust_policy_config_validation_checksum: str | None
+    verifier_id: str | None
+    verifier_metadata_checksum: str | None
+    source_id: str | None
+    source_type: str | None
+    trust_domain: str | None
 
     def __init__(
         self,
@@ -394,6 +598,28 @@ class SafetyCase:
         world_snapshot_observed_at_ms: int | None = None,
         freshness_result_checksum: str | None = None,
         freshness_status: str | None = None,
+        world_snapshot_admissibility_status: object = None,
+        world_snapshot_admissibility_reason_code: str | None = None,
+        world_snapshot_admissibility_result_checksum: str | None = None,
+        requested_capability: str | None = None,
+        declared_capability_scope: Iterable[str] | None = None,
+        declared_fact_keys: Iterable[str] | None = None,
+        missing_declared_fact_keys: Iterable[str] | None = None,
+        missing_required_fact_keys: Iterable[str] | None = None,
+        undeclared_required_fact_keys: Iterable[str] | None = None,
+        world_snapshot_trust_status: object = None,
+        world_snapshot_trust_reason_code: str | None = None,
+        world_snapshot_trust_result_checksum: str | None = None,
+        evidence_envelope_checksum: str | None = None,
+        attestation_checksum: str | None = None,
+        trust_policy_checksum: str | None = None,
+        verifier_certification_checksum: str | None = None,
+        trust_policy_config_validation_checksum: str | None = None,
+        verifier_id: str | None = None,
+        verifier_metadata_checksum: str | None = None,
+        source_id: str | None = None,
+        source_type: object = None,
+        trust_domain: object = None,
     ) -> None:
         frozen_evidence = _freeze_policy_mapping(evidence or {})
         if policy_result.decision is PolicyDecision.ALLOW and not frozen_evidence:
@@ -453,6 +679,213 @@ class SafetyCase:
             "freshness_status",
             _normalize_optional_freshness_status(freshness_status),
         )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_status",
+            _normalize_optional_admissibility_status(
+                world_snapshot_admissibility_status
+                if world_snapshot_admissibility_status is not None
+                else policy_result.world_snapshot_admissibility_status
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_reason_code",
+            _normalize_optional_reason_code(
+                world_snapshot_admissibility_reason_code
+                if world_snapshot_admissibility_reason_code is not None
+                else policy_result.world_snapshot_admissibility_reason_code,
+                "world_snapshot_admissibility_reason_code",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_admissibility_result_checksum",
+            _normalize_optional_text(
+                world_snapshot_admissibility_result_checksum
+                if world_snapshot_admissibility_result_checksum is not None
+                else policy_result.world_snapshot_admissibility_result_checksum,
+                "world_snapshot_admissibility_result_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "requested_capability",
+            _normalize_optional_capability_name(
+                requested_capability
+                if requested_capability is not None
+                else policy_result.requested_capability,
+                "requested_capability",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "declared_capability_scope",
+            _normalize_capability_tuple(
+                declared_capability_scope
+                if declared_capability_scope is not None
+                else policy_result.declared_capability_scope,
+                "declared_capability_scope",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "declared_fact_keys",
+            _normalize_optional_fact_key_tuple(
+                declared_fact_keys
+                if declared_fact_keys is not None
+                else policy_result.declared_fact_keys,
+                "declared_fact_keys",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "missing_declared_fact_keys",
+            _normalize_fact_key_tuple(
+                missing_declared_fact_keys
+                if missing_declared_fact_keys is not None
+                else policy_result.missing_declared_fact_keys,
+                "missing_declared_fact_keys",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "missing_required_fact_keys",
+            _normalize_fact_key_tuple(
+                missing_required_fact_keys
+                if missing_required_fact_keys is not None
+                else policy_result.missing_required_fact_keys,
+                "missing_required_fact_keys",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "undeclared_required_fact_keys",
+            _normalize_fact_key_tuple(
+                undeclared_required_fact_keys
+                if undeclared_required_fact_keys is not None
+                else policy_result.undeclared_required_fact_keys,
+                "undeclared_required_fact_keys",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_trust_status",
+            _normalize_optional_trust_status(
+                world_snapshot_trust_status
+                if world_snapshot_trust_status is not None
+                else policy_result.world_snapshot_trust_status
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_trust_reason_code",
+            _normalize_optional_reason_code(
+                world_snapshot_trust_reason_code
+                if world_snapshot_trust_reason_code is not None
+                else policy_result.world_snapshot_trust_reason_code,
+                "world_snapshot_trust_reason_code",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "world_snapshot_trust_result_checksum",
+            _normalize_optional_text(
+                world_snapshot_trust_result_checksum
+                if world_snapshot_trust_result_checksum is not None
+                else policy_result.world_snapshot_trust_result_checksum,
+                "world_snapshot_trust_result_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "evidence_envelope_checksum",
+            _normalize_optional_text(
+                evidence_envelope_checksum
+                if evidence_envelope_checksum is not None
+                else policy_result.evidence_envelope_checksum,
+                "evidence_envelope_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "attestation_checksum",
+            _normalize_optional_text(
+                attestation_checksum
+                if attestation_checksum is not None
+                else policy_result.attestation_checksum,
+                "attestation_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "trust_policy_checksum",
+            _normalize_optional_text(
+                trust_policy_checksum
+                if trust_policy_checksum is not None
+                else policy_result.trust_policy_checksum,
+                "trust_policy_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "verifier_certification_checksum",
+            _normalize_optional_text(
+                verifier_certification_checksum
+                if verifier_certification_checksum is not None
+                else policy_result.verifier_certification_checksum,
+                "verifier_certification_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "trust_policy_config_validation_checksum",
+            _normalize_optional_text(
+                trust_policy_config_validation_checksum
+                if trust_policy_config_validation_checksum is not None
+                else policy_result.trust_policy_config_validation_checksum,
+                "trust_policy_config_validation_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "verifier_id",
+            _normalize_optional_text(
+                verifier_id if verifier_id is not None else policy_result.verifier_id,
+                "verifier_id",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "verifier_metadata_checksum",
+            _normalize_optional_text(
+                verifier_metadata_checksum
+                if verifier_metadata_checksum is not None
+                else policy_result.verifier_metadata_checksum,
+                "verifier_metadata_checksum",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "source_id",
+            _normalize_optional_text(
+                source_id if source_id is not None else policy_result.source_id, "source_id"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "source_type",
+            _normalize_optional_source_type(
+                source_type if source_type is not None else policy_result.source_type
+            ),
+        )
+        object.__setattr__(
+            self,
+            "trust_domain",
+            _normalize_optional_trust_domain(
+                trust_domain if trust_domain is not None else policy_result.trust_domain
+            ),
+        )
 
 
 def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> str:
@@ -475,6 +908,40 @@ def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> 
         "world_snapshot_observed_at_ms": policy_result.world_snapshot_observed_at_ms,
         "freshness_result_checksum": policy_result.freshness_result_checksum,
         "freshness_status": policy_result.freshness_status,
+        "world_snapshot_admissibility_status": (policy_result.world_snapshot_admissibility_status),
+        "world_snapshot_admissibility_reason_code": (
+            policy_result.world_snapshot_admissibility_reason_code
+        ),
+        "world_snapshot_admissibility_result_checksum": (
+            policy_result.world_snapshot_admissibility_result_checksum
+        ),
+        "requested_capability": policy_result.requested_capability,
+        "declared_capability_scope": list(policy_result.declared_capability_scope),
+        "declared_fact_keys": (
+            None
+            if policy_result.declared_fact_keys is None
+            else list(policy_result.declared_fact_keys)
+        ),
+        "missing_declared_fact_keys": list(policy_result.missing_declared_fact_keys),
+        "missing_required_fact_keys": list(policy_result.missing_required_fact_keys),
+        "undeclared_required_fact_keys": list(policy_result.undeclared_required_fact_keys),
+        "world_snapshot_trust_status": policy_result.world_snapshot_trust_status,
+        "world_snapshot_trust_reason_code": policy_result.world_snapshot_trust_reason_code,
+        "world_snapshot_trust_result_checksum": (
+            policy_result.world_snapshot_trust_result_checksum
+        ),
+        "evidence_envelope_checksum": policy_result.evidence_envelope_checksum,
+        "attestation_checksum": policy_result.attestation_checksum,
+        "trust_policy_checksum": policy_result.trust_policy_checksum,
+        "verifier_certification_checksum": policy_result.verifier_certification_checksum,
+        "trust_policy_config_validation_checksum": (
+            policy_result.trust_policy_config_validation_checksum
+        ),
+        "verifier_id": policy_result.verifier_id,
+        "verifier_metadata_checksum": policy_result.verifier_metadata_checksum,
+        "source_id": policy_result.source_id,
+        "source_type": policy_result.source_type,
+        "trust_domain": policy_result.trust_domain,
     }
     canonical_json = json.dumps(
         payload,
@@ -526,6 +993,61 @@ _VALID_FRESHNESS_STATUS_VALUES = frozenset(
     }
 )
 
+_VALID_ADMISSIBILITY_STATUS_VALUES = frozenset(
+    {
+        "ADMISSIBLE",
+        "SNAPSHOT_MISSING",
+        "SNAPSHOT_CHECKSUM_MISSING",
+        "SNAPSHOT_CHECKSUM_EMPTY",
+        "CAPABILITY_SCOPE_MISSING",
+        "CAPABILITY_SCOPE_EMPTY",
+        "CAPABILITY_SCOPE_MISMATCH",
+        "FACTS_MALFORMED",
+        "DECLARED_FACT_KEY_MISSING",
+        "REQUIRED_FACT_KEY_MISSING",
+        "REQUIRED_FACT_KEY_UNDECLARED",
+        "CONTRADICTORY_SNAPSHOT_EVIDENCE",
+    }
+)
+
+_VALID_TRUST_STATUS_VALUES = frozenset(
+    {
+        "TRUSTED",
+        "UNTRUSTED",
+        "MISSING_EVIDENCE",
+        "MISSING_TRUST_POLICY",
+        "MISSING_VERIFIER",
+        "SNAPSHOT_CHECKSUM_MISMATCH",
+        "SOURCE_NOT_ALLOWED",
+        "SOURCE_TYPE_NOT_ALLOWED",
+        "TRUST_DOMAIN_NOT_ALLOWED",
+        "CAPABILITY_NOT_ALLOWED",
+        "ATTESTATION_MISSING",
+        "ATTESTATION_INVALID",
+        "ATTESTATION_EXPIRED",
+        "ATTESTATION_NOT_YET_VALID",
+        "ATTESTATION_REPLAY_DETECTED",
+        "UNSUPPORTED_ATTESTATION_ALGORITHM",
+        "MALFORMED_EVIDENCE",
+        "CONTRADICTORY_EVIDENCE",
+    }
+)
+
+_VALID_SOURCE_TYPE_VALUES = frozenset(
+    {
+        "TEST_FIXTURE",
+        "SIMULATOR",
+        "SENSOR_BRIDGE",
+        "HUMAN_OPERATOR",
+        "STATIC_SCENE",
+        "UNKNOWN",
+    }
+)
+
+_VALID_TRUST_DOMAIN_VALUES = frozenset(
+    {"TEST", "SIMULATION", "DEVELOPMENT", "STAGING", "PHYSICAL_RUNTIME"}
+)
+
 
 def _normalize_optional_freshness_status(value: object) -> str | None:
     if value is None:
@@ -539,12 +1061,125 @@ def _normalize_optional_freshness_status(value: object) -> str | None:
     return value
 
 
+def _normalize_optional_admissibility_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("world_snapshot_admissibility_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError(
+            "world_snapshot_admissibility_status must not contain surrounding whitespace"
+        )
+    if value not in _VALID_ADMISSIBILITY_STATUS_VALUES:
+        raise ValueError("world_snapshot_admissibility_status must be a valid status value")
+    return value
+
+
+def _normalize_optional_trust_status(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("world_snapshot_trust_status must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("world_snapshot_trust_status must not contain surrounding whitespace")
+    if value not in _VALID_TRUST_STATUS_VALUES:
+        raise ValueError("world_snapshot_trust_status must be a valid trust status value")
+    return value
+
+
+def _normalize_optional_source_type(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("source_type must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("source_type must not contain surrounding whitespace")
+    if value not in _VALID_SOURCE_TYPE_VALUES:
+        raise ValueError("source_type must be a valid WorldSnapshotSourceType value")
+    return value
+
+
+def _normalize_optional_trust_domain(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("trust_domain must be a string or None")
+    if value != value.strip() or value == "":
+        raise ValueError("trust_domain must not contain surrounding whitespace")
+    if value not in _VALID_TRUST_DOMAIN_VALUES:
+        raise ValueError("trust_domain must be a valid TrustDomain value")
+    return value
+
+
+def _normalize_optional_reason_code(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    normalized = _normalize_required_text(value, field_name)
+    if fullmatch(r"[A-Z][A-Z0-9_]*", normalized) is None:
+        raise ValueError(f"{field_name} must be a machine-readable uppercase reason code")
+    return normalized
+
+
 def _normalize_capability_name(value: str) -> str:
     if value != value.strip():
         raise ValueError("capability must not contain leading or trailing whitespace")
     normalized = _normalize_required_text(value, "capability")
     if fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*", normalized) is None:
         raise ValueError("capability must be a canonical dotted lowercase identifier")
+    return normalized
+
+
+def _normalize_optional_capability_name(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _normalize_capability_name(value)
+
+
+def _normalize_capability_tuple(values: Iterable[str], field_name: str) -> tuple[str, ...]:
+    if isinstance(values, str):
+        raise ValueError(f"{field_name} must be an iterable of capability names")
+    return tuple(sorted(_normalize_capability_name(value) for value in values))
+
+
+def _normalize_fact_key_tuple(values: Iterable[str], field_name: str) -> tuple[str, ...]:
+    if isinstance(values, str):
+        raise ValueError(f"{field_name} must be an iterable of fact keys")
+    return tuple(sorted(_normalize_fact_key(value) for value in values))
+
+
+def _normalize_optional_fact_key_tuple(
+    values: Iterable[str] | None,
+    field_name: str,
+) -> tuple[str, ...] | None:
+    if values is None:
+        return None
+    return _normalize_fact_key_tuple(values, field_name)
+
+
+def _normalize_optional_capability_scope(
+    values: Iterable[str] | None,
+) -> frozenset[str] | None:
+    if values is None:
+        return None
+    if isinstance(values, str):
+        raise ValueError("declared_capability_scope must be an iterable of capability names")
+    return frozenset(_normalize_capability_name(value) for value in values)
+
+
+def _normalize_optional_fact_keys(values: Iterable[str] | None) -> frozenset[str] | None:
+    if values is None:
+        return None
+    if isinstance(values, str):
+        raise ValueError("declared_fact_keys must be an iterable of fact keys")
+    return frozenset(_normalize_fact_key(value) for value in values)
+
+
+def _normalize_fact_key(value: str) -> str:
+    if value != value.strip():
+        raise ValueError("fact keys must not contain leading or trailing whitespace")
+    normalized = _normalize_required_text(value, "fact key")
+    if fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", normalized) is None:
+        raise ValueError("fact keys must be canonical identifiers")
     return normalized
 
 

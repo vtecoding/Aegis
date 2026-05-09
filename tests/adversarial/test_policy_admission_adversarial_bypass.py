@@ -13,6 +13,11 @@ from tests.policy_freshness_fixtures import (
     fresh_world_snapshot,
     fresh_world_snapshot_result,
 )
+from tests.policy_trust_fixtures import (
+    bind_policy_result_to_trust,
+    trusted_pipeline_kwargs,
+    trusted_world_snapshot_result,
+)
 
 from aegis.audit import build_audited_plan
 from aegis.contracts.context import ExecutionContext
@@ -34,6 +39,7 @@ from aegis.contracts.policy_admission import (
     assert_policy_admission_integrity,
     is_policy_backed_approval,
 )
+from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.errors import PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
 from aegis.pipeline import run_pipeline
@@ -102,15 +108,22 @@ def _audited_plan(request_id: str = "policy-adversarial-001"):
 
 
 def _allow_result(policy_id: str = "policy-adversarial") -> PolicyEvaluationResult:
-    return bind_policy_result_to_freshness(
-        PolicyEvaluationResult(
-            PolicyDecision.ALLOW,
-            policy_id,
-            ["rule-1"],
-            ["rule-1:0:max_velocity"],
-            [],
-            ["POLICY_ALLOWED"],
-        )
+    snapshot = fresh_world_snapshot()
+    freshness_result = fresh_world_snapshot_result(snapshot)
+    trust_result = trusted_world_snapshot_result(snapshot)
+    return bind_policy_result_to_trust(
+        bind_policy_result_to_freshness(
+            PolicyEvaluationResult(
+                PolicyDecision.ALLOW,
+                policy_id,
+                ["rule-1"],
+                ["rule-1:0:max_velocity"],
+                [],
+                ["POLICY_ALLOWED"],
+            ),
+            freshness_result,
+        ),
+        trust_result,
     )
 
 
@@ -122,7 +135,10 @@ def _allowed_record(
 ) -> PolicyAdmissionRecord:
     snapshot = world_snapshot or fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
-    result = policy_result or bind_policy_result_to_freshness(_allow_result(), freshness_result)
+    trust_result = trusted_world_snapshot_result(snapshot)
+    result = policy_result or bind_policy_result_to_trust(
+        bind_policy_result_to_freshness(_allow_result(), freshness_result), trust_result
+    )
     safety_case = build_safety_case(
         policy_result=result,
         audited_plan_id=audited_plan.audit_id,
@@ -134,6 +150,7 @@ def _allowed_record(
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        trust_result=trust_result,
     )
     return PolicyAdmissionRecord(
         PolicyAdmissionMode.ENFORCE,
@@ -152,7 +169,36 @@ def _allowed_record(
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_trusted_record_kwargs(trust_result),
     )
+
+
+def _trusted_record_kwargs(trust_result: WorldSnapshotTrustResult) -> dict[str, object]:
+    return {
+        "world_snapshot_trust_status": trust_result.status.value,
+        "world_snapshot_trust_reason_code": trust_result.reason_code,
+        "world_snapshot_trust_result_checksum": trust_result.checksum,
+        "evidence_envelope_checksum": trust_result.evidence_envelope_checksum,
+        "attestation_checksum": trust_result.attestation_checksum,
+        "trust_policy_checksum": trust_result.trust_policy_checksum,
+        "verifier_certification_status": "CERTIFIED",
+        "verifier_certification_reason_code": "ATTESTATION_VERIFIER_CERTIFIED",
+        "verifier_certification_checksum": trust_result.verifier_certification_checksum,
+        "verifier_id": trust_result.verifier_id,
+        "verifier_metadata_checksum": trust_result.verifier_metadata_checksum,
+        "trust_policy_config_status": "VALID",
+        "trust_policy_config_reason_code": "TRUST_POLICY_CONFIG_VALID",
+        "trust_policy_config_validation_checksum": (
+            trust_result.trust_policy_config_validation_checksum
+        ),
+        "source_id": trust_result.source_id,
+        "source_type": trust_result.source_type.value
+        if trust_result.source_type is not None
+        else None,
+        "trust_domain": trust_result.trust_domain.value
+        if trust_result.trust_domain is not None
+        else None,
+    }
 
 
 def test_hostile_raw_metadata_cannot_override_missing_policy() -> None:
@@ -179,12 +225,13 @@ def test_hostile_context_cannot_force_policy_allow() -> None:
             PolicyAdmissionMode.ENFORCE,
             policy=_blocking_policy(),
             capability=_capability(),
-            world_snapshot=fresh_world_snapshot(),
+            world_snapshot=(snapshot := fresh_world_snapshot()),
             context=fresh_policy_context(
                 {"force_allow": True, "override_gate": True, "decision": "ALLOW"}
             ),
         ),
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -194,6 +241,7 @@ def test_hostile_context_cannot_force_policy_allow() -> None:
 
 def test_hostile_evidence_cannot_force_policy_allow() -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     result = run_pipeline(
         _intent(context),
         context,
@@ -201,11 +249,12 @@ def test_hostile_evidence_cannot_force_policy_allow() -> None:
             PolicyAdmissionMode.ENFORCE,
             policy=_blocking_policy(),
             capability=_capability(),
-            world_snapshot=fresh_world_snapshot(),
+            world_snapshot=snapshot,
             context=fresh_policy_context(),
             evidence={"admission_allowed": True, "override": "ALLOW"},
         ),
         evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        **trusted_pipeline_kwargs(snapshot),
     )
 
     assert result.outcome is PipelineOutcome.BLOCKED
@@ -327,6 +376,7 @@ def test_direct_gate_approval_is_not_policy_backed_approval() -> None:
 
 def test_monkeypatched_evaluator_returning_malformed_result_fails_closed() -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     with patch("aegis.pipeline.orchestrator.evaluate_policy", return_value=object()):
         result = run_pipeline(
             _intent(context),
@@ -335,10 +385,11 @@ def test_monkeypatched_evaluator_returning_malformed_result_fails_closed() -> No
                 PolicyAdmissionMode.ENFORCE,
                 policy=_allowing_policy(),
                 capability=_capability(),
-                world_snapshot=fresh_world_snapshot(),
+                world_snapshot=snapshot,
                 context=fresh_policy_context(),
             ),
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(snapshot),
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -347,6 +398,7 @@ def test_monkeypatched_evaluator_returning_malformed_result_fails_closed() -> No
 
 def test_monkeypatched_safety_case_builder_missing_case_fails_closed() -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     with patch("aegis.pipeline.orchestrator.build_safety_case", return_value=None):
         result = run_pipeline(
             _intent(context),
@@ -355,10 +407,11 @@ def test_monkeypatched_safety_case_builder_missing_case_fails_closed() -> None:
                 PolicyAdmissionMode.ENFORCE,
                 policy=_allowing_policy(),
                 capability=_capability(),
-                world_snapshot=fresh_world_snapshot(),
+                world_snapshot=snapshot,
                 context=fresh_policy_context(),
             ),
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(snapshot),
         )
 
     assert result.outcome is PipelineOutcome.ERROR
@@ -368,6 +421,7 @@ def test_monkeypatched_safety_case_builder_missing_case_fails_closed() -> None:
 
 def test_monkeypatched_integrity_check_exception_fails_closed() -> None:
     context = _context()
+    snapshot = fresh_world_snapshot()
     integrity_error = PolicyAdmissionIntegrityError(
         "forced integrity failure",
         "policy",
@@ -384,10 +438,11 @@ def test_monkeypatched_integrity_check_exception_fails_closed() -> None:
                 PolicyAdmissionMode.ENFORCE,
                 policy=_allowing_policy(),
                 capability=_capability(),
-                world_snapshot=fresh_world_snapshot(),
+                world_snapshot=snapshot,
                 context=fresh_policy_context(),
             ),
             evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            **trusted_pipeline_kwargs(snapshot),
         )
 
     assert result.outcome is PipelineOutcome.ERROR

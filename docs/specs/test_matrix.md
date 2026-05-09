@@ -1,4 +1,4 @@
-# Aegis Phase 1 + Policy-v1 Part 5 Test Matrix
+# Aegis Phase 1 + Policy-v1 Part 7 Test Matrix
 
 Maps each invariant and failure mode to its test coverage across all test tiers.
 "✓" = covered. "—" = not applicable for that tier.
@@ -57,6 +57,14 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | INV-POLICY-FRESH-003: Freshness binds snapshot, time, and policy | — | ✓ | — | ✓ | — |
 | INV-POLICY-FRESH-004: Freshness binding propagates through admission | — | ✓ | ✓ | ✓ | ✓ |
 | INV-POLICY-FRESH-005: Non-fresh evidence fails closed | — | ✓ | ✓ | ✓ | ✓ |
+| INV-POLICY-TRUST-001: ALLOWED implies trusted snapshot evidence | — | ✓ | ✓ | ✓ | ✓ |
+| INV-POLICY-TRUST-002: Trust binding propagates through admission | — | ✓ | — | ✓ | ✓ |
+| INV-POLICY-TRUST-003: Freshness does not imply trust | — | ✓ | ✓ | ✓ | ✓ |
+| INV-POLICY-TRUST-004: Snapshot metadata cannot self-attest | — | ✓ | ✓ | ✓ | — |
+| INV-POLICY-TRUST-005: ALLOWED implies certified verifier and valid config | — | ✓ | — | — | ✓ |
+| INV-POLICY-TRUST-006: Verifier certification deterministic | — | ✓ | ✓ | ✓ | — |
+| INV-POLICY-TRUST-007: Trust policy config validation deterministic | — | ✓ | ✓ | — | — |
+| INV-POLICY-TRUST-008: Arbitrary verifier or trust policy cannot approve | — | ✓ | ✓ | ✓ | ✓ |
 
 ---
 
@@ -95,6 +103,10 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-29: Stale or future-dated snapshot | — | ✓ | ✓ | ✓ |
 | FM-30: Malformed freshness metadata | — | ✓ | — | ✓ |
 | FM-31: Freshness binding or reuse mismatch | — | ✓ | ✓ | — |
+| FM-32: Missing or non-trusted snapshot evidence | — | ✓ | ✓ | ✓ |
+| FM-33: Malformed, contradictory, or forged trust binding | — | ✓ | ✓ | ✓ |
+| FM-34: Uncertified attestation verifier adapter | — | ✓ | ✓ | ✓ |
+| FM-35: Invalid trust policy configuration | — | ✓ | — | ✓ |
 
 ---
 
@@ -115,6 +127,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_invariant_policy_admission.py` | INV-POLICY-WIRE-001 through INV-POLICY-WIRE-003, INV-POLICY-WIRE-005, INV-POLICY-WIRE-006, INV-POLICY-WIRE-009 through INV-POLICY-WIRE-011 |
 | `test_policy_admission_invariants.py` | INV-POLICY-HARDEN-001 through INV-POLICY-HARDEN-004 |
 | `test_world_snapshot_freshness_invariants.py` | INV-POLICY-FRESH-001 through INV-POLICY-FRESH-005 |
+| `test_world_snapshot_trust_invariants.py` | INV-POLICY-TRUST-001, INV-POLICY-TRUST-003, INV-POLICY-TRUST-004 |
+| `test_attestation_verifier_hardening_invariants.py` | INV-POLICY-TRUST-006, INV-POLICY-TRUST-007, INV-POLICY-TRUST-008 |
 | `test_invariant_bootstrap.py` | Package imports resolve cleanly |
 
 ### `tests/contracts/`
@@ -133,6 +147,9 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_policy_contracts.py` | INV-16, INV-17, INV-18, INV-19, INV-20, FM-12, FM-14 |
 | `test_policy_admission_contract.py` | PolicyAdmissionInput, PolicyAdmissionRecord, disabled record invariants, integrity assertions, strict admission decisions, INV-POLICY-WIRE-011, INV-POLICY-WIRE-012, INV-POLICY-HARDEN-002 through INV-POLICY-HARDEN-004 |
 | `test_world_snapshot_freshness_contract.py` | FreshnessPolicy, WorldSnapshotFreshnessResult, deterministic freshness validation, checksum binding, FM-28 through FM-31, INV-POLICY-FRESH-001 through INV-POLICY-FRESH-003 |
+| `test_world_snapshot_trust_contract.py` | WorldSnapshotEvidenceEnvelope, WorldSnapshotTrustPolicy, attestation, verifier result, trust result, deterministic trust validation, checksum binding, FM-32 through FM-33, INV-POLICY-TRUST-001 through INV-POLICY-TRUST-004 |
+| `test_attestation_verifier_contract.py` | AttestationVerifierAdapterMetadata, verifier certification vectors, malformed verifier rejection, FM-34, INV-POLICY-TRUST-006, INV-POLICY-TRUST-008 |
+| `test_trust_policy_config_contract.py` | TrustPolicyConfigValidationResult, runtime-domain policy hardening, verifier metadata matching, FM-35, INV-POLICY-TRUST-007, INV-POLICY-TRUST-008 |
 
 ### `tests/policy/`
 
@@ -178,6 +195,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_scenario_runner_adversarial.py` | FM-04, INV-03 end-to-end |
 | `test_policy_admission_adversarial_bypass.py` | FM-15, FM-17, FM-22, FM-24 through FM-27, INV-POLICY-WIRE-010, INV-POLICY-HARDEN-001 through INV-POLICY-HARDEN-004 |
 | `test_world_snapshot_staleness_bypass.py` | FM-29, FM-31, INV-POLICY-FRESH-003 through INV-POLICY-FRESH-005 |
+| `test_world_snapshot_trust_bypass.py` | FM-32, FM-33, INV-POLICY-TRUST-001 through INV-POLICY-TRUST-004 |
+| `test_attestation_verifier_adapter_bypass.py` | FM-34, INV-POLICY-TRUST-006, INV-POLICY-TRUST-008 |
 
 ### `tests/integration/`
 
@@ -186,6 +205,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_scenario_runner.py` | End-to-end pipeline for all scenario fixtures |
 | `test_pipeline_policy_admission.py` | ENFORCE mode end-to-end allow, block, review, invalid, error, SafetyCase, integrity failure, disabled non-approval, and gate approval |
 | `test_pipeline_world_snapshot_freshness.py` | ENFORCE mode freshness allow, stale, missing snapshot, missing evaluation time, malformed metadata, evaluator-after-freshness error, and disabled non-approval |
+| `test_pipeline_world_snapshot_trust.py` | ENFORCE mode trust allow, missing evidence, disallowed domain, invalid attestation, and malformed evidence handling |
+| `test_pipeline_trust_authority_hardening.py` | ENFORCE mode missing verifier and invalid trust-policy config block before trust evaluation |
 
 ### `tests/regression/`
 
