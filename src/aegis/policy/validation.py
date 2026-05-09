@@ -22,8 +22,17 @@ def validate_policy(policy: Policy) -> None:
     """
     if policy.policy_id == "":
         raise ValueError("policy_id must be non-empty")
-    if policy.version == "":
-        raise ValueError("version must be non-empty")
+    if policy.policy_version == "":
+        raise ValueError("policy_version must be non-empty")
+    policy_schema_version = getattr(policy, "policy_schema_version", None)
+    policy_authority = getattr(policy, "policy_authority", None)
+    policy_checksum = getattr(policy, "policy_checksum", None)
+    if policy_schema_version == "":
+        raise ValueError("policy_schema_version must be non-empty")
+    if policy_authority == "":
+        raise ValueError("policy_authority must be non-empty")
+    if policy_checksum == "":
+        raise ValueError("policy_checksum must be non-empty")
     if policy.default_decision not in {
         PolicyDefaultDecision.BLOCK,
         PolicyDefaultDecision.REQUIRE_REVIEW,

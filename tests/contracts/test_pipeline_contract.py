@@ -14,10 +14,18 @@ from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
 from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
 from aegis.contracts.planning import CommandPlan
-from aegis.contracts.policy import Capability, PolicyDecision, PolicyEvaluationResult
+from aegis.contracts.policy import (
+    Capability,
+    Constraint,
+    Policy,
+    PolicyDecision,
+    PolicyEvaluationResult,
+    PolicyRule,
+)
 from aegis.contracts.policy_admission import PolicyAdmissionMode, PolicyAdmissionRecord
 from aegis.contracts.validation import ValidationResult, Violation
 from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
+from aegis.governance.context_authority import ContextAuthority
 from aegis.pipeline.approval_receipt import build_approval_receipt, validate_approval_receipt
 from aegis.pipeline.decision_trace import build_decision_trace
 from aegis.policy import build_safety_case
@@ -86,6 +94,12 @@ def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
     trust_result = trusted_world_snapshot_result(snapshot)
+    policy = Policy(
+        "policy-1",
+        "v1",
+        (PolicyRule("rule-1", "locomotion.translation", (Constraint("max_velocity"),)),),
+    )
+    authority = _context_authority()
     policy_result = bind_policy_result_to_trust(
         bind_policy_result_to_freshness(
             PolicyEvaluationResult(
@@ -95,6 +109,11 @@ def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
                 ["rule-1:0:max_velocity"],
                 [],
                 ["POLICY_ALLOWED"],
+                policy_version=policy.policy_version,
+                policy_schema_version=policy.policy_schema_version,
+                policy_checksum=policy.policy_checksum,
+                policy_authority=policy.policy_authority,
+                context_authority_checksum=authority.context_checksum,
             ),
             freshness_result,
         ),
@@ -130,8 +149,32 @@ def _allowed_policy_record(audited_plan: AuditedPlan) -> PolicyAdmissionRecord:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trust_result),
     )
+
+
+def _context_authority() -> ContextAuthority:
+    return ContextAuthority(
+        context_id="pipeline-contract-context",
+        request_id="pipeline-contract-request",
+        evaluation_time_ms=1_000_500,
+        caller_authority="pytest",
+        deployment_domain="SIMULATION",
+        context_schema_version="context-authority-v1",
+    )
+
+
+def _context_authority_kwargs() -> dict[str, object]:
+    authority = _context_authority()
+    return {
+        "context_authority_checksum": authority.context_checksum,
+        "context_id": authority.context_id,
+        "caller_authority": authority.caller_authority,
+        "deployment_domain": authority.deployment_domain,
+        "context_schema_version": authority.context_schema_version,
+        "context_evaluation_time_ms": authority.evaluation_time_ms,
+    }
 
 
 def _trusted_record_kwargs(trust_result: WorldSnapshotTrustResult) -> dict[str, object]:

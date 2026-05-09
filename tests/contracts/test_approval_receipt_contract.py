@@ -99,6 +99,10 @@ def _receipt_for_trace(
         trust_result_checksum=trust_result_checksum
         if "world_snapshot_trust" in stage_outputs
         else None,
+        policy_checksum="policy-checksum" if "policy_evaluation" in stage_outputs else None,
+        context_authority_checksum="context-authority-checksum"
+        if "policy_evaluation" in stage_outputs
+        else None,
         policy_result_checksum=stage_outputs.get("policy_evaluation"),
         safety_case_checksum=stage_outputs.get("safety_case"),
         policy_admission_checksum=policy_admission_checksum,

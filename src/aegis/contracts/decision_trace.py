@@ -23,6 +23,7 @@ from aegis.contracts.policy import (
 )
 from aegis.contracts.policy_admission import PolicyAdmissionRecord
 from aegis.contracts.validation import ValidationResult, Violation
+from aegis.governance.resource_bounds import validate_trace_stage_count
 
 type CanonicalTraceValue = (
     str | int | float | bool | None | list[CanonicalTraceValue] | dict[str, CanonicalTraceValue]
@@ -139,6 +140,7 @@ class DecisionTrace:
         steps_tuple = tuple(steps)
         if not steps_tuple:
             raise ValueError("decision trace must contain at least one step")
+        validate_trace_stage_count(len(steps_tuple))
         errors = decision_trace_integrity_errors_for_steps(steps_tuple)
         if errors:
             raise ValueError(errors[0])
@@ -295,8 +297,18 @@ def policy_admission_record_identity_checksum(policy_admission: PolicyAdmissionR
             "plan_id": policy_admission.plan_id,
             "plan_checksum": policy_admission.plan_checksum,
             "policy_id": policy_admission.policy_id,
+            "policy_version": policy_admission.policy_version,
+            "policy_schema_version": policy_admission.policy_schema_version,
+            "policy_checksum": policy_admission.policy_checksum,
+            "policy_authority": policy_admission.policy_authority,
             "policy_result_checksum": policy_admission.policy_result_checksum,
             "safety_case_id": policy_admission.safety_case_id,
+            "context_authority_checksum": policy_admission.context_authority_checksum,
+            "context_id": policy_admission.context_id,
+            "caller_authority": policy_admission.caller_authority,
+            "deployment_domain": policy_admission.deployment_domain,
+            "context_schema_version": policy_admission.context_schema_version,
+            "context_evaluation_time_ms": policy_admission.context_evaluation_time_ms,
             "world_snapshot_id": policy_admission.world_snapshot_id,
             "world_snapshot_checksum": policy_admission.world_snapshot_checksum,
             "capability_name": policy_admission.capability_name,

@@ -17,6 +17,7 @@ from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissi
 from aegis.contracts.world_snapshot_freshness import DEFAULT_FRESHNESS_POLICY
 from aegis.errors import PlanningError
 from aegis.gate import gate_audited_plan
+from aegis.governance.resource_bounds import validate_scenario_count
 from aegis.pipeline import run_pipeline
 from aegis.planning import plan_validated_intent
 from aegis.scenarios.contracts import (
@@ -383,6 +384,7 @@ def run_pipeline_scenario(scenario: ScenarioDefinition) -> ScenarioRunResult:
         scenario.intent,
         scenario.intent.context,
         policy_admission=_policy_admission_for_scenario(scenario),
+        context_authority=scenario.context_authority,
         evaluation_time_ms=scenario.evaluation_time_ms,
         freshness_policy=scenario.freshness_policy or DEFAULT_FRESHNESS_POLICY,
         world_snapshot_evidence=scenario.world_snapshot_evidence,
@@ -399,6 +401,7 @@ def run_scenario_suite(
 ) -> ScenarioSuiteResult:
     """Run a deterministic scenario suite and evaluate required category coverage."""
     scenario_tuple = tuple(scenarios)
+    validate_scenario_count(len(scenario_tuple))
     _reject_duplicate_scenario_ids(scenario_tuple)
     results = tuple(run_pipeline_scenario(scenario) for scenario in scenario_tuple)
     coverage = evaluate_scenario_coverage(scenario_tuple)

@@ -17,6 +17,8 @@ Phase 2 Part 9 adds deterministic decision traces and approval receipts so every
 returned pipeline decision is reconstructable and tamper-evident.
 Phase 2 Part 10 adds a scenario runner above the orchestrator; it consumes `PipelineResult`
 evidence but does not change `run_pipeline` semantics.
+Phase 2 Part 11 / ADR-0014 adds explicit policy identity, context authority, direct receipt
+bindings, resource bounds, and governance drift sentinels for approval authority.
 
 ---
 
@@ -38,6 +40,10 @@ evidence but does not change `run_pipeline` semantics.
 - Return a deterministic `DecisionTrace`, `ApprovalReceipt`, and
     `ApprovalReceiptValidationResult` for every orchestrated pipeline result.
 - Require valid receipt integrity for any `PipelineOutcome.ALLOWED` result.
+- In policy-enforced approval paths, require `ContextAuthority` whose evaluation time matches
+    the caller-supplied `evaluation_time_ms`.
+- Bind policy checksum and context authority checksum through `PolicyEvaluationResult`,
+    `SafetyCase`, `PolicyAdmissionRecord`, and `ApprovalReceipt`.
 
 ---
 
@@ -118,6 +124,7 @@ def run_pipeline(
     context: ExecutionContext,
     *,
     policy_admission: PolicyAdmissionInput | None = None,
+    context_authority: ContextAuthority | None = None,
     evaluation_time_ms: int | None = None,
     freshness_policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
     world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None = None,
@@ -131,9 +138,10 @@ def run_pipeline(
     optional world snapshot freshness → optional policy admission →
     gate_audited_plan → decision trace → approval receipt deterministically.
 
-    In ENFORCE mode, evaluation_time_ms is required. It is caller-supplied and
-    never derived from wall-clock time. Trust evidence, trust policy, certified verifier,
-    and valid trust-policy config are also required before policy evaluation can approve.
+    In ENFORCE approval paths, evaluation_time_ms and context_authority are required.
+    evaluation_time_ms is caller-supplied and never derived from wall-clock time. Trust
+    evidence, trust policy, certified verifier, valid trust-policy config, and matching
+    context authority are required before policy evaluation can approve.
 
     AegisError subclasses propagate to the caller unchanged.
 
@@ -157,6 +165,7 @@ def run_pipeline(
 | Policy ENFORCE has uncertified verifier or invalid trust-policy config | `BLOCKED` | validation, plan, audit, denied policy record; no gate decision |
 | Policy ENFORCE has disallowed source/domain/capability or invalid attestation | `BLOCKED` | validation, plan, audit, denied policy record; no gate decision |
 | Policy ENFORCE has malformed or contradictory trust evidence | `INVALID` | validation, plan, audit, denied policy record; no gate decision |
+| Policy ENFORCE would allow but lacks matching context authority | `BLOCKED` | validation, plan, audit, denied policy record; no gate decision |
 | Policy ENFORCE returns ALLOW, integrity passes, and gate allows | `ALLOWED` | all layer fields plus enforced policy record |
 | Policy ENFORCE returns ALLOW and gate allows, but receipt validation fails | `ERROR` | computed fields plus failed receipt validation; no approval |
 | Policy ENFORCE denies before gate | `BLOCKED`, `INVALID`, or `ERROR` | validation, plan, audit, policy record |

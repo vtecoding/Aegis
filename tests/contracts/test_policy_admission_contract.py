@@ -40,6 +40,7 @@ from aegis.contracts.policy_admission import (
 from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.errors import PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
+from aegis.governance.context_authority import ContextAuthority
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case
 from aegis.validation import validate_intent
@@ -57,7 +58,32 @@ def _capability() -> Capability:
     return Capability("locomotion.translation", parameters={"velocity_mps": 0.2})
 
 
+def _context_authority() -> ContextAuthority:
+    return ContextAuthority(
+        context_id="policy-admission-contract-context",
+        request_id="policy-admission-contract-request",
+        evaluation_time_ms=1_000_500,
+        caller_authority="pytest",
+        deployment_domain="SIMULATION",
+        context_schema_version="context-authority-v1",
+    )
+
+
+def _context_authority_kwargs() -> dict[str, object]:
+    authority = _context_authority()
+    return {
+        "context_authority_checksum": authority.context_checksum,
+        "context_id": authority.context_id,
+        "caller_authority": authority.caller_authority,
+        "deployment_domain": authority.deployment_domain,
+        "context_schema_version": authority.context_schema_version,
+        "context_evaluation_time_ms": authority.evaluation_time_ms,
+    }
+
+
 def _allow_result() -> PolicyEvaluationResult:
+    policy = _policy()
+    authority = _context_authority()
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
     trust_result = trusted_world_snapshot_result(snapshot)
@@ -69,6 +95,11 @@ def _allow_result() -> PolicyEvaluationResult:
             ["rule-1:0:max_velocity"],
             [],
             ["POLICY_ALLOWED"],
+            policy_version=policy.policy_version,
+            policy_schema_version=policy.policy_schema_version,
+            policy_checksum=policy.policy_checksum,
+            policy_authority=policy.policy_authority,
+            context_authority_checksum=authority.context_checksum,
         ),
         freshness_result,
     )
@@ -76,6 +107,7 @@ def _allow_result() -> PolicyEvaluationResult:
 
 
 def _block_result() -> PolicyEvaluationResult:
+    policy = _policy()
     return PolicyEvaluationResult(
         PolicyDecision.BLOCK,
         "policy-1",
@@ -83,6 +115,10 @@ def _block_result() -> PolicyEvaluationResult:
         [],
         ["rule-1:0:max_velocity"],
         ["VELOCITY_LIMIT_EXCEEDED"],
+        policy_version=policy.policy_version,
+        policy_schema_version=policy.policy_schema_version,
+        policy_checksum=policy.policy_checksum,
+        policy_authority=policy.policy_authority,
     )
 
 
@@ -155,6 +191,7 @@ def _allowed_record(result: PolicyEvaluationResult) -> PolicyAdmissionRecord:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trust_result),
     )
 
@@ -206,6 +243,7 @@ def _bound_allowed_record(
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trust_result),
     )
 
@@ -792,6 +830,11 @@ def test_allowed_record_rejects_safety_case_binding_mismatches(
         "world_snapshot_checksum": record.world_snapshot_checksum,
         "capability_name": record.capability_name,
         "capability_version": record.capability_version,
+        "context_id": record.context_id,
+        "caller_authority": record.caller_authority,
+        "deployment_domain": record.deployment_domain,
+        "context_schema_version": record.context_schema_version,
+        "context_evaluation_time_ms": record.context_evaluation_time_ms,
     }
     kwargs[field_name] = value
 
@@ -838,6 +881,11 @@ def test_allowed_record_rejects_trust_authority_binding_mismatches(
         "world_snapshot_checksum": record.world_snapshot_checksum,
         "capability_name": record.capability_name,
         "capability_version": record.capability_version,
+        "context_id": record.context_id,
+        "caller_authority": record.caller_authority,
+        "deployment_domain": record.deployment_domain,
+        "context_schema_version": record.context_schema_version,
+        "context_evaluation_time_ms": record.context_evaluation_time_ms,
         "world_snapshot_observed_at_ms": record.world_snapshot_observed_at_ms,
         "freshness_result_checksum": record.freshness_result_checksum,
         "freshness_status": record.freshness_status,
@@ -910,6 +958,7 @@ def test_assert_policy_admission_integrity_returns_bound_evidence() -> None:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trust_result),
     )
 
@@ -959,6 +1008,7 @@ def test_policy_backed_approval_predicate_rejects_non_matching_gate_states() -> 
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trust_result),
     )
     allowed_gate = gate_audited_plan(audited_plan)

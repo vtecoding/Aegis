@@ -12,6 +12,8 @@ from re import fullmatch
 from types import MappingProxyType
 from typing import cast
 
+from aegis.governance.resource_bounds import validate_resource_bounds
+
 type PolicyScalar = str | int | float | bool | None
 type FrozenPolicyValue = (
     PolicyScalar
@@ -154,23 +156,40 @@ class PolicyRule:
 
 @dataclass(frozen=True, slots=True, init=False)
 class Policy:
-    """Complete deterministic Policy-v1 rule bundle.
+    """Complete deterministic Policy-v1 rule bundle with stable identity.
 
     Args:
         policy_id: Stable non-empty policy identifier.
-        version: Non-empty policy version.
+        version: Backward-compatible policy version argument.
         rules: Rule set for this policy. Duplicate rule IDs are rejected.
         default_decision: Fail-closed decision for unmatched rules.
+        policy_version: Explicit stable policy version. When supplied, it must
+            match ``version``.
+        policy_schema_version: Explicit schema version for this policy contract.
+        policy_authority: Explicit source of policy authority.
+        effective_from_ms: Optional caller-supplied policy activation time.
+        supersedes_policy_checksum: Optional checksum superseded by this policy.
+        capabilities: Optional capabilities governed by this policy.
+        metadata: Inert policy metadata included in the policy checksum.
+        policy_checksum: Optional supplied checksum; must match recomputation.
 
     Raises:
-        ValueError: If identifiers are empty, rule IDs are duplicated, the
-            default decision is invalid, or default ALLOW is requested.
+        ValueError: If identifiers are empty, rule IDs are duplicated, policy
+            identity is incomplete, the checksum is forged, or default ALLOW is
+            requested.
     """
 
     policy_id: str
-    version: str
+    policy_version: str
+    policy_schema_version: str
+    policy_checksum: str
+    policy_authority: str
+    effective_from_ms: int | None
+    supersedes_policy_checksum: str | None
     rules: tuple[PolicyRule, ...]
+    capabilities: tuple[Capability, ...]
     default_decision: PolicyDefaultDecision
+    metadata: Mapping[str, FrozenPolicyValue]
 
     def __init__(
         self,
@@ -178,14 +197,68 @@ class Policy:
         version: str,
         rules: Iterable[PolicyRule],
         default_decision: str | PolicyDefaultDecision = PolicyDefaultDecision.BLOCK,
+        *,
+        policy_version: str | None = None,
+        policy_schema_version: str = "policy-v1",
+        policy_authority: str = "aegis.policy.local",
+        effective_from_ms: object = None,
+        supersedes_policy_checksum: str | None = None,
+        capabilities: Iterable[Capability] = (),
+        metadata: Mapping[str, object] | None = None,
+        policy_checksum: str | None = None,
     ) -> None:
         rules_tuple = tuple(rules)
         _reject_duplicate_rule_ids(rules_tuple)
+        capabilities_tuple = tuple(capabilities)
+        normalized_policy_id = _normalize_required_text(policy_id, "policy_id")
+        normalized_version = _normalize_policy_version(version, policy_version)
+        normalized_schema_version = _normalize_required_text(
+            policy_schema_version, "policy_schema_version"
+        )
+        normalized_policy_authority = _normalize_required_text(policy_authority, "policy_authority")
+        normalized_effective_from_ms = _normalize_optional_non_negative_int(
+            effective_from_ms, "effective_from_ms"
+        )
+        normalized_supersedes = _normalize_optional_checksum(
+            supersedes_policy_checksum, "supersedes_policy_checksum"
+        )
+        frozen_metadata = _freeze_policy_mapping(metadata or {})
+        computed_checksum = policy_identity_checksum(
+            policy_id=normalized_policy_id,
+            policy_version=normalized_version,
+            policy_schema_version=normalized_schema_version,
+            policy_authority=normalized_policy_authority,
+            effective_from_ms=normalized_effective_from_ms,
+            supersedes_policy_checksum=normalized_supersedes,
+            rules=rules_tuple,
+            capabilities=capabilities_tuple,
+            default_decision=_normalize_default_decision(default_decision),
+            metadata=frozen_metadata,
+        )
+        normalized_policy_checksum = _normalize_supplied_checksum(
+            policy_checksum, computed_checksum, "policy_checksum"
+        )
 
-        object.__setattr__(self, "policy_id", _normalize_required_text(policy_id, "policy_id"))
-        object.__setattr__(self, "version", _normalize_required_text(version, "version"))
+        object.__setattr__(self, "policy_id", normalized_policy_id)
+        object.__setattr__(self, "policy_version", normalized_version)
+        object.__setattr__(self, "policy_schema_version", normalized_schema_version)
+        object.__setattr__(self, "policy_checksum", normalized_policy_checksum)
+        object.__setattr__(self, "policy_authority", normalized_policy_authority)
+        object.__setattr__(self, "effective_from_ms", normalized_effective_from_ms)
+        object.__setattr__(self, "supersedes_policy_checksum", normalized_supersedes)
         object.__setattr__(self, "rules", rules_tuple)
+        object.__setattr__(self, "capabilities", capabilities_tuple)
         object.__setattr__(self, "default_decision", _normalize_default_decision(default_decision))
+        object.__setattr__(self, "metadata", frozen_metadata)
+
+    @property
+    def version(self) -> str:
+        """Backward-compatible alias for ``policy_version``."""
+        return self.policy_version
+
+    @version.setter
+    def version(self, value: str) -> None:
+        object.__setattr__(self, "policy_version", value)
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -285,6 +358,11 @@ class PolicyEvaluationResult:
 
     decision: PolicyDecision
     policy_id: str
+    policy_version: str | None
+    policy_schema_version: str | None
+    policy_checksum: str | None
+    policy_authority: str | None
+    context_authority_checksum: str | None
     matched_rule_ids: tuple[str, ...]
     passed_constraints: tuple[str, ...]
     failed_constraints: tuple[str, ...]
@@ -325,6 +403,11 @@ class PolicyEvaluationResult:
         failed_constraints: Iterable[str],
         reasons: Iterable[str],
         *,
+        policy_version: str | None = None,
+        policy_schema_version: str | None = None,
+        policy_checksum: str | None = None,
+        policy_authority: str | None = None,
+        context_authority_checksum: str | None = None,
         world_snapshot_id: str | None = None,
         world_snapshot_observed_at_ms: object = None,
         freshness_result_checksum: str | None = None,
@@ -371,6 +454,29 @@ class PolicyEvaluationResult:
 
         object.__setattr__(self, "decision", normalized_decision)
         object.__setattr__(self, "policy_id", _normalize_required_text(policy_id, "policy_id"))
+        object.__setattr__(
+            self, "policy_version", _normalize_optional_text(policy_version, "policy_version")
+        )
+        object.__setattr__(
+            self,
+            "policy_schema_version",
+            _normalize_optional_text(policy_schema_version, "policy_schema_version"),
+        )
+        object.__setattr__(
+            self,
+            "policy_checksum",
+            _normalize_optional_checksum(policy_checksum, "policy_checksum"),
+        )
+        object.__setattr__(
+            self,
+            "policy_authority",
+            _normalize_optional_text(policy_authority, "policy_authority"),
+        )
+        object.__setattr__(
+            self,
+            "context_authority_checksum",
+            _normalize_optional_checksum(context_authority_checksum, "context_authority_checksum"),
+        )
         object.__setattr__(self, "matched_rule_ids", normalized_matched_rule_ids)
         object.__setattr__(
             self,
@@ -552,6 +658,11 @@ class SafetyCase:
     plan_id: str | None
     plan_checksum: str | None
     policy_result_checksum: str
+    policy_version: str | None
+    policy_schema_version: str | None
+    policy_checksum: str | None
+    policy_authority: str | None
+    context_authority_checksum: str | None
     world_snapshot_checksum: str | None
     capability_name: str | None
     capability_version: str | None
@@ -592,6 +703,11 @@ class SafetyCase:
         plan_id: str | None = None,
         plan_checksum: str | None = None,
         policy_result_checksum: str | None = None,
+        policy_version: str | None = None,
+        policy_schema_version: str | None = None,
+        policy_checksum: str | None = None,
+        policy_authority: str | None = None,
+        context_authority_checksum: str | None = None,
         world_snapshot_checksum: str | None = None,
         capability_name: str | None = None,
         capability_version: str | None = None,
@@ -632,6 +748,23 @@ class SafetyCase:
             normalized_policy_result_checksum = computed_policy_result_checksum
         if normalized_policy_result_checksum != computed_policy_result_checksum:
             raise ValueError("policy_result_checksum must match policy_result")
+        normalized_policy_version = _normalize_bound_optional_text(
+            policy_version, policy_result.policy_version, "policy_version"
+        )
+        normalized_policy_schema_version = _normalize_bound_optional_text(
+            policy_schema_version, policy_result.policy_schema_version, "policy_schema_version"
+        )
+        normalized_policy_checksum = _normalize_bound_optional_checksum(
+            policy_checksum, policy_result.policy_checksum, "policy_checksum"
+        )
+        normalized_policy_authority = _normalize_bound_optional_text(
+            policy_authority, policy_result.policy_authority, "policy_authority"
+        )
+        normalized_context_authority_checksum = _normalize_bound_optional_checksum(
+            context_authority_checksum,
+            policy_result.context_authority_checksum,
+            "context_authority_checksum",
+        )
 
         object.__setattr__(
             self, "safety_case_id", _normalize_required_text(safety_case_id, "safety_case_id")
@@ -651,6 +784,13 @@ class SafetyCase:
             self, "plan_checksum", _normalize_optional_text(plan_checksum, "plan_checksum")
         )
         object.__setattr__(self, "policy_result_checksum", normalized_policy_result_checksum)
+        object.__setattr__(self, "policy_version", normalized_policy_version)
+        object.__setattr__(self, "policy_schema_version", normalized_policy_schema_version)
+        object.__setattr__(self, "policy_checksum", normalized_policy_checksum)
+        object.__setattr__(self, "policy_authority", normalized_policy_authority)
+        object.__setattr__(
+            self, "context_authority_checksum", normalized_context_authority_checksum
+        )
         object.__setattr__(
             self,
             "world_snapshot_checksum",
@@ -900,6 +1040,11 @@ def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> 
     payload = {
         "decision": policy_result.decision.value,
         "policy_id": policy_result.policy_id,
+        "policy_version": policy_result.policy_version,
+        "policy_schema_version": policy_result.policy_schema_version,
+        "policy_checksum": policy_result.policy_checksum,
+        "policy_authority": policy_result.policy_authority,
+        "context_authority_checksum": policy_result.context_authority_checksum,
         "matched_rule_ids": list(policy_result.matched_rule_ids),
         "passed_constraints": list(policy_result.passed_constraints),
         "failed_constraints": list(policy_result.failed_constraints),
@@ -953,6 +1098,86 @@ def policy_evaluation_result_checksum(policy_result: PolicyEvaluationResult) -> 
     return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
 
 
+def policy_identity_checksum(
+    *,
+    policy_id: str,
+    policy_version: str,
+    policy_schema_version: str,
+    policy_authority: str,
+    effective_from_ms: int | None,
+    supersedes_policy_checksum: str | None,
+    rules: Iterable[PolicyRule],
+    capabilities: Iterable[Capability],
+    default_decision: PolicyDefaultDecision,
+    metadata: Mapping[str, FrozenPolicyValue],
+) -> str:
+    """Return the deterministic checksum for a versioned policy identity."""
+    payload = {
+        "policy_id": policy_id,
+        "policy_version": policy_version,
+        "policy_schema_version": policy_schema_version,
+        "policy_authority": policy_authority,
+        "effective_from_ms": effective_from_ms,
+        "supersedes_policy_checksum": supersedes_policy_checksum,
+        "rules": [_canonical_policy_rule(rule) for rule in rules],
+        "capabilities": [_canonical_capability(capability) for capability in capabilities],
+        "default_decision": default_decision.value,
+        "metadata": _canonical_policy_mapping(metadata),
+    }
+    canonical_json = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+
+def _canonical_policy_rule(rule: PolicyRule) -> dict[str, object]:
+    return {
+        "rule_id": rule.rule_id,
+        "capability": rule.capability,
+        "constraints": [_canonical_constraint(constraint) for constraint in rule.constraints],
+        "description": rule.description,
+        "enabled": rule.enabled,
+    }
+
+
+def _canonical_capability(capability: Capability) -> dict[str, object]:
+    return {
+        "name": capability.name,
+        "version": capability.version,
+        "parameters": _canonical_policy_mapping(capability.parameters),
+    }
+
+
+def _canonical_constraint(constraint: Constraint) -> dict[str, object]:
+    return {
+        "constraint_type": constraint.constraint_type,
+        "parameters": _canonical_policy_mapping(constraint.parameters),
+        "required": constraint.required,
+    }
+
+
+def _canonical_policy_mapping(values: Mapping[str, FrozenPolicyValue]) -> dict[str, object]:
+    return {key: _canonical_policy_value(values[key]) for key in sorted(values)}
+
+
+def _canonical_policy_value(value: FrozenPolicyValue) -> object:
+    if isinstance(value, Mapping):
+        return _canonical_policy_mapping(cast(Mapping[str, FrozenPolicyValue], value))
+    if isinstance(value, tuple):
+        return [_canonical_policy_value(item) for item in value]
+    if isinstance(value, frozenset):
+        canonical_items = [_canonical_policy_value(item) for item in value]
+        return sorted(
+            canonical_items,
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+        )
+    return value
+
+
 def _normalize_required_text(value: str, field_name: str) -> str:
     normalized = value.strip()
     if normalized == "":
@@ -960,10 +1185,69 @@ def _normalize_required_text(value: str, field_name: str) -> str:
     return normalized
 
 
+def _normalize_policy_version(version: str, policy_version: str | None) -> str:
+    normalized_version = _normalize_required_text(version, "version")
+    if policy_version is None:
+        return normalized_version
+    normalized_policy_version = _normalize_required_text(policy_version, "policy_version")
+    if normalized_policy_version != normalized_version:
+        raise ValueError("policy_version must match version")
+    return normalized_policy_version
+
+
 def _normalize_optional_text(value: str | None, field_name: str) -> str | None:
     if value is None:
         return None
     return _normalize_required_text(value, field_name)
+
+
+def _normalize_optional_checksum(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    normalized = _normalize_required_text(value, field_name)
+    if len(normalized) != 64 or not all(char in "0123456789abcdef" for char in normalized):
+        raise ValueError(f"{field_name} must be a 64-char lowercase hex SHA-256")
+    return normalized
+
+
+def _normalize_supplied_checksum(
+    supplied_checksum: str | None,
+    computed_checksum: str,
+    field_name: str,
+) -> str:
+    if supplied_checksum is None:
+        return computed_checksum
+    normalized = _normalize_optional_checksum(supplied_checksum, field_name)
+    assert normalized is not None
+    if normalized != computed_checksum:
+        raise ValueError(f"{field_name} must match canonical recomputation")
+    return normalized
+
+
+def _normalize_bound_optional_text(
+    supplied: str | None,
+    expected: str | None,
+    field_name: str,
+) -> str | None:
+    normalized = _normalize_optional_text(supplied, field_name)
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError(f"{field_name} must match policy_result")
+    return normalized
+
+
+def _normalize_bound_optional_checksum(
+    supplied: str | None,
+    expected: str | None,
+    field_name: str,
+) -> str | None:
+    normalized = _normalize_optional_checksum(supplied, field_name)
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError(f"{field_name} must match policy_result")
+    return normalized
 
 
 def _normalize_optional_observed_at_ms(value: object) -> int | None:
@@ -1191,6 +1475,12 @@ def _normalize_non_negative_int(value: object, field_name: str) -> int:
     return value
 
 
+def _normalize_optional_non_negative_int(value: object, field_name: str) -> int | None:
+    if value is None:
+        return None
+    return _normalize_non_negative_int(value, field_name)
+
+
 def _normalize_confidence(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("confidence must be a finite number")
@@ -1244,7 +1534,9 @@ def _reject_duplicate_rule_ids(rules: Iterable[PolicyRule]) -> None:
 
 
 def _freeze_policy_mapping(values: Mapping[str, object]) -> Mapping[str, FrozenPolicyValue]:
-    return _freeze_policy_items(values.items())
+    frozen = _freeze_policy_items(values.items())
+    validate_resource_bounds(frozen, label="policy metadata")
+    return frozen
 
 
 def _freeze_policy_items(items: Iterable[tuple[object, object]]) -> Mapping[str, FrozenPolicyValue]:

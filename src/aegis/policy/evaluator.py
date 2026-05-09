@@ -51,6 +51,7 @@ def evaluate_policy(
     context: Mapping[str, object] | None = None,
     freshness_result: WorldSnapshotFreshnessResult | None = None,
     trust_result: WorldSnapshotTrustResult | None = None,
+    context_authority_checksum: str | None = None,
 ) -> PolicyEvaluationResult:
     """Evaluate a Capability against a Policy-v1 bundle and optional evidence.
 
@@ -76,6 +77,7 @@ def evaluate_policy(
         capability=capability,
         world_snapshot=world_snapshot,
         context=context,
+        context_authority_checksum=context_authority_checksum,
     )
     result = _bind_freshness_to_policy_result(result, freshness_result)
     return _bind_trust_to_policy_result(result, trust_result)
@@ -91,6 +93,7 @@ def evaluate_policy_with_safety_case(
     evidence: Mapping[str, object] | None = None,
     freshness_result: WorldSnapshotFreshnessResult | None = None,
     trust_result: WorldSnapshotTrustResult | None = None,
+    context_authority_checksum: str | None = None,
 ) -> tuple[PolicyEvaluationResult, SafetyCase]:
     """Evaluate policy and build a deterministic SafetyCase explanation.
 
@@ -115,6 +118,7 @@ def evaluate_policy_with_safety_case(
         capability=capability,
         world_snapshot=world_snapshot,
         context=context,
+        context_authority_checksum=context_authority_checksum,
     )
     result = _bind_freshness_to_policy_result(result, freshness_result)
     result = _bind_trust_to_policy_result(result, trust_result)
@@ -136,6 +140,7 @@ def evaluate_policy_with_safety_case(
         ),
         freshness_status=freshness_result.status.value if freshness_result is not None else None,
         trust_result=trust_result,
+        context_authority_checksum=context_authority_checksum,
     )
     return result, safety_case
 
@@ -163,6 +168,11 @@ def _bind_freshness_to_policy_result(
             policy_result.passed_constraints,
             failed_constraints,
             reasons,
+            policy_version=policy_result.policy_version,
+            policy_schema_version=policy_result.policy_schema_version,
+            policy_checksum=policy_result.policy_checksum,
+            policy_authority=policy_result.policy_authority,
+            context_authority_checksum=policy_result.context_authority_checksum,
             world_snapshot_id=snapshot_id,
             world_snapshot_observed_at_ms=observed_at_ms,
             freshness_result_checksum=freshness_checksum,
@@ -190,6 +200,11 @@ def _bind_freshness_to_policy_result(
         policy_result.passed_constraints,
         policy_result.failed_constraints,
         policy_result.reasons,
+        policy_version=policy_result.policy_version,
+        policy_schema_version=policy_result.policy_schema_version,
+        policy_checksum=policy_result.policy_checksum,
+        policy_authority=policy_result.policy_authority,
+        context_authority_checksum=policy_result.context_authority_checksum,
         world_snapshot_id=snapshot_id,
         world_snapshot_observed_at_ms=observed_at_ms,
         freshness_result_checksum=freshness_checksum,
@@ -247,6 +262,11 @@ def _bind_trust_to_policy_result(
         policy_result.passed_constraints,
         failed_constraints,
         reasons,
+        policy_version=policy_result.policy_version,
+        policy_schema_version=policy_result.policy_schema_version,
+        policy_checksum=policy_result.policy_checksum,
+        policy_authority=policy_result.policy_authority,
+        context_authority_checksum=policy_result.context_authority_checksum,
         world_snapshot_id=policy_result.world_snapshot_id,
         world_snapshot_observed_at_ms=policy_result.world_snapshot_observed_at_ms,
         freshness_result_checksum=policy_result.freshness_result_checksum,
@@ -306,6 +326,7 @@ def _evaluate_policy_details(
     capability: Capability,
     world_snapshot: WorldSnapshotStub | None,
     context: Mapping[str, object] | None,
+    context_authority_checksum: str | None,
 ) -> tuple[PolicyEvaluationResult, tuple[ConstraintEvaluation, ...]]:
     validate_policy(policy)
     try:
@@ -319,6 +340,11 @@ def _evaluate_policy_details(
                 (),
                 (),
                 ("POLICY_EVALUATION_CONTEXT_INVALID",),
+                policy_version=policy.policy_version,
+                policy_schema_version=policy.policy_schema_version,
+                policy_checksum=policy.policy_checksum,
+                policy_authority=policy.policy_authority,
+                context_authority_checksum=context_authority_checksum,
             ),
             (),
         )
@@ -327,7 +353,7 @@ def _evaluate_policy_details(
         rule for rule in policy.rules if rule.enabled and rule.capability == capability.name
     )
     if not matched_rules:
-        return _no_matching_rule_result(policy), ()
+        return _no_matching_rule_result(policy, context_authority_checksum), ()
 
     evaluations: list[ConstraintEvaluation] = []
     for rule in matched_rules:
@@ -343,11 +369,16 @@ def _evaluate_policy_details(
                 )
             )
 
-    result = _aggregate_evaluations(policy.policy_id, matched_rules, tuple(evaluations))
+    result = _aggregate_evaluations(
+        policy, matched_rules, tuple(evaluations), context_authority_checksum
+    )
     return result, tuple(evaluations)
 
 
-def _no_matching_rule_result(policy: Policy) -> PolicyEvaluationResult:
+def _no_matching_rule_result(
+    policy: Policy,
+    context_authority_checksum: str | None,
+) -> PolicyEvaluationResult:
     if policy.default_decision is PolicyDefaultDecision.REQUIRE_REVIEW:
         return PolicyEvaluationResult(
             PolicyDecision.REQUIRE_REVIEW,
@@ -356,6 +387,11 @@ def _no_matching_rule_result(policy: Policy) -> PolicyEvaluationResult:
             (),
             (),
             ("POLICY_NO_MATCHING_RULE", "POLICY_DEFAULT_REQUIRE_REVIEW"),
+            policy_version=policy.policy_version,
+            policy_schema_version=policy.policy_schema_version,
+            policy_checksum=policy.policy_checksum,
+            policy_authority=policy.policy_authority,
+            context_authority_checksum=context_authority_checksum,
         )
     return PolicyEvaluationResult(
         PolicyDecision.BLOCK,
@@ -364,13 +400,19 @@ def _no_matching_rule_result(policy: Policy) -> PolicyEvaluationResult:
         (),
         (),
         ("POLICY_NO_MATCHING_RULE", "POLICY_DEFAULT_BLOCK"),
+        policy_version=policy.policy_version,
+        policy_schema_version=policy.policy_schema_version,
+        policy_checksum=policy.policy_checksum,
+        policy_authority=policy.policy_authority,
+        context_authority_checksum=context_authority_checksum,
     )
 
 
 def _aggregate_evaluations(
-    policy_id: str,
+    policy: Policy,
     matched_rules: Iterable[PolicyRule],
     evaluations: tuple[ConstraintEvaluation, ...],
+    context_authority_checksum: str | None,
 ) -> PolicyEvaluationResult:
     matched_rule_ids = tuple(rule.rule_id for rule in matched_rules)
     passed_constraints = tuple(
@@ -401,11 +443,16 @@ def _aggregate_evaluations(
 
     return PolicyEvaluationResult(
         decision,
-        policy_id,
+        policy.policy_id,
         matched_rule_ids,
         passed_constraints,
         failed_constraints,
         result_reasons,
+        policy_version=policy.policy_version,
+        policy_schema_version=policy.policy_schema_version,
+        policy_checksum=policy.policy_checksum,
+        policy_authority=policy.policy_authority,
+        context_authority_checksum=context_authority_checksum,
     )
 
 

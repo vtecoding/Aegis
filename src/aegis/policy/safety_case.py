@@ -25,6 +25,11 @@ type CanonicalHashValue = (
 _RESERVED_EVIDENCE_FIELDS = frozenset(
     {
         "policy_id",
+        "policy_version",
+        "policy_schema_version",
+        "policy_checksum",
+        "policy_authority",
+        "context_authority_checksum",
         "decision",
         "matched_rule_ids",
         "passed_constraints",
@@ -74,6 +79,7 @@ def build_safety_case(
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
     trust_result: WorldSnapshotTrustResult | None = None,
+    context_authority_checksum: str | None = None,
 ) -> SafetyCase:
     """Build a deterministic SafetyCase for a Policy-v1 evaluation result.
 
@@ -122,6 +128,9 @@ def build_safety_case(
         freshness_result_checksum=freshness_result_checksum,
         freshness_status=freshness_status,
         trust_fields=trust_fields,
+        context_authority_checksum=context_authority_checksum
+        if context_authority_checksum is not None
+        else policy_result.context_authority_checksum,
     )
 
     if policy_result.decision.value == "ALLOW" and not policy_result.passed_constraints:
@@ -142,6 +151,7 @@ def build_safety_case(
         plan_id=plan_id,
         plan_checksum=plan_checksum,
         policy_result_checksum=result_checksum,
+        context_authority_checksum=context_authority_checksum,
         world_snapshot_checksum=world_snapshot_checksum,
         capability_name=capability_name,
         capability_version=capability_version,
@@ -201,6 +211,11 @@ def canonicalise_for_hash(value: object) -> CanonicalHashValue:
         return {
             "decision": value.decision.value,
             "policy_id": value.policy_id,
+            "policy_version": value.policy_version,
+            "policy_schema_version": value.policy_schema_version,
+            "policy_checksum": value.policy_checksum,
+            "policy_authority": value.policy_authority,
+            "context_authority_checksum": value.context_authority_checksum,
             "matched_rule_ids": list(value.matched_rule_ids),
             "passed_constraints": list(value.passed_constraints),
             "failed_constraints": list(value.failed_constraints),
@@ -318,12 +333,18 @@ def _combined_safety_evidence(
     freshness_result_checksum: str | None = None,
     freshness_status: str | None = None,
     trust_fields: Mapping[str, str | None] | None = None,
+    context_authority_checksum: str | None = None,
 ) -> dict[str, object]:
     constraint_evaluations = supplied_evidence.get("constraint_evaluations", ())
     normalized_trust_fields = trust_fields or _trust_fields(None)
 
     combined: dict[str, object] = {
         "policy_id": policy_result.policy_id,
+        "policy_version": policy_result.policy_version,
+        "policy_schema_version": policy_result.policy_schema_version,
+        "policy_checksum": policy_result.policy_checksum,
+        "policy_authority": policy_result.policy_authority,
+        "context_authority_checksum": context_authority_checksum,
         "decision": policy_result.decision.value,
         "matched_rule_ids": policy_result.matched_rule_ids,
         "passed_constraints": policy_result.passed_constraints,

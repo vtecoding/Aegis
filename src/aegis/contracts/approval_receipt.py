@@ -101,6 +101,8 @@ class ApprovalReceipt:
     verifier_certification_checksum: str | None
     trust_policy_config_checksum: str | None
     trust_result_checksum: str | None
+    policy_checksum: str | None
+    context_authority_checksum: str | None
     policy_result_checksum: str | None
     safety_case_checksum: str | None
     policy_admission_checksum: str | None
@@ -126,6 +128,8 @@ class ApprovalReceipt:
         verifier_certification_checksum: str | None,
         trust_policy_config_checksum: str | None,
         trust_result_checksum: str | None,
+        policy_checksum: str | None = None,
+        context_authority_checksum: str | None = None,
         policy_result_checksum: str | None,
         safety_case_checksum: str | None,
         policy_admission_checksum: str | None,
@@ -171,6 +175,10 @@ class ApprovalReceipt:
             ),
             "trust_result_checksum": _normalize_optional_text(
                 trust_result_checksum, "trust_result_checksum"
+            ),
+            "policy_checksum": _normalize_optional_text(policy_checksum, "policy_checksum"),
+            "context_authority_checksum": _normalize_optional_text(
+                context_authority_checksum, "context_authority_checksum"
             ),
             "policy_result_checksum": _normalize_optional_text(
                 policy_result_checksum, "policy_result_checksum"
@@ -263,6 +271,8 @@ def approval_receipt_checksum(
     verifier_certification_checksum: str | None,
     trust_policy_config_checksum: str | None,
     trust_result_checksum: str | None,
+    policy_checksum: str | None,
+    context_authority_checksum: str | None,
     policy_result_checksum: str | None,
     safety_case_checksum: str | None,
     policy_admission_checksum: str | None,
@@ -286,6 +296,8 @@ def approval_receipt_checksum(
         verifier_certification_checksum=verifier_certification_checksum,
         trust_policy_config_checksum=trust_policy_config_checksum,
         trust_result_checksum=trust_result_checksum,
+        policy_checksum=policy_checksum,
+        context_authority_checksum=context_authority_checksum,
         policy_result_checksum=policy_result_checksum,
         safety_case_checksum=safety_case_checksum,
         policy_admission_checksum=policy_admission_checksum,
@@ -311,6 +323,8 @@ def compute_approval_receipt_checksum(
     verifier_certification_checksum: str | None,
     trust_policy_config_checksum: str | None,
     trust_result_checksum: str | None,
+    policy_checksum: str | None,
+    context_authority_checksum: str | None,
     policy_result_checksum: str | None,
     safety_case_checksum: str | None,
     policy_admission_checksum: str | None,
@@ -335,6 +349,8 @@ def compute_approval_receipt_checksum(
             "verifier_certification_checksum": verifier_certification_checksum,
             "trust_policy_config_checksum": trust_policy_config_checksum,
             "trust_result_checksum": trust_result_checksum,
+            "policy_checksum": policy_checksum,
+            "context_authority_checksum": context_authority_checksum,
             "policy_result_checksum": policy_result_checksum,
             "safety_case_checksum": safety_case_checksum,
             "policy_admission_checksum": policy_admission_checksum,
@@ -488,6 +504,8 @@ def approval_receipt_matches_pipeline_fields(
         verifier_certification_checksum=policy_admission.verifier_certification_checksum,
         trust_policy_config_checksum=policy_admission.trust_policy_config_validation_checksum,
         trust_result_checksum=policy_admission.world_snapshot_trust_result_checksum,
+        policy_checksum=policy_admission.policy_checksum,
+        context_authority_checksum=policy_admission.context_authority_checksum,
         policy_result_checksum=expected_policy_result,
         safety_case_checksum=expected_safety_case,
         policy_admission_checksum=expected_policy_admission,
@@ -509,6 +527,8 @@ def receipt_matches_expected_bindings(
     verifier_certification_checksum: str | None,
     trust_policy_config_checksum: str | None,
     trust_result_checksum: str | None,
+    policy_checksum: str | None,
+    context_authority_checksum: str | None,
     policy_result_checksum: str | None,
     safety_case_checksum: str | None,
     policy_admission_checksum: str | None,
@@ -527,6 +547,8 @@ def receipt_matches_expected_bindings(
         and receipt.verifier_certification_checksum == verifier_certification_checksum
         and receipt.trust_policy_config_checksum == trust_policy_config_checksum
         and receipt.trust_result_checksum == trust_result_checksum
+        and receipt.policy_checksum == policy_checksum
+        and receipt.context_authority_checksum == context_authority_checksum
         and receipt.policy_result_checksum == policy_result_checksum
         and receipt.safety_case_checksum == safety_case_checksum
         and receipt.policy_admission_checksum == policy_admission_checksum
@@ -547,6 +569,8 @@ def _missing_allowed_fields(receipt: ApprovalReceipt) -> tuple[str, ...]:
         "verifier_certification_checksum",
         "trust_policy_config_checksum",
         "trust_result_checksum",
+        "policy_checksum",
+        "context_authority_checksum",
         "policy_result_checksum",
         "safety_case_checksum",
         "policy_admission_checksum",
@@ -639,6 +663,8 @@ def _receipt_checksum_mismatch(receipt: ApprovalReceipt) -> bool:
         trust_policy_config_checksum=receipt.trust_policy_config_checksum,
         trust_result_checksum=receipt.trust_result_checksum,
         policy_result_checksum=receipt.policy_result_checksum,
+        policy_checksum=receipt.policy_checksum,
+        context_authority_checksum=receipt.context_authority_checksum,
         safety_case_checksum=receipt.safety_case_checksum,
         policy_admission_checksum=receipt.policy_admission_checksum,
         gate_decision_checksum=receipt.gate_decision_checksum,

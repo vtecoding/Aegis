@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2 Part 10: Deterministic scenario runner and evil-twin coverage gate** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2: RELEASE-COMPLETE after ADR-0014 seal** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 2 Part 10 - Deterministic Scenario Runner and Evil-Twin Coverage Gate
+## 2. Current Phase: Phase 2 Release Seal - ADR-0014 Authority Drift Gate
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -337,6 +337,24 @@ receipt overclaim categories. The coverage gate fails if any required category i
 This slice proves deterministic evidence-bound scenario behavior only. It does not add ROS,
 simulation, hardware, sensors, middleware, network calls, filesystem reads, wall-clock reads,
 async jobs, LLM calls, signing, runtime actuation, or physical robot safety claims.
+
+### Phase 2 Part 11: ADR-0014 Authority Drift, Policy Versioning & Contract Coverage Gate
+
+Phase 2 Part 11 seals the policy admission phase. Approval authority now requires explicit
+policy identity (`policy_id`, `policy_version`, `policy_schema_version`, `policy_checksum`,
+`policy_authority`), explicit context authority (`ContextAuthority` checksum and caller/domain
+fields), direct approval receipt bindings, resource bounds on canonical authority-bearing inputs,
+and governance sentinels for contract drift, stage coverage, category coverage, and checksum-field
+coverage.
+
+`PipelineOutcome.ALLOWED` requires all prior Part 10 evidence plus versioned policy identity,
+context authority matching the caller-supplied `evaluation_time_ms`, a SafetyCase and admission
+record bound to those identities, and an ApprovalReceipt that directly binds policy and context
+checksums. Blocked and invalid paths remain lightweight and continue to preserve the upstream
+failure evidence that stopped approval.
+
+ADR-0014 completes Phase 2 when verified and committed cleanly. Phase 3 begins later with the
+Execution Adapter Boundary & ROS 2 Message Mapping Contract; it must not begin with robot motion.
 
 ---
 

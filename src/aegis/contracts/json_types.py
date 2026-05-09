@@ -7,6 +7,8 @@ from math import isfinite
 from types import MappingProxyType
 from typing import TypeGuard, cast
 
+from aegis.governance.resource_bounds import validate_resource_bounds
+
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 type FrozenJsonValue = JsonScalar | tuple[FrozenJsonValue, ...] | Mapping[str, FrozenJsonValue]
@@ -52,6 +54,7 @@ def freeze_json_value(value: JsonValue) -> FrozenJsonValue:
     """
     if not is_json_value(value):
         raise ValueError("value must be JSON-compatible")
+    validate_resource_bounds(value, label="JSON value")
     if isinstance(value, list):
         return tuple(freeze_json_value(item) for item in value)
     if isinstance(value, dict):
@@ -83,6 +86,8 @@ def _freeze_json_items(items: Iterable[tuple[object, object]]) -> Mapping[str, F
             raise ValueError("JSON object keys must be strings")
         if not is_json_value(value):
             raise ValueError(f"value for JSON object key {key!r} must be JSON-compatible")
+        validate_resource_bounds(value, label=f"JSON object key {key!r}")
         frozen_values[key] = freeze_json_value(value)
 
+    validate_resource_bounds(frozen_values, label="JSON mapping")
     return MappingProxyType({key: frozen_values[key] for key in sorted(frozen_values)})

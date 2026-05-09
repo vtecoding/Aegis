@@ -21,6 +21,7 @@ from aegis.contracts.world_snapshot_trust import (
     evaluate_world_snapshot_trust,
     world_snapshot_attestation_payload_checksum,
 )
+from aegis.governance.context_authority import ContextAuthority
 
 TRUST_CAPABILITY = "locomotion.translation"
 TRUST_SOURCE_ID = "trusted-simulator"
@@ -281,6 +282,14 @@ def trusted_pipeline_kwargs(
 ) -> dict[str, object]:
     """Return keyword arguments that satisfy run_pipeline trust enforcement."""
     return {
+        "context_authority": ContextAuthority(
+            context_id="trusted-test-context",
+            request_id="trusted-test-request",
+            evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+            caller_authority="pytest",
+            deployment_domain="SIMULATION",
+            context_schema_version="context-authority-v1",
+        ),
         "world_snapshot_evidence": trusted_evidence_envelope(snapshot),
         "world_snapshot_trust_policy": trusted_world_snapshot_policy(capability=capability),
         "attestation_verifier": PassingAttestationVerifier(),
@@ -299,6 +308,11 @@ def bind_policy_result_to_trust(
         policy_result.passed_constraints,
         policy_result.failed_constraints,
         policy_result.reasons,
+        policy_version=policy_result.policy_version,
+        policy_schema_version=policy_result.policy_schema_version,
+        policy_checksum=policy_result.policy_checksum,
+        policy_authority=policy_result.policy_authority,
+        context_authority_checksum=policy_result.context_authority_checksum,
         world_snapshot_id=policy_result.world_snapshot_id,
         world_snapshot_observed_at_ms=policy_result.world_snapshot_observed_at_ms,
         freshness_result_checksum=policy_result.freshness_result_checksum,

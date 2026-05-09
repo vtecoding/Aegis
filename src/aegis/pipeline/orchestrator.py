@@ -57,6 +57,7 @@ from aegis.contracts.world_snapshot_trust import (
 )
 from aegis.errors import AegisError, PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
+from aegis.governance.context_authority import ContextAuthority
 from aegis.pipeline.approval_receipt import build_approval_receipt, validate_approval_receipt
 from aegis.pipeline.decision_trace import build_decision_trace
 from aegis.planning import plan_validated_intent
@@ -92,6 +93,7 @@ def run_pipeline(
     context: ExecutionContext,
     *,
     policy_admission: PolicyAdmissionInput | None = None,
+    context_authority: ContextAuthority | None = None,
     evaluation_time_ms: int | None = None,
     freshness_policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
     world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None = None,
@@ -149,6 +151,7 @@ def run_pipeline(
         raw_intent,
         context,
         admission_input,
+        context_authority,
         evaluation_time_ms,
         freshness_policy,
         world_snapshot_evidence,
@@ -162,6 +165,7 @@ def _run(
     raw_intent: RawIntent,
     context: ExecutionContext,
     policy_admission: PolicyAdmissionInput,
+    context_authority: ContextAuthority | None,
     evaluation_time_ms: int | None,
     freshness_policy: FreshnessPolicy,
     world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None,
@@ -243,6 +247,7 @@ def _run(
     policy_record, blocked_outcome = _evaluate_policy_admission(
         policy_admission=policy_admission,
         audited_plan=audited_plan,
+        context_authority=context_authority,
         evaluation_time_ms=evaluation_time_ms,
         freshness_policy=freshness_policy,
         world_snapshot_evidence=world_snapshot_evidence,
@@ -403,6 +408,7 @@ def _evaluate_policy_admission(
     *,
     policy_admission: PolicyAdmissionInput,
     audited_plan: AuditedPlan,
+    context_authority: ContextAuthority | None,
     evaluation_time_ms: int | None,
     freshness_policy: FreshnessPolicy,
     world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None,
@@ -566,13 +572,18 @@ def _evaluate_policy_admission(
         )
 
     try:
-        policy_result = evaluate_policy(
-            policy=policy_admission.policy,
-            capability=policy_admission.capability,
-            world_snapshot=policy_admission.world_snapshot,
-            context=policy_admission.context,
-            freshness_result=freshness_result,
-            trust_result=trust_result,
+        policy_result = _policy_result_or_none(
+            evaluate_policy(
+                policy=policy_admission.policy,
+                capability=policy_admission.capability,
+                world_snapshot=policy_admission.world_snapshot,
+                context=policy_admission.context,
+                freshness_result=freshness_result,
+                trust_result=trust_result,
+                context_authority_checksum=context_authority.context_checksum
+                if context_authority is not None
+                else None,
+            )
         )
     except AegisError:
         raise
@@ -593,6 +604,47 @@ def _evaluate_policy_admission(
             PipelineOutcome.ERROR,
         )
 
+    if policy_result is None:
+        return (
+            _denied_policy_record(
+                "POLICY_EVALUATION_FAILED",
+                admission_decision=PolicyAdmissionDecision.ERROR,
+                integrity_status=PolicyAdmissionIntegrityStatus.FAILED,
+                exception_reason="POLICY_EVALUATION_FAILED",
+                world_snapshot_observed_at_ms=_observed_at_or_none(freshness_result),
+                freshness_result_checksum=freshness_result.checksum,
+                freshness_status=freshness_result.status.value,
+                trust_result=trust_result,
+                verifier_certification=verifier_certification,
+                trust_policy_config_validation=trust_policy_config_validation,
+            ),
+            PipelineOutcome.ERROR,
+        )
+
+    if policy_result.decision is PolicyDecision.ALLOW:
+        if context_authority is None:
+            return (
+                _denied_policy_record(
+                    "CONTEXT_AUTHORITY_REQUIRED",
+                    policy_result=_policy_result_or_none(policy_result),
+                    trust_result=trust_result,
+                    verifier_certification=verifier_certification,
+                    trust_policy_config_validation=trust_policy_config_validation,
+                ),
+                PipelineOutcome.BLOCKED,
+            )
+        if evaluation_time_ms != context_authority.evaluation_time_ms:
+            return (
+                _denied_policy_record(
+                    "CONTEXT_AUTHORITY_EVALUATION_TIME_MISMATCH",
+                    policy_result=_policy_result_or_none(policy_result),
+                    trust_result=trust_result,
+                    verifier_certification=verifier_certification,
+                    trust_policy_config_validation=trust_policy_config_validation,
+                ),
+                PipelineOutcome.BLOCKED,
+            )
+
     try:
         safety_case = build_safety_case(
             policy_result=policy_result,
@@ -606,6 +658,9 @@ def _evaluate_policy_admission(
             freshness_result_checksum=freshness_result.checksum,
             freshness_status=freshness_result.status.value,
             trust_result=trust_result,
+            context_authority_checksum=context_authority.context_checksum
+            if context_authority is not None
+            else None,
         )
     except AegisError:
         raise
@@ -638,6 +693,7 @@ def _evaluate_policy_admission(
             trust_result,
             verifier_certification,
             trust_policy_config_validation,
+            context_authority,
         )
         if policy_record.admission_allowed:
             assert_policy_admission_integrity(audited_plan, policy_record)
@@ -836,6 +892,7 @@ def _policy_record_from_result(
     trust_result: WorldSnapshotTrustResult,
     verifier_certification: VerifierAdapterCertificationResult,
     trust_policy_config_validation: TrustPolicyConfigValidationResult,
+    context_authority: ContextAuthority | None,
 ) -> PolicyAdmissionRecord:
     admission_allowed = policy_result.decision is PolicyDecision.ALLOW
     return PolicyAdmissionRecord(
@@ -850,6 +907,26 @@ def _policy_record_from_result(
         audit_id=audited_plan.audit_id,
         plan_id=audited_plan.plan.plan_id,
         plan_checksum=audited_plan.checksum,
+        policy_version=policy_result.policy_version,
+        policy_schema_version=policy_result.policy_schema_version,
+        policy_checksum=policy_result.policy_checksum,
+        policy_authority=policy_result.policy_authority,
+        context_authority_checksum=context_authority.context_checksum
+        if context_authority is not None
+        else None,
+        context_id=context_authority.context_id if context_authority is not None else None,
+        caller_authority=context_authority.caller_authority
+        if context_authority is not None
+        else None,
+        deployment_domain=context_authority.deployment_domain
+        if context_authority is not None
+        else None,
+        context_schema_version=context_authority.context_schema_version
+        if context_authority is not None
+        else None,
+        context_evaluation_time_ms=context_authority.evaluation_time_ms
+        if context_authority is not None
+        else None,
         world_snapshot_id=safety_case.world_snapshot_id,
         world_snapshot_checksum=safety_case.world_snapshot_checksum,
         capability_name=safety_case.capability_name,
@@ -913,8 +990,18 @@ def _error_policy_record(
         plan_id=policy_record.plan_id,
         plan_checksum=policy_record.plan_checksum,
         policy_id=policy_record.policy_id,
+        policy_version=policy_record.policy_version,
+        policy_schema_version=policy_record.policy_schema_version,
+        policy_checksum=policy_record.policy_checksum,
+        policy_authority=policy_record.policy_authority,
         policy_result_checksum=policy_record.policy_result_checksum,
         safety_case_id=policy_record.safety_case_id,
+        context_authority_checksum=policy_record.context_authority_checksum,
+        context_id=policy_record.context_id,
+        caller_authority=policy_record.caller_authority,
+        deployment_domain=policy_record.deployment_domain,
+        context_schema_version=policy_record.context_schema_version,
+        context_evaluation_time_ms=policy_record.context_evaluation_time_ms,
         world_snapshot_id=policy_record.world_snapshot_id,
         world_snapshot_checksum=policy_record.world_snapshot_checksum,
         capability_name=policy_record.capability_name,

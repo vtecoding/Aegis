@@ -44,6 +44,7 @@ from aegis.contracts.world_snapshot_freshness import (
 from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.errors import PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
+from aegis.governance.context_authority import ContextAuthority
 from aegis.pipeline import run_pipeline
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case
@@ -83,7 +84,32 @@ def _capability() -> Capability:
     return Capability("locomotion.translation", parameters={"velocity_mps": 0.2})
 
 
+def _context_authority() -> ContextAuthority:
+    return ContextAuthority(
+        context_id="freshness-adversarial-context",
+        request_id="freshness-adversarial-request",
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        caller_authority="pytest",
+        deployment_domain="SIMULATION",
+        context_schema_version="context-authority-v1",
+    )
+
+
+def _context_authority_kwargs() -> dict[str, object]:
+    authority = _context_authority()
+    return {
+        "context_authority_checksum": authority.context_checksum,
+        "context_id": authority.context_id,
+        "caller_authority": authority.caller_authority,
+        "deployment_domain": authority.deployment_domain,
+        "context_schema_version": authority.context_schema_version,
+        "context_evaluation_time_ms": authority.evaluation_time_ms,
+    }
+
+
 def _allow_result(snapshot: WorldSnapshotStub | None = None) -> PolicyEvaluationResult:
+    policy = _policy()
+    authority = _context_authority()
     freshness_result = fresh_world_snapshot_result(snapshot or fresh_world_snapshot())
     trust_snapshot = snapshot or fresh_world_snapshot()
     trust_result = trusted_world_snapshot_result(trust_snapshot)
@@ -96,6 +122,11 @@ def _allow_result(snapshot: WorldSnapshotStub | None = None) -> PolicyEvaluation
                 ["rule-1:0:max_velocity"],
                 [],
                 ["POLICY_ALLOWED"],
+                policy_version=policy.policy_version,
+                policy_schema_version=policy.policy_schema_version,
+                policy_checksum=policy.policy_checksum,
+                policy_authority=policy.policy_authority,
+                context_authority_checksum=authority.context_checksum,
             ),
             freshness_result,
         ),
@@ -222,6 +253,7 @@ def test_safety_case_freshness_mismatch_is_rejected() -> None:
             world_snapshot_observed_at_ms=freshness_a.observed_at_ms,
             freshness_result_checksum=freshness_a.checksum,
             freshness_status=freshness_a.status.value,
+            **_context_authority_kwargs(),
             **_trusted_record_kwargs(trusted_world_snapshot_result(snapshot_a)),
         )
 
@@ -252,6 +284,7 @@ def test_policy_evaluation_freshness_mismatch_is_rejected() -> None:
             world_snapshot_observed_at_ms=freshness_b.observed_at_ms,
             freshness_result_checksum=freshness_b.checksum,
             freshness_status=freshness_b.status.value,
+            **_context_authority_kwargs(),
             **_trusted_record_kwargs(trusted_world_snapshot_result(snapshot_b)),
         )
 
@@ -279,6 +312,7 @@ def test_policy_admission_freshness_mismatch_is_rejected_by_integrity() -> None:
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trusted_world_snapshot_result(snapshot)),
     )
     object.__setattr__(record, "freshness_result_checksum", "0" * 64)

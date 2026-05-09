@@ -19,6 +19,7 @@ from aegis.contracts.world_snapshot_trust import (
     WorldSnapshotTrustPolicy,
     world_snapshot_attestation_payload_checksum,
 )
+from aegis.governance.context_authority import ContextAuthority
 from aegis.scenarios.contracts import (
     EvilTwinMutation,
     ScenarioCategory,
@@ -216,6 +217,21 @@ def make_scenario_context(request_id: str) -> ExecutionContext:
     return ExecutionContext(request_id, datetime(2026, 5, 9, tzinfo=UTC), "policy-v1")
 
 
+def make_scenario_context_authority(
+    scenario_id: str,
+    evaluation_time_ms: int,
+) -> ContextAuthority:
+    """Return deterministic context authority for an enforced scenario."""
+    return ContextAuthority(
+        context_id=f"{scenario_id}.context",
+        request_id=scenario_id,
+        evaluation_time_ms=evaluation_time_ms,
+        caller_authority="scenario-runner",
+        deployment_domain="SIMULATION",
+        context_schema_version="context-authority-v1",
+    )
+
+
 def _base_intent(scenario_id: str, *, target_x: int = 1) -> RawIntent:
     context = make_scenario_context(scenario_id)
     return RawIntent(
@@ -386,6 +402,9 @@ def _definition(
         expected=expected,
         metadata={"category": category.value},
         capability=capability or _capability(),
+        context_authority=make_scenario_context_authority(scenario_id, evaluation_time_ms)
+        if evaluation_time_ms is not None
+        else None,
         world_snapshot_evidence=evidence,
         evil_twin_mutation=mutation,
     )

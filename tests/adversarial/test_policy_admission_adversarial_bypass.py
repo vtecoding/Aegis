@@ -42,6 +42,7 @@ from aegis.contracts.policy_admission import (
 from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.errors import PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
+from aegis.governance.context_authority import ContextAuthority
 from aegis.pipeline import run_pipeline
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case
@@ -100,6 +101,29 @@ def _capability() -> Capability:
     return Capability("locomotion.translation", parameters={"velocity_mps": 1.0})
 
 
+def _context_authority() -> ContextAuthority:
+    return ContextAuthority(
+        context_id="policy-adversarial-context",
+        request_id="policy-adversarial-request",
+        evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
+        caller_authority="pytest",
+        deployment_domain="SIMULATION",
+        context_schema_version="context-authority-v1",
+    )
+
+
+def _context_authority_kwargs() -> dict[str, object]:
+    authority = _context_authority()
+    return {
+        "context_authority_checksum": authority.context_checksum,
+        "context_id": authority.context_id,
+        "caller_authority": authority.caller_authority,
+        "deployment_domain": authority.deployment_domain,
+        "context_schema_version": authority.context_schema_version,
+        "context_evaluation_time_ms": authority.evaluation_time_ms,
+    }
+
+
 def _audited_plan(request_id: str = "policy-adversarial-001"):
     context = ExecutionContext(request_id, datetime(2026, 1, 1, tzinfo=UTC), "policy-v1")
     validation_result = validate_intent(_intent(context))
@@ -108,6 +132,8 @@ def _audited_plan(request_id: str = "policy-adversarial-001"):
 
 
 def _allow_result(policy_id: str = "policy-adversarial") -> PolicyEvaluationResult:
+    policy = _allowing_policy(policy_id)
+    authority = _context_authority()
     snapshot = fresh_world_snapshot()
     freshness_result = fresh_world_snapshot_result(snapshot)
     trust_result = trusted_world_snapshot_result(snapshot)
@@ -120,6 +146,11 @@ def _allow_result(policy_id: str = "policy-adversarial") -> PolicyEvaluationResu
                 ["rule-1:0:max_velocity"],
                 [],
                 ["POLICY_ALLOWED"],
+                policy_version=policy.policy_version,
+                policy_schema_version=policy.policy_schema_version,
+                policy_checksum=policy.policy_checksum,
+                policy_authority=policy.policy_authority,
+                context_authority_checksum=authority.context_checksum,
             ),
             freshness_result,
         ),
@@ -169,6 +200,7 @@ def _allowed_record(
         world_snapshot_observed_at_ms=freshness_result.observed_at_ms,
         freshness_result_checksum=freshness_result.checksum,
         freshness_status=freshness_result.status.value,
+        **_context_authority_kwargs(),
         **_trusted_record_kwargs(trust_result),
     )
 

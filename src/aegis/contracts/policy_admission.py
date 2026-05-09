@@ -23,6 +23,7 @@ from aegis.contracts.policy import (
     policy_evaluation_result_checksum,
 )
 from aegis.errors import PolicyAdmissionIntegrityError
+from aegis.governance.resource_bounds import validate_resource_bounds
 
 
 class PolicyAdmissionMode(StrEnum):
@@ -164,8 +165,18 @@ class PolicyAdmissionRecord:
     plan_id: str | None
     plan_checksum: str | None
     policy_id: str | None
+    policy_version: str | None
+    policy_schema_version: str | None
+    policy_checksum: str | None
+    policy_authority: str | None
     policy_result_checksum: str | None
     safety_case_id: str | None
+    context_authority_checksum: str | None
+    context_id: str | None
+    caller_authority: str | None
+    deployment_domain: str | None
+    context_schema_version: str | None
+    context_evaluation_time_ms: int | None
     world_snapshot_id: str | None
     world_snapshot_checksum: str | None
     capability_name: str | None
@@ -210,8 +221,18 @@ class PolicyAdmissionRecord:
         plan_id: str | None = None,
         plan_checksum: str | None = None,
         policy_id: str | None = None,
+        policy_version: str | None = None,
+        policy_schema_version: str | None = None,
+        policy_checksum: str | None = None,
+        policy_authority: str | None = None,
         policy_result_checksum: str | None = None,
         safety_case_id: str | None = None,
+        context_authority_checksum: str | None = None,
+        context_id: str | None = None,
+        caller_authority: str | None = None,
+        deployment_domain: str | None = None,
+        context_schema_version: str | None = None,
+        context_evaluation_time_ms: int | None = None,
         world_snapshot_id: str | None = None,
         world_snapshot_checksum: str | None = None,
         capability_name: str | None = None,
@@ -265,10 +286,34 @@ class PolicyAdmissionRecord:
         normalized_plan_id = _normalize_optional_text(plan_id, "plan_id")
         normalized_plan_checksum = _normalize_optional_text(plan_checksum, "plan_checksum")
         normalized_policy_id = _normalize_policy_id(policy_id, policy_result)
+        normalized_policy_version = _normalize_policy_version_binding(policy_version, policy_result)
+        normalized_policy_schema_version = _normalize_policy_schema_version_binding(
+            policy_schema_version, policy_result
+        )
+        normalized_policy_checksum = _normalize_policy_checksum_binding(
+            policy_checksum, policy_result
+        )
+        normalized_policy_authority = _normalize_policy_authority_binding(
+            policy_authority, policy_result
+        )
         normalized_policy_result_checksum = _normalize_policy_result_checksum(
             policy_result_checksum, policy_result
         )
         normalized_safety_case_id = _normalize_safety_case_id(safety_case_id, safety_case)
+        normalized_context_authority_checksum = _normalize_context_authority_checksum_binding(
+            context_authority_checksum, policy_result
+        )
+        normalized_context_id = _normalize_optional_text(context_id, "context_id")
+        normalized_caller_authority = _normalize_optional_text(caller_authority, "caller_authority")
+        normalized_deployment_domain = _normalize_optional_text(
+            deployment_domain, "deployment_domain"
+        )
+        normalized_context_schema_version = _normalize_optional_text(
+            context_schema_version, "context_schema_version"
+        )
+        normalized_context_evaluation_time_ms = _normalize_optional_observed_at_ms(
+            context_evaluation_time_ms
+        )
         normalized_world_snapshot_id = _normalize_optional_text(
             world_snapshot_id, "world_snapshot_id"
         )
@@ -407,8 +452,18 @@ class PolicyAdmissionRecord:
                     normalized_plan_id,
                     normalized_plan_checksum,
                     normalized_policy_id,
+                    normalized_policy_version,
+                    normalized_policy_schema_version,
+                    normalized_policy_checksum,
+                    normalized_policy_authority,
                     normalized_policy_result_checksum,
                     normalized_safety_case_id,
+                    normalized_context_authority_checksum,
+                    normalized_context_id,
+                    normalized_caller_authority,
+                    normalized_deployment_domain,
+                    normalized_context_schema_version,
+                    normalized_context_evaluation_time_ms,
                     normalized_world_snapshot_id,
                     normalized_world_snapshot_checksum,
                     normalized_capability_name,
@@ -453,8 +508,18 @@ class PolicyAdmissionRecord:
                 plan_id=normalized_plan_id,
                 plan_checksum=normalized_plan_checksum,
                 policy_id=normalized_policy_id,
+                policy_version=normalized_policy_version,
+                policy_schema_version=normalized_policy_schema_version,
+                policy_checksum=normalized_policy_checksum,
+                policy_authority=normalized_policy_authority,
                 policy_result_checksum=normalized_policy_result_checksum,
                 safety_case_id=normalized_safety_case_id,
+                context_authority_checksum=normalized_context_authority_checksum,
+                context_id=normalized_context_id,
+                caller_authority=normalized_caller_authority,
+                deployment_domain=normalized_deployment_domain,
+                context_schema_version=normalized_context_schema_version,
+                context_evaluation_time_ms=normalized_context_evaluation_time_ms,
                 world_snapshot_id=normalized_world_snapshot_id,
                 world_snapshot_checksum=normalized_world_snapshot_checksum,
                 capability_name=normalized_capability_name,
@@ -499,8 +564,22 @@ class PolicyAdmissionRecord:
         object.__setattr__(self, "plan_id", normalized_plan_id)
         object.__setattr__(self, "plan_checksum", normalized_plan_checksum)
         object.__setattr__(self, "policy_id", normalized_policy_id)
+        object.__setattr__(self, "policy_version", normalized_policy_version)
+        object.__setattr__(self, "policy_schema_version", normalized_policy_schema_version)
+        object.__setattr__(self, "policy_checksum", normalized_policy_checksum)
+        object.__setattr__(self, "policy_authority", normalized_policy_authority)
         object.__setattr__(self, "policy_result_checksum", normalized_policy_result_checksum)
         object.__setattr__(self, "safety_case_id", normalized_safety_case_id)
+        object.__setattr__(
+            self, "context_authority_checksum", normalized_context_authority_checksum
+        )
+        object.__setattr__(self, "context_id", normalized_context_id)
+        object.__setattr__(self, "caller_authority", normalized_caller_authority)
+        object.__setattr__(self, "deployment_domain", normalized_deployment_domain)
+        object.__setattr__(self, "context_schema_version", normalized_context_schema_version)
+        object.__setattr__(
+            self, "context_evaluation_time_ms", normalized_context_evaluation_time_ms
+        )
         object.__setattr__(self, "world_snapshot_id", normalized_world_snapshot_id)
         object.__setattr__(self, "world_snapshot_checksum", normalized_world_snapshot_checksum)
         object.__setattr__(self, "capability_name", normalized_capability_name)
@@ -587,7 +666,7 @@ def _validate_disabled_record(
     admission_allowed: bool,
     admission_decision: PolicyAdmissionDecision,
     integrity_status: PolicyAdmissionIntegrityStatus,
-    binding_values: tuple[str | None, ...],
+    binding_values: tuple[object, ...],
     disabled_observed_at_ms: int | None = None,
 ) -> None:
     if enforced:
@@ -621,8 +700,18 @@ def _validate_enforced_record(
     plan_id: str | None,
     plan_checksum: str | None,
     policy_id: str | None,
+    policy_version: str | None,
+    policy_schema_version: str | None,
+    policy_checksum: str | None,
+    policy_authority: str | None,
     policy_result_checksum: str | None,
     safety_case_id: str | None,
+    context_authority_checksum: str | None,
+    context_id: str | None,
+    caller_authority: str | None,
+    deployment_domain: str | None,
+    context_schema_version: str | None,
+    context_evaluation_time_ms: int | None,
     world_snapshot_id: str | None,
     world_snapshot_checksum: str | None,
     capability_name: str | None,
@@ -676,8 +765,18 @@ def _validate_enforced_record(
             plan_id=plan_id,
             plan_checksum=plan_checksum,
             policy_id=policy_id,
+            policy_version=policy_version,
+            policy_schema_version=policy_schema_version,
+            policy_checksum=policy_checksum,
+            policy_authority=policy_authority,
             policy_result_checksum=policy_result_checksum,
             safety_case_id=safety_case_id,
+            context_authority_checksum=context_authority_checksum,
+            context_id=context_id,
+            caller_authority=caller_authority,
+            deployment_domain=deployment_domain,
+            context_schema_version=context_schema_version,
+            context_evaluation_time_ms=context_evaluation_time_ms,
             capability_name=capability_name,
             capability_version=capability_version,
         )
@@ -688,6 +787,11 @@ def _validate_enforced_record(
             plan_checksum=plan_checksum,
             policy_result_checksum=policy_result_checksum,
             safety_case_id=safety_case_id,
+            policy_version=policy_version,
+            policy_schema_version=policy_schema_version,
+            policy_checksum=policy_checksum,
+            policy_authority=policy_authority,
+            context_authority_checksum=context_authority_checksum,
             world_snapshot_id=world_snapshot_id,
             world_snapshot_checksum=world_snapshot_checksum,
             capability_name=capability_name,
@@ -720,6 +824,22 @@ def _validate_enforced_record(
             world_snapshot_observed_at_ms=world_snapshot_observed_at_ms,
             freshness_result_checksum=freshness_result_checksum,
             freshness_status=freshness_status,
+        )
+        _validate_policy_result_identity_bindings(
+            policy_result=policy_result,
+            policy_version=policy_version,
+            policy_schema_version=policy_schema_version,
+            policy_checksum=policy_checksum,
+            policy_authority=policy_authority,
+            context_authority_checksum=context_authority_checksum,
+        )
+        _require_context_authority_backed_admission(
+            context_authority_checksum=context_authority_checksum,
+            context_id=context_id,
+            caller_authority=caller_authority,
+            deployment_domain=deployment_domain,
+            context_schema_version=context_schema_version,
+            context_evaluation_time_ms=context_evaluation_time_ms,
         )
         _validate_policy_result_trust_bindings(
             policy_result=policy_result,
@@ -878,6 +998,16 @@ def _policy_admission_integrity_violations(
         violations.append("SAFETY_CASE_MISSING")
 
     if policy_result is not None:
+        if policy_result.policy_version != policy_admission.policy_version:
+            violations.append("POLICY_RESULT_VERSION_MISMATCH")
+        if policy_result.policy_schema_version != policy_admission.policy_schema_version:
+            violations.append("POLICY_RESULT_SCHEMA_VERSION_MISMATCH")
+        if policy_result.policy_checksum != policy_admission.policy_checksum:
+            violations.append("POLICY_RESULT_POLICY_CHECKSUM_MISMATCH")
+        if policy_result.policy_authority != policy_admission.policy_authority:
+            violations.append("POLICY_RESULT_POLICY_AUTHORITY_MISMATCH")
+        if policy_result.context_authority_checksum != policy_admission.context_authority_checksum:
+            violations.append("POLICY_RESULT_CONTEXT_AUTHORITY_CHECKSUM_MISMATCH")
         _append_mismatch(
             violations,
             policy_result.world_snapshot_id,
@@ -999,6 +1129,36 @@ def _policy_admission_integrity_violations(
         )
         _append_mismatch(
             violations,
+            safety_case.policy_version,
+            policy_admission.policy_version,
+            "SAFETY_CASE_POLICY_VERSION",
+        )
+        _append_mismatch(
+            violations,
+            safety_case.policy_schema_version,
+            policy_admission.policy_schema_version,
+            "SAFETY_CASE_POLICY_SCHEMA_VERSION",
+        )
+        _append_mismatch(
+            violations,
+            safety_case.policy_checksum,
+            policy_admission.policy_checksum,
+            "SAFETY_CASE_POLICY_CHECKSUM",
+        )
+        _append_mismatch(
+            violations,
+            safety_case.policy_authority,
+            policy_admission.policy_authority,
+            "SAFETY_CASE_POLICY_AUTHORITY",
+        )
+        _append_mismatch(
+            violations,
+            safety_case.context_authority_checksum,
+            policy_admission.context_authority_checksum,
+            "SAFETY_CASE_CONTEXT_AUTHORITY_CHECKSUM",
+        )
+        _append_mismatch(
+            violations,
             safety_case.world_snapshot_id,
             policy_admission.world_snapshot_id,
             "SAFETY_CASE_WORLD_SNAPSHOT_ID",
@@ -1092,6 +1252,26 @@ def _policy_admission_integrity_violations(
         violations.append("FRESHNESS_RESULT_CHECKSUM_MISSING")
     if policy_admission.world_snapshot_id is None:
         violations.append("FRESHNESS_WORLD_SNAPSHOT_ID_MISSING")
+    if policy_admission.policy_version is None:
+        violations.append("POLICY_VERSION_MISSING")
+    if policy_admission.policy_schema_version is None:
+        violations.append("POLICY_SCHEMA_VERSION_MISSING")
+    if policy_admission.policy_checksum is None:
+        violations.append("POLICY_CHECKSUM_MISSING")
+    if policy_admission.policy_authority is None:
+        violations.append("POLICY_AUTHORITY_MISSING")
+    if policy_admission.context_authority_checksum is None:
+        violations.append("CONTEXT_AUTHORITY_CHECKSUM_MISSING")
+    if policy_admission.context_id is None:
+        violations.append("CONTEXT_ID_MISSING")
+    if policy_admission.caller_authority is None:
+        violations.append("CALLER_AUTHORITY_MISSING")
+    if policy_admission.deployment_domain is None:
+        violations.append("DEPLOYMENT_DOMAIN_MISSING")
+    if policy_admission.context_schema_version is None:
+        violations.append("CONTEXT_SCHEMA_VERSION_MISSING")
+    if policy_admission.context_evaluation_time_ms is None:
+        violations.append("CONTEXT_EVALUATION_TIME_MISSING")
     if policy_admission.world_snapshot_observed_at_ms is None:
         violations.append("FRESHNESS_WORLD_SNAPSHOT_OBSERVED_AT_MS_MISSING")
     if policy_admission.world_snapshot_admissibility_status != "ADMISSIBLE":
@@ -1150,8 +1330,18 @@ def _require_allowed_binding_values(
     plan_id: str | None,
     plan_checksum: str | None,
     policy_id: str | None,
+    policy_version: str | None,
+    policy_schema_version: str | None,
+    policy_checksum: str | None,
+    policy_authority: str | None,
     policy_result_checksum: str | None,
     safety_case_id: str | None,
+    context_authority_checksum: str | None,
+    context_id: str | None,
+    caller_authority: str | None,
+    deployment_domain: str | None,
+    context_schema_version: str | None,
+    context_evaluation_time_ms: int | None,
     capability_name: str | None,
     capability_version: str | None,
 ) -> None:
@@ -1160,8 +1350,18 @@ def _require_allowed_binding_values(
         "plan_id": plan_id,
         "plan_checksum": plan_checksum,
         "policy_id": policy_id,
+        "policy_version": policy_version,
+        "policy_schema_version": policy_schema_version,
+        "policy_checksum": policy_checksum,
+        "policy_authority": policy_authority,
         "policy_result_checksum": policy_result_checksum,
         "safety_case_id": safety_case_id,
+        "context_authority_checksum": context_authority_checksum,
+        "context_id": context_id,
+        "caller_authority": caller_authority,
+        "deployment_domain": deployment_domain,
+        "context_schema_version": context_schema_version,
+        "context_evaluation_time_ms": context_evaluation_time_ms,
         "capability_name": capability_name,
         "capability_version": capability_version,
     }
@@ -1178,6 +1378,11 @@ def _validate_safety_case_bindings(
     plan_checksum: str | None,
     policy_result_checksum: str | None,
     safety_case_id: str | None,
+    policy_version: str | None,
+    policy_schema_version: str | None,
+    policy_checksum: str | None,
+    policy_authority: str | None,
+    context_authority_checksum: str | None,
     world_snapshot_id: str | None,
     world_snapshot_checksum: str | None,
     capability_name: str | None,
@@ -1208,6 +1413,16 @@ def _validate_safety_case_bindings(
         raise ValueError("safety_case plan_id must match admission plan_id")
     if safety_case.plan_checksum != plan_checksum:
         raise ValueError("safety_case plan_checksum must match admission plan_checksum")
+    if safety_case.policy_version != policy_version:
+        raise ValueError("safety_case policy_version must match admission")
+    if safety_case.policy_schema_version != policy_schema_version:
+        raise ValueError("safety_case policy_schema_version must match admission")
+    if safety_case.policy_checksum != policy_checksum:
+        raise ValueError("safety_case policy_checksum must match admission")
+    if safety_case.policy_authority != policy_authority:
+        raise ValueError("safety_case policy_authority must match admission")
+    if safety_case.context_authority_checksum != context_authority_checksum:
+        raise ValueError("safety_case context_authority_checksum must match admission")
     if safety_case.world_snapshot_id != world_snapshot_id:
         raise ValueError("safety_case world_snapshot_id must match admission")
     if safety_case.world_snapshot_checksum != world_snapshot_checksum:
@@ -1285,6 +1500,27 @@ def _validate_policy_result_freshness_bindings(
         raise ValueError("policy_result freshness_result_checksum must match admission")
     if policy_result.freshness_status != freshness_status:
         raise ValueError("policy_result freshness_status must match admission")
+
+
+def _validate_policy_result_identity_bindings(
+    *,
+    policy_result: PolicyEvaluationResult,
+    policy_version: str | None,
+    policy_schema_version: str | None,
+    policy_checksum: str | None,
+    policy_authority: str | None,
+    context_authority_checksum: str | None,
+) -> None:
+    if policy_result.policy_version != policy_version:
+        raise ValueError("policy_result policy_version must match admission")
+    if policy_result.policy_schema_version != policy_schema_version:
+        raise ValueError("policy_result policy_schema_version must match admission")
+    if policy_result.policy_checksum != policy_checksum:
+        raise ValueError("policy_result policy_checksum must match admission")
+    if policy_result.policy_authority != policy_authority:
+        raise ValueError("policy_result policy_authority must match admission")
+    if policy_result.context_authority_checksum != context_authority_checksum:
+        raise ValueError("policy_result context_authority_checksum must match admission")
 
 
 def _validate_policy_result_trust_bindings(
@@ -1373,6 +1609,30 @@ def _require_freshness_backed_admission(
         raise ValueError("allowed ENFORCE admission requires freshness_result_checksum")
     if freshness_status != "FRESH":
         raise ValueError("allowed ENFORCE admission requires freshness_status FRESH")
+
+
+def _require_context_authority_backed_admission(
+    *,
+    context_authority_checksum: str | None,
+    context_id: str | None,
+    caller_authority: str | None,
+    deployment_domain: str | None,
+    context_schema_version: str | None,
+    context_evaluation_time_ms: int | None,
+) -> None:
+    required_values = {
+        "context_authority_checksum": context_authority_checksum,
+        "context_id": context_id,
+        "caller_authority": caller_authority,
+        "deployment_domain": deployment_domain,
+        "context_schema_version": context_schema_version,
+        "context_evaluation_time_ms": context_evaluation_time_ms,
+    }
+    missing = tuple(key for key, value in required_values.items() if value is None)
+    if missing:
+        raise ValueError(
+            f"allowed ENFORCE admission missing context authority: {', '.join(missing)}"
+        )
 
 
 def _require_admissibility_backed_admission(
@@ -1761,6 +2021,73 @@ def _normalize_policy_id(
     return normalized
 
 
+def _normalize_policy_version_binding(
+    policy_version: str | None,
+    policy_result: PolicyEvaluationResult | None,
+) -> str | None:
+    normalized = _normalize_optional_text(policy_version, "policy_version")
+    expected = policy_result.policy_version if policy_result is not None else None
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError("policy_version must match policy_result.policy_version")
+    return normalized
+
+
+def _normalize_policy_schema_version_binding(
+    policy_schema_version: str | None,
+    policy_result: PolicyEvaluationResult | None,
+) -> str | None:
+    normalized = _normalize_optional_text(policy_schema_version, "policy_schema_version")
+    expected = policy_result.policy_schema_version if policy_result is not None else None
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError("policy_schema_version must match policy_result.policy_schema_version")
+    return normalized
+
+
+def _normalize_policy_checksum_binding(
+    policy_checksum: str | None,
+    policy_result: PolicyEvaluationResult | None,
+) -> str | None:
+    normalized = _normalize_optional_text(policy_checksum, "policy_checksum")
+    expected = policy_result.policy_checksum if policy_result is not None else None
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError("policy_checksum must match policy_result.policy_checksum")
+    return normalized
+
+
+def _normalize_policy_authority_binding(
+    policy_authority: str | None,
+    policy_result: PolicyEvaluationResult | None,
+) -> str | None:
+    normalized = _normalize_optional_text(policy_authority, "policy_authority")
+    expected = policy_result.policy_authority if policy_result is not None else None
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError("policy_authority must match policy_result.policy_authority")
+    return normalized
+
+
+def _normalize_context_authority_checksum_binding(
+    context_authority_checksum: str | None,
+    policy_result: PolicyEvaluationResult | None,
+) -> str | None:
+    normalized = _normalize_optional_text(context_authority_checksum, "context_authority_checksum")
+    expected = policy_result.context_authority_checksum if policy_result is not None else None
+    if normalized is None:
+        return expected
+    if expected is not None and normalized != expected:
+        raise ValueError(
+            "context_authority_checksum must match policy_result.context_authority_checksum"
+        )
+    return normalized
+
+
 def _normalize_policy_result_checksum(
     policy_result_checksum: str | None,
     policy_result: PolicyEvaluationResult | None,
@@ -1810,6 +2137,7 @@ def _normalize_text_tuple(values: Iterable[str], field_name: str) -> tuple[str, 
 
 
 def _freeze_admission_mapping(values: Mapping[str, object]) -> Mapping[str, FrozenPolicyValue]:
+    validate_resource_bounds(values, label="policy admission mapping")
     return _freeze_admission_items(values.items())
 
 

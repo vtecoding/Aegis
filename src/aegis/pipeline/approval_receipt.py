@@ -96,6 +96,12 @@ def build_approval_receipt(
         trust_result_checksum=policy_admission.world_snapshot_trust_result_checksum
         if "world_snapshot_trust" in present_stages
         else None,
+        policy_checksum=policy_admission.policy_checksum
+        if "policy_evaluation" in present_stages
+        else None,
+        context_authority_checksum=policy_admission.context_authority_checksum
+        if "policy_evaluation" in present_stages
+        else None,
         policy_result_checksum=policy_result_identity_checksum(policy_admission.policy_result)
         if "policy_evaluation" in present_stages
         else None,

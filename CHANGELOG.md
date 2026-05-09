@@ -10,6 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Authority drift, policy versioning, context authority, resource bounds, and contract coverage gates for Phase 2 Part 11 / ADR-0014: versioned policy checksums, explicit `ContextAuthority`, direct approval receipt policy/context bindings, governance manifests, contract drift sentinel, stage/category/checksum coverage sentinel, and deterministic resource-bound validation
+- Governance, adversarial, and invariant tests proving authority manifests stay aligned with dataclass fields, policy identity is checksum-bound, missing or mismatched context authority cannot approve, forged receipts cannot omit context bindings, and the release stage/category coverage registries fail closed on drift
 - Deterministic Scenario Runner and Evil-Twin Coverage Gate for Phase 2 Part 10 / ADR-0013: immutable scenario contracts, canonical scenario fixtures, real `run_pipeline` scenario execution, expectation validation against both pipeline outcome and receipt-proven decision path, required category coverage, stable scenario/suite checksums, and evil-twin rejection for forged, mismatched, replayed, overclaimed, confusable, checksum-corrupted, and direct-gate-only evidence
 - Scenario contract, runner, coverage, integration, adversarial, and invariant tests proving all required ADR-0013 categories are represented, allowed paths carry valid full receipts, blocked paths stop at expected upstream stages without late approval artifacts, direct gate allow is not full pipeline approval, replayed receipts fail closed, and deterministic repeat checksums are stable
 - Decision Trace and Approval Receipt v1 for Phase 2 Part 9 / ADR-0012: deterministic `DecisionTraceStep`, `DecisionTrace`, `ApprovalReceipt`, and `ApprovalReceiptValidationResult` contracts binding raw intent, validation, plan, audit, admissibility, freshness, verifier/config authority, trust, policy result, SafetyCase, admission, gate, and receipt checksums
@@ -44,6 +46,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bootstrap import test and invariant test
 
 ### Changed
+- ENFORCE-mode approval paths now require explicit versioned policy identity and matching context authority before an ALLOW decision can reach the gate; blocked and invalid paths preserve their upstream failure evidence without requiring context authority
+- Approval receipts now directly bind policy checksum and context authority checksum in addition to decision-trace stage outputs
 - Scenario runner exports now include the ADR-0013 pipeline scenario APIs while preserving the legacy JSON fixture runner used by Phase 1 demo tests
 - `PipelineOutcome.ALLOWED` now requires valid decision trace and approval receipt integrity in addition to policy-backed admission integrity and final gate approval
 - ENFORCE-mode approval paths now certify the injected verifier adapter and validate trust-policy configuration after freshness and before world snapshot trust evaluation

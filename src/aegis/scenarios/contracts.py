@@ -22,6 +22,7 @@ from aegis.contracts.world_snapshot_trust import (
     WorldSnapshotEvidenceEnvelope,
     WorldSnapshotTrustPolicy,
 )
+from aegis.governance.context_authority import ContextAuthority
 
 type DecisionTraceStageName = str
 type TrustPolicyConfig = WorldSnapshotTrustPolicy
@@ -137,6 +138,7 @@ class ScenarioDefinition:
     expected: ScenarioExpectation
     metadata: Mapping[str, FrozenJsonValue]
     capability: Capability | None = None
+    context_authority: ContextAuthority | None = None
     world_snapshot_evidence: WorldSnapshotEvidenceEnvelope | None = None
     freshness_policy: FreshnessPolicy | None = None
     runtime_trust_domain: TrustDomain = TrustDomain.SIMULATION
