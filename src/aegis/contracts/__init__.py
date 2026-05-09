@@ -1,5 +1,12 @@
 """Shared typed contracts between Aegis pipeline layers."""
 
+from aegis.contracts.approval_receipt import (
+    ApprovalReceipt,
+    ApprovalReceiptReason,
+    ApprovalReceiptStatus,
+    ApprovalReceiptValidationResult,
+    validate_approval_receipt,
+)
 from aegis.contracts.attestation_verifier import (
     AttestationVerifierAdapter,
     AttestationVerifierAdapterMetadata,
@@ -11,6 +18,7 @@ from aegis.contracts.attestation_verifier import (
 )
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
+from aegis.contracts.decision_trace import DecisionTrace, DecisionTraceStep
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.json_types import (
@@ -128,4 +136,11 @@ __all__ = [
     "policy_evaluation_result_checksum",
     "trust_policy_config_validation_result_checksum",
     "validate_trust_policy_config",
+    "ApprovalReceipt",
+    "ApprovalReceiptReason",
+    "ApprovalReceiptStatus",
+    "ApprovalReceiptValidationResult",
+    "validate_approval_receipt",
+    "DecisionTrace",
+    "DecisionTraceStep",
 ]

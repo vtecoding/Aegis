@@ -10,6 +10,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Decision Trace and Approval Receipt v1 for Phase 2 Part 9 / ADR-0012: deterministic `DecisionTraceStep`, `DecisionTrace`, `ApprovalReceipt`, and `ApprovalReceiptValidationResult` contracts binding raw intent, validation, plan, audit, admissibility, freshness, verifier/config authority, trust, policy result, SafetyCase, admission, gate, and receipt checksums
+- Pipeline receipt wiring that attaches a decision trace, approval receipt, and receipt validation to every orchestrated `PipelineResult`, and downgrades would-be approvals to `ERROR` with `APPROVAL_RECEIPT_INTEGRITY_FAILED` when receipt integrity fails
+- Contract, integration, adversarial, invariant, and regression tests proving no `PipelineOutcome.ALLOWED` can exist without a valid receipt, missing/reordered/duplicated/forged stages fail closed, partial blocked/invalid receipts cannot claim unreached stages, replayed receipts cannot bind to a different plan, and direct gate allow is not full pipeline approval
 - Verifier adapter and trust-policy configuration hardening for Phase 2 Part 7: deterministic `AttestationVerifierAdapterMetadata`, `VerifierAdapterCertificationResult`, `TrustPolicyConfigValidationResult`, required verifier certification vectors, runtime-domain config validation, and ENFORCE-mode blocking for missing, unsafe, malformed, non-deterministic, or uncertified verifier adapters and invalid trust-policy configs
 - Trust authority evidence propagation through `WorldSnapshotTrustResult`, `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`, making `PipelineOutcome.ALLOWED` require certified verifier metadata and valid trust-policy config bindings in addition to FRESH and TRUSTED snapshot evidence
 - Contract, integration, adversarial, and Hypothesis invariant tests proving arbitrary verifier objects, disabled-attestation policies, physical-runtime test sources, verifier key mismatches, and forged verifier/config admission bindings cannot produce approval
@@ -39,6 +42,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bootstrap import test and invariant test
 
 ### Changed
+- `PipelineOutcome.ALLOWED` now requires valid decision trace and approval receipt integrity in addition to policy-backed admission integrity and final gate approval
 - ENFORCE-mode approval paths now certify the injected verifier adapter and validate trust-policy configuration after freshness and before world snapshot trust evaluation
 - ENFORCE-mode approval paths now require explicit world snapshot trust evidence, an explicit trust policy, and a TRUSTED trust result before policy evaluation can approve
 - ENFORCE-mode approval paths now require an explicit `world_snapshot` and caller-supplied `evaluation_time_ms`; disabled or non-fresh admission paths remain non-approved and do not reach final gate approval

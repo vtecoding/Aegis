@@ -6,6 +6,7 @@ from typing import TypedDict
 
 from aegis.audit import build_audited_plan
 from aegis.constants import GATE_VERSION, PIPELINE_VERSION
+from aegis.contracts.approval_receipt import ApprovalReceiptStatus
 from aegis.contracts.attestation_verifier import (
     VerifierAdapterCertificationResult,
     VerifierCertificationStatus,
@@ -13,8 +14,10 @@ from aegis.contracts.attestation_verifier import (
 )
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
+from aegis.contracts.gate import GateDecision
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.planning import CommandPlan
 from aegis.contracts.policy import PolicyDecision, PolicyEvaluationResult, SafetyCase
 from aegis.contracts.policy_admission import (
     PolicyAdmissionDecision,
@@ -31,6 +34,7 @@ from aegis.contracts.trust_policy_config import (
     TrustPolicyConfigValidationResult,
     validate_trust_policy_config,
 )
+from aegis.contracts.validation import ValidationResult
 from aegis.contracts.world_snapshot_admissibility import (
     WorldSnapshotAdmissibilityStatus,
     validate_world_snapshot_admissibility,
@@ -53,6 +57,8 @@ from aegis.contracts.world_snapshot_trust import (
 )
 from aegis.errors import AegisError, PolicyAdmissionIntegrityError
 from aegis.gate import gate_audited_plan
+from aegis.pipeline.approval_receipt import build_approval_receipt, validate_approval_receipt
+from aegis.pipeline.decision_trace import build_decision_trace
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case, evaluate_policy
 from aegis.validation import validate_intent
@@ -174,7 +180,9 @@ def _run(
     except Exception:  # noqa: BLE001
         # validate_intent is a pure function with no expected exceptions beyond
         # AegisError; any non-AegisError here is a framework-level failure.
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=PipelineOutcome.ERROR,
             validation_result=None,
             plan=None,
@@ -184,7 +192,9 @@ def _run(
         )
 
     if not validation_result.is_valid:
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=PipelineOutcome.INVALID,
             validation_result=validation_result,
             plan=None,
@@ -200,7 +210,9 @@ def _run(
     except AegisError:
         raise
     except Exception:  # noqa: BLE001
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=PipelineOutcome.ERROR,
             validation_result=validation_result,
             plan=None,
@@ -216,7 +228,9 @@ def _run(
     except AegisError:
         raise
     except Exception:  # noqa: BLE001
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=PipelineOutcome.ERROR,
             validation_result=validation_result,
             plan=plan,
@@ -237,7 +251,9 @@ def _run(
         runtime_trust_domain=runtime_trust_domain,
     )
     if blocked_outcome is not None:
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=blocked_outcome,
             validation_result=validation_result,
             plan=plan,
@@ -253,7 +269,9 @@ def _run(
     except AegisError:
         raise
     except Exception:  # noqa: BLE001
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=PipelineOutcome.ERROR,
             validation_result=validation_result,
             plan=plan,
@@ -265,7 +283,9 @@ def _run(
     if decision.status == "allowed" and not is_policy_backed_approval(
         audited_plan, policy_record, decision
     ):
-        return PipelineResult(
+        return _pipeline_result(
+            raw_intent=raw_intent,
+            context=context,
             outcome=PipelineOutcome.ERROR,
             validation_result=validation_result,
             plan=plan,
@@ -275,13 +295,80 @@ def _run(
         )
 
     outcome = PipelineOutcome.ALLOWED if decision.status == "allowed" else PipelineOutcome.BLOCKED
-    return PipelineResult(
+    return _pipeline_result(
+        raw_intent=raw_intent,
+        context=context,
         outcome=outcome,
         validation_result=validation_result,
         plan=plan,
         audited_plan=audited_plan,
         gate_decision=decision,
         policy_admission=policy_record,
+    )
+
+
+def _pipeline_result(
+    *,
+    raw_intent: RawIntent,
+    context: ExecutionContext,
+    outcome: PipelineOutcome,
+    validation_result: object,
+    plan: CommandPlan | None,
+    audited_plan: AuditedPlan | None,
+    gate_decision: object,
+    policy_admission: PolicyAdmissionRecord,
+) -> PipelineResult:
+    typed_validation_result = (
+        validation_result if isinstance(validation_result, ValidationResult) else None
+    )
+    typed_gate_decision = gate_decision if isinstance(gate_decision, GateDecision) else None
+    decision_trace = build_decision_trace(
+        raw_intent=raw_intent,
+        context=context,
+        validation_result=typed_validation_result,
+        plan=plan,
+        audited_plan=audited_plan,
+        gate_decision=typed_gate_decision,
+        policy_admission=policy_admission,
+    )
+    approval_receipt = build_approval_receipt(
+        pipeline_outcome=outcome.value,
+        raw_intent=raw_intent,
+        decision_trace=decision_trace,
+        validation_result=typed_validation_result,
+        plan=plan,
+        audited_plan=audited_plan,
+        gate_decision=typed_gate_decision,
+        policy_admission=policy_admission,
+    )
+    receipt_validation = validate_approval_receipt(approval_receipt, decision_trace)
+    if (
+        outcome is PipelineOutcome.ALLOWED
+        and receipt_validation.status is not ApprovalReceiptStatus.VALID
+    ):
+        return PipelineResult(
+            outcome=PipelineOutcome.ERROR,
+            validation_result=typed_validation_result,
+            plan=plan,
+            audited_plan=audited_plan,
+            gate_decision=None,
+            policy_admission=_error_policy_record(
+                policy_admission, "APPROVAL_RECEIPT_INTEGRITY_FAILED"
+            ),
+            decision_trace=decision_trace,
+            approval_receipt=approval_receipt,
+            receipt_validation=receipt_validation,
+        )
+    return PipelineResult(
+        outcome=outcome,
+        validation_result=typed_validation_result,
+        plan=plan,
+        audited_plan=audited_plan,
+        gate_decision=typed_gate_decision,
+        policy_admission=policy_admission,
+        decision_trace=decision_trace,
+        approval_receipt=approval_receipt,
+        receipt_validation=receipt_validation,
     )
 
 

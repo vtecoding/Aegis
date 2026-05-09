@@ -5,7 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from aegis.contracts.approval_receipt import (
+    ApprovalReceipt,
+    ApprovalReceiptStatus,
+    ApprovalReceiptValidationResult,
+    approval_receipt_matches_pipeline_fields,
+)
 from aegis.contracts.audit import AuditedPlan
+from aegis.contracts.decision_trace import DecisionTrace
 from aegis.contracts.gate import GateDecision
 from aegis.contracts.planning import CommandPlan
 from aegis.contracts.policy import PolicyDecision
@@ -57,6 +64,9 @@ class PipelineResult:
             or auditing was not reached.
         gate_decision: Gate decision; ``None`` when the gate was not reached.
         policy_admission: Policy admission state for this pipeline run.
+        decision_trace: Hash-linked deterministic decision trace for the run.
+        approval_receipt: Receipt binding the decision trace to pipeline evidence.
+        receipt_validation: Machine-checkable receipt validation result.
 
     Raises:
         ValueError: If the outcome/field combination violates pipeline-v1
@@ -71,6 +81,9 @@ class PipelineResult:
     policy_admission: PolicyAdmissionRecord = field(
         default_factory=disabled_policy_admission_record
     )
+    decision_trace: DecisionTrace | None = None
+    approval_receipt: ApprovalReceipt | None = None
+    receipt_validation: ApprovalReceiptValidationResult | None = None
 
     def __post_init__(self) -> None:
         """Enforce pipeline-v1 outcome/field invariants."""
@@ -88,6 +101,33 @@ class PipelineResult:
             ):
                 raise ValueError(
                     "PipelineResult outcome=ALLOWED requires policy-backed admission integrity"
+                )
+            if (
+                self.decision_trace is None
+                or self.approval_receipt is None
+                or self.receipt_validation is None
+            ):
+                raise ValueError("PipelineResult outcome=ALLOWED requires a valid approval receipt")
+            if (
+                self.approval_receipt.status is not ApprovalReceiptStatus.VALID
+                or self.receipt_validation.status is not ApprovalReceiptStatus.VALID
+            ):
+                raise ValueError(
+                    "PipelineResult outcome=ALLOWED requires valid approval receipt integrity"
+                )
+            if not approval_receipt_matches_pipeline_fields(
+                receipt=self.approval_receipt,
+                decision_trace=self.decision_trace,
+                receipt_validation=self.receipt_validation,
+                pipeline_outcome=self.outcome.value,
+                validation_result=self.validation_result,
+                plan=self.plan,
+                audited_plan=self.audited_plan,
+                gate_decision=self.gate_decision,
+                policy_admission=self.policy_admission,
+            ):
+                raise ValueError(
+                    "PipelineResult outcome=ALLOWED requires approval receipt bindings"
                 )
         elif self.outcome == PipelineOutcome.BLOCKED:
             gate_blocked = self.gate_decision is not None and self.gate_decision.status == "blocked"
@@ -149,3 +189,10 @@ class PipelineResult:
             gate_allowed = self.gate_decision is not None and self.gate_decision.status == "allowed"
             if gate_allowed or self.policy_admission.admission_allowed:
                 raise ValueError("PipelineResult outcome=ERROR must not include approval")
+            if (
+                self.approval_receipt is not None
+                and self.approval_receipt.pipeline_outcome == PipelineOutcome.ALLOWED.value
+                and self.receipt_validation is not None
+                and self.receipt_validation.status is ApprovalReceiptStatus.VALID
+            ):
+                raise ValueError("PipelineResult outcome=ERROR must not include valid approval")

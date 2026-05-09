@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 7: Verifier adapter and trust policy hardening** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 9: Decision trace and approval receipt integrity** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 2 Part 7 — Verifier Adapter and Trust Policy Hardening
+## 2. Current Phase: Phase 2 Part 9 — Decision Trace and Approval Receipt Integrity
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -292,6 +292,33 @@ This slice proves deterministic certification and configuration hardening only. 
 not prove physical-world truth, cryptographic soundness beyond the injected verifier
 contract, sensor correctness, ROS/middleware safety, collision safety, actuator safety,
 certification readiness, or physical robot safety.
+
+### Phase 2 Part 8: World Snapshot Admissibility-Bound Approval
+
+Phase 2 Part 8 makes world snapshot admissibility the upstream boundary before freshness,
+verifier/config certification, trust evaluation, policy evaluation, SafetyCase construction,
+admission integrity, and final gate approval. Missing snapshots, missing or empty checksums,
+capability-scope mismatches, malformed facts, missing declared fact keys, missing required
+fact keys, and undeclared required fact keys fail closed before freshness or trust can run.
+
+This slice proves supplied world snapshot evidence is structurally admissible for the
+requested capability before it can become policy evidence. It does not prove the facts are
+true, complete, physically safe, or derived from live sensors.
+
+### Phase 2 Part 9: Decision Trace & Approval Receipt Integrity
+
+Phase 2 Part 9 adds deterministic Decision Trace and Approval Receipt v1 contracts to the
+pipeline return boundary. Every orchestrated `PipelineResult` carries a hash-linked trace
+and receipt. `PipelineOutcome.ALLOWED` requires receipt validation status `VALID`, the full
+required stage chain, intact predecessor links, canonical stage checksums, a matching trace
+checksum, a matching receipt checksum, and receipt fields bound to the concrete pipeline
+artifacts.
+
+If a would-be approval cannot prove its receipt integrity, the pipeline must return
+`PipelineOutcome.ERROR` with `APPROVAL_RECEIPT_INTEGRITY_FAILED`. This slice proves
+decision-boundary evidence integrity only; it does not prove physical robot safety,
+semantic world truth, simulation safety, middleware safety, actuator safety, certification
+readiness, or signed external receipt authenticity.
 
 ---
 

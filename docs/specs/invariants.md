@@ -557,3 +557,60 @@ trust-policy configs, cannot participate in `ENFORCE` approval.
 `tests/contracts/test_trust_policy_config_contract.py`,
 `tests/integration/test_pipeline_trust_authority_hardening.py`,
 `tests/adversarial/test_attestation_verifier_adapter_bypass.py`
+
+---
+
+## INV-APPROVAL-RECEIPT-001: Allowed Implies Valid Approval Receipt
+
+**Statement:** `PipelineOutcome.ALLOWED` implies `approval_receipt.status == VALID`,
+`receipt_validation.status == VALID`, and both are bound to the same decision trace
+checksum.
+
+**Invariant and integration tests:** `tests/invariants/test_approval_receipt_invariants.py`,
+`tests/integration/test_pipeline_approval_receipt.py`
+
+---
+
+## INV-APPROVAL-RECEIPT-002: Allowed Requires Full Stage Chain
+
+**Statement:** `PipelineOutcome.ALLOWED` implies the decision trace contains the full
+ordered chain: raw intent, validation, planning, audit, world snapshot admissibility,
+freshness, verifier certification, trust-policy config, world snapshot trust, policy
+evaluation, SafetyCase, policy admission, and final gate decision.
+
+**Invariant and adversarial tests:** `tests/invariants/test_approval_receipt_invariants.py`,
+`tests/adversarial/test_approval_receipt_bypass.py`
+
+---
+
+## INV-APPROVAL-RECEIPT-003: Trace And Receipt Checksums Recompute
+
+**Statement:** Every ALLOWED trace step checksum, predecessor checksum, trace checksum,
+and approval receipt checksum must match canonical recomputation. Manual replacement,
+stage reordering, duplicate stages, unknown stages, or broken predecessor links fail
+closed.
+
+**Contract and adversarial tests:** `tests/contracts/test_decision_trace_contract.py`,
+`tests/contracts/test_approval_receipt_contract.py`,
+`tests/adversarial/test_approval_receipt_bypass.py`
+
+---
+
+## INV-APPROVAL-RECEIPT-004: Partial Receipts Cannot Claim Unreached Stages
+
+**Statement:** BLOCKED, INVALID, and ERROR receipts may be partial, but they must not
+carry fake policy, trust, SafetyCase, admission, or gate checksums for stages that did
+not execute.
+
+**Contract and integration tests:** `tests/contracts/test_approval_receipt_contract.py`,
+`tests/integration/test_pipeline_approval_receipt.py`
+
+---
+
+## INV-APPROVAL-RECEIPT-005: Direct Gate Allow Is Not Full Pipeline Approval
+
+**Statement:** A direct `GateDecision(status=ALLOWED)` cannot be represented as a full
+pipeline approval unless the policy chain and approval receipt also validate against the
+same audited plan.
+
+**Regression test:** `tests/regression/test_direct_gate_not_full_approval_receipt.py`

@@ -18,6 +18,8 @@ from aegis.contracts.policy import Capability, PolicyDecision, PolicyEvaluationR
 from aegis.contracts.policy_admission import PolicyAdmissionMode, PolicyAdmissionRecord
 from aegis.contracts.validation import ValidationResult, Violation
 from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
+from aegis.pipeline.approval_receipt import build_approval_receipt, validate_approval_receipt
+from aegis.pipeline.decision_trace import build_decision_trace
 from aegis.policy import build_safety_case
 
 # ---------------------------------------------------------------------------
@@ -47,13 +49,36 @@ def _make_allowed_result(
     audited_plan: AuditedPlan,
     gate_decision: GateDecision,
 ) -> PipelineResult:
+    policy_record = _allowed_policy_record(audited_plan)
+    decision_trace = build_decision_trace(
+        raw_intent=validation_result.intent,
+        context=validation_result.intent.context,
+        validation_result=validation_result,
+        plan=plan,
+        audited_plan=audited_plan,
+        gate_decision=gate_decision,
+        policy_admission=policy_record,
+    )
+    approval_receipt = build_approval_receipt(
+        pipeline_outcome=PipelineOutcome.ALLOWED.value,
+        raw_intent=validation_result.intent,
+        decision_trace=decision_trace,
+        validation_result=validation_result,
+        plan=plan,
+        audited_plan=audited_plan,
+        gate_decision=gate_decision,
+        policy_admission=policy_record,
+    )
     return PipelineResult(
         outcome=PipelineOutcome.ALLOWED,
         validation_result=validation_result,
         plan=plan,
         audited_plan=audited_plan,
         gate_decision=gate_decision,
-        policy_admission=_allowed_policy_record(audited_plan),
+        policy_admission=policy_record,
+        decision_trace=decision_trace,
+        approval_receipt=approval_receipt,
+        receipt_validation=validate_approval_receipt(approval_receipt, decision_trace),
     )
 
 
@@ -548,13 +573,8 @@ def test_pipeline_result_is_frozen(
     make_audited_plan: AuditedPlan,
     make_allowed_gate_decision: GateDecision,
 ) -> None:
-    result = PipelineResult(
-        outcome=PipelineOutcome.ALLOWED,
-        validation_result=make_validation_result,
-        plan=make_command_plan,
-        audited_plan=make_audited_plan,
-        gate_decision=make_allowed_gate_decision,
-        policy_admission=_allowed_policy_record(make_audited_plan),
+    result = _make_allowed_result(
+        make_validation_result, make_command_plan, make_audited_plan, make_allowed_gate_decision
     )
     with pytest.raises((AttributeError, TypeError)):
         result.outcome = PipelineOutcome.BLOCKED  # type: ignore[misc]

@@ -13,6 +13,8 @@ Phase 2 Part 6 adds deterministic world snapshot trust and attestation before po
 evaluation.
 Phase 2 Part 7 adds deterministic verifier adapter certification and trust-policy
 configuration validation before trust evaluation.
+Phase 2 Part 9 adds deterministic decision traces and approval receipts so every
+returned pipeline decision is reconstructable and tamper-evident.
 
 ---
 
@@ -31,6 +33,9 @@ configuration validation before trust evaluation.
     snapshot provenance before policy evaluation can approve.
 - In policy-enforced mode, require a certified verifier adapter and valid trust-policy
     configuration before trust evaluation can approve.
+- Return a deterministic `DecisionTrace`, `ApprovalReceipt`, and
+    `ApprovalReceiptValidationResult` for every orchestrated pipeline result.
+- Require valid receipt integrity for any `PipelineOutcome.ALLOWED` result.
 
 ---
 
@@ -50,6 +55,8 @@ configuration validation before trust evaluation.
   middleware safety, simulation safety, collision safety, actuator safety, or certification.
 - No proof that verifier certification implies real-world cryptographic soundness beyond
     the deterministic adapter contract and injected verifier implementation.
+- No claim that approval receipts prove physical robot safety or semantic truth of world facts.
+- No signed receipts or external receipt export in v1.
 
 ---
 
@@ -79,10 +86,14 @@ class PipelineOutcome(StrEnum):
 | `audited_plan` | `AuditedPlan \| None` | Audit receipt; populated when auditing succeeded |
 | `gate_decision` | `GateDecision \| None` | Gate decision; populated when gate ran |
 | `policy_admission` | `PolicyAdmissionRecord` | Disabled or enforced policy admission state |
+| `decision_trace` | `DecisionTrace \| None` | Hash-linked stage trace produced by the orchestrator |
+| `approval_receipt` | `ApprovalReceipt \| None` | Tamper-evident receipt binding the decision trace to pipeline evidence |
+| `receipt_validation` | `ApprovalReceiptValidationResult \| None` | Machine-checkable receipt validation result |
 
 **Outcome derivation rules:**
 - `ALLOWED` — policy admission is `ENFORCE`, policy decision is `ALLOW`, SafetyCase and
-    admission bindings pass integrity checks, and `gate_decision.status == GateDecisionStatus.ALLOWED`
+    admission bindings pass integrity checks, `gate_decision.status == GateDecisionStatus.ALLOWED`,
+    and approval receipt integrity is `VALID`
 - `BLOCKED` — policy admission is disabled, missing, or denied; or the gate blocks after
     policy-backed admission
 - `INVALID` — validation failed before planning, or policy admission produced `PolicyDecision.INVALID`
@@ -114,7 +125,7 @@ def run_pipeline(
 
     Composes validate_intent → plan_validated_intent → build_audited_plan →
     optional world snapshot freshness → optional policy admission →
-    gate_audited_plan deterministically.
+    gate_audited_plan → decision trace → approval receipt deterministically.
 
     In ENFORCE mode, evaluation_time_ms is required. It is caller-supplied and
     never derived from wall-clock time. Trust evidence, trust policy, certified verifier,
@@ -143,6 +154,7 @@ def run_pipeline(
 | Policy ENFORCE has disallowed source/domain/capability or invalid attestation | `BLOCKED` | validation, plan, audit, denied policy record; no gate decision |
 | Policy ENFORCE has malformed or contradictory trust evidence | `INVALID` | validation, plan, audit, denied policy record; no gate decision |
 | Policy ENFORCE returns ALLOW, integrity passes, and gate allows | `ALLOWED` | all layer fields plus enforced policy record |
+| Policy ENFORCE returns ALLOW and gate allows, but receipt validation fails | `ERROR` | computed fields plus failed receipt validation; no approval |
 | Policy ENFORCE denies before gate | `BLOCKED`, `INVALID`, or `ERROR` | validation, plan, audit, policy record |
 | Policy ENFORCE allows but gate blocks | `BLOCKED` | validation, plan, audit, policy record, blocked gate decision |
 | Unexpected non-`AegisError` exception | `ERROR` | as many as were computed before the exception |
@@ -169,6 +181,11 @@ failures.
 - `outcome == ALLOWED` implies freshness status is `FRESH` and the freshness checksum is bound through policy result, SafetyCase, and admission record
 - `outcome == ALLOWED` implies trust status is `TRUSTED` and trust checksums/source/domain bindings are bound through policy result, SafetyCase, and admission record
 - `outcome == ALLOWED` implies verifier certification status is `CERTIFIED`, trust-policy config status is `VALID`, and their checksums/metadata bindings are bound through policy result, SafetyCase, and admission record
+- `outcome == ALLOWED` implies `approval_receipt.status == VALID` and `receipt_validation.status == VALID`
+- `outcome == ALLOWED` implies the decision trace contains the full ordered chain: raw intent, validation, planning, audit, admissibility, freshness, verifier certification, trust-policy config, trust, policy evaluation, SafetyCase, admission, and gate decision
+- `outcome == ALLOWED` implies every decision trace predecessor link, stage checksum, trace checksum, and approval receipt checksum matches canonical recomputation
+- `outcome == ALLOWED` implies all receipt-bound identities match the concrete `PipelineResult` fields
+- Blocked or invalid receipts must not contain fake checksums for stages that did not execute
 - `outcome == BLOCKED` implies a blocked gate decision or denied enforced policy admission
 - `outcome == INVALID` implies `plan is None and audited_plan is None and gate_decision is None`
     unless the invalid state is produced by policy admission or malformed freshness after audit
@@ -200,6 +217,9 @@ freshness_status == FRESH for every outcome == ALLOWED
 world_snapshot_trust_status == TRUSTED for every outcome == ALLOWED
 verifier_certification_status == CERTIFIED for every outcome == ALLOWED
 trust_policy_config_status == VALID for every outcome == ALLOWED
+approval_receipt_status == VALID for every outcome == ALLOWED
+receipt_validation_status == VALID for every outcome == ALLOWED
+decision_trace_full_chain_present for every outcome == ALLOWED
 world_snapshot_freshness_wall_clock_reads = 0
 world_snapshot_trust_external_state_reads = 0
 disabled_policy_admission_allowed_count = 0
