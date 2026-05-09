@@ -1,5 +1,17 @@
 """Scenario runner v1: deterministic proof harness for the Aegis pipeline."""
 
+from aegis.scenarios.contracts import (
+    CoverageGateResult,
+    EvilTwinMutation,
+    ScenarioCategory,
+    ScenarioDefinition,
+    ScenarioExpectation,
+    ScenarioRunResult,
+    ScenarioSuiteResult,
+    ScenarioViolation,
+)
+from aegis.scenarios.coverage import evaluate_scenario_coverage
+from aegis.scenarios.fixtures import ScenarioFixtureFactory, canonical_scenario_definitions
 from aegis.scenarios.models import (
     ScenarioAuditSummary,
     ScenarioExpected,
@@ -9,17 +21,38 @@ from aegis.scenarios.models import (
     ScenarioPlanStep,
     ScenarioResult,
 )
-from aegis.scenarios.runner import parse_scenario_fixture, run_scenario, run_scenarios
+from aegis.scenarios.runner import (
+    parse_scenario_fixture,
+    run_canonical_scenario_suite,
+    run_pipeline_scenario,
+    run_scenario,
+    run_scenario_suite,
+    run_scenarios,
+)
 
 __all__ = [
+    "CoverageGateResult",
+    "EvilTwinMutation",
+    "ScenarioCategory",
+    "ScenarioDefinition",
+    "ScenarioExpectation",
+    "ScenarioFixtureFactory",
     "ScenarioAuditSummary",
     "ScenarioExpected",
     "ScenarioFixture",
     "ScenarioIntentFixture",
     "ScenarioMetrics",
     "ScenarioPlanStep",
+    "ScenarioRunResult",
     "ScenarioResult",
+    "ScenarioSuiteResult",
+    "ScenarioViolation",
+    "canonical_scenario_definitions",
+    "evaluate_scenario_coverage",
     "parse_scenario_fixture",
+    "run_canonical_scenario_suite",
+    "run_pipeline_scenario",
     "run_scenario",
+    "run_scenario_suite",
     "run_scenarios",
 ]

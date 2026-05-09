@@ -6,13 +6,28 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 
 from aegis.audit import build_audited_plan
+from aegis.contracts.approval_receipt import ApprovalReceipt
 from aegis.contracts.context import ExecutionContext
+from aegis.contracts.decision_trace import DecisionTrace
 from aegis.contracts.gate import GateBlockReason, GateDecisionStatus
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.json_types import FrozenJsonValue, JsonValue
+from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.world_snapshot_freshness import DEFAULT_FRESHNESS_POLICY
 from aegis.errors import PlanningError
 from aegis.gate import gate_audited_plan
+from aegis.pipeline import run_pipeline
 from aegis.planning import plan_validated_intent
+from aegis.scenarios.contracts import (
+    EvilTwinMutation,
+    ScenarioDefinition,
+    ScenarioRunResult,
+    ScenarioSuiteResult,
+    scenario_suite_checksum,
+)
+from aegis.scenarios.coverage import evaluate_scenario_coverage
+from aegis.scenarios.fixtures import canonical_scenario_definitions
 from aegis.scenarios.models import (
     ScenarioAuditSummary,
     ScenarioExpected,
@@ -22,6 +37,7 @@ from aegis.scenarios.models import (
     ScenarioPlanStep,
     ScenarioResult,
 )
+from aegis.scenarios.validators import validate_scenario_result
 from aegis.validation import validate_intent
 
 
@@ -351,3 +367,180 @@ def _has_metadata_key(params: Mapping[str, FrozenJsonValue]) -> bool:
         if _contains_metadata(value):
             return True
     return False
+
+
+def run_pipeline_scenario(scenario: ScenarioDefinition) -> ScenarioRunResult:
+    """Run one ADR-0013 scenario through the real orchestrated pipeline.
+
+    Args:
+        scenario: Immutable scenario definition.
+
+    Returns:
+        A checksum-bound scenario result validated against outcome, reason,
+        trace path, and approval receipt integrity.
+    """
+    pipeline_result = run_pipeline(
+        scenario.intent,
+        scenario.intent.context,
+        policy_admission=_policy_admission_for_scenario(scenario),
+        evaluation_time_ms=scenario.evaluation_time_ms,
+        freshness_policy=scenario.freshness_policy or DEFAULT_FRESHNESS_POLICY,
+        world_snapshot_evidence=scenario.world_snapshot_evidence,
+        world_snapshot_trust_policy=scenario.trust_policy_config,
+        attestation_verifier=scenario.verifier,
+        runtime_trust_domain=scenario.runtime_trust_domain,
+    )
+    return _validate_with_evil_twin(scenario, pipeline_result)
+
+
+def run_scenario_suite(
+    suite_id: str,
+    scenarios: Sequence[ScenarioDefinition],
+) -> ScenarioSuiteResult:
+    """Run a deterministic scenario suite and evaluate required category coverage."""
+    scenario_tuple = tuple(scenarios)
+    _reject_duplicate_scenario_ids(scenario_tuple)
+    results = tuple(run_pipeline_scenario(scenario) for scenario in scenario_tuple)
+    coverage = evaluate_scenario_coverage(scenario_tuple)
+    passed_count = sum(1 for result in results if result.passed)
+    failed_count = len(results) - passed_count
+    passed = coverage.passed and failed_count == 0
+    checksum = scenario_suite_checksum(
+        suite_id=suite_id,
+        passed=passed,
+        results=results,
+        coverage=coverage,
+    )
+    return ScenarioSuiteResult(
+        suite_id=suite_id,
+        passed=passed,
+        total=len(results),
+        passed_count=passed_count,
+        failed_count=failed_count,
+        results=results,
+        coverage=coverage,
+        suite_checksum=checksum,
+    )
+
+
+def run_canonical_scenario_suite() -> ScenarioSuiteResult:
+    """Run the closed ADR-0013 canonical scenario matrix."""
+    return run_scenario_suite("adr-0013-canonical", canonical_scenario_definitions())
+
+
+def _policy_admission_for_scenario(scenario: ScenarioDefinition) -> PolicyAdmissionInput:
+    if scenario.policy is None and scenario.capability is None:
+        return PolicyAdmissionInput(PolicyAdmissionMode.DISABLED)
+    return PolicyAdmissionInput(
+        PolicyAdmissionMode.ENFORCE,
+        policy=scenario.policy,
+        capability=scenario.capability,
+        world_snapshot=scenario.world_snapshot,
+        context=_policy_context(scenario),
+        evidence={
+            "scenario_id": scenario.scenario_id,
+            "scenario_category": scenario.category.value,
+        },
+    )
+
+
+def _policy_context(scenario: ScenarioDefinition) -> dict[str, object]:
+    context: dict[str, object] = {"scenario_id": scenario.scenario_id}
+    if scenario.evaluation_time_ms is not None:
+        context["requested_at_ms"] = scenario.evaluation_time_ms
+    return context
+
+
+def _validate_with_evil_twin(
+    scenario: ScenarioDefinition,
+    pipeline_result: PipelineResult,
+) -> ScenarioRunResult:
+    trace = pipeline_result.decision_trace
+    receipt = pipeline_result.approval_receipt
+    forced_outcome: PipelineOutcome | None = None
+    forced_reason: str | None = None
+    forced_terminal_stage: str | None = None
+
+    if scenario.evil_twin_mutation is not EvilTwinMutation.NONE:
+        trace, receipt, forced_outcome, forced_reason, forced_terminal_stage = _apply_evil_twin(
+            scenario.evil_twin_mutation,
+            pipeline_result,
+            trace,
+            receipt,
+        )
+
+    return validate_scenario_result(
+        scenario,
+        pipeline_result,
+        decision_trace=trace,
+        approval_receipt=receipt,
+        forced_outcome=forced_outcome,
+        forced_reason=forced_reason,
+        forced_terminal_stage=forced_terminal_stage,
+    )
+
+
+def _apply_evil_twin(
+    mutation: EvilTwinMutation,
+    pipeline_result: PipelineResult,
+    trace: DecisionTrace | None,
+    receipt: ApprovalReceipt | None,
+) -> tuple[DecisionTrace | None, ApprovalReceipt | None, PipelineOutcome, str, str]:
+    if mutation is EvilTwinMutation.DIRECT_GATE_ONLY:
+        if pipeline_result.audited_plan is not None:
+            gate_audited_plan(pipeline_result.audited_plan)
+        return trace, receipt, PipelineOutcome.BLOCKED, "DIRECT_GATE_BYPASS_REJECTED", "direct_gate"
+
+    if receipt is not None:
+        match mutation:
+            case EvilTwinMutation.SAFETY_CASE_FORGED:
+                object.__setattr__(receipt, "safety_case_checksum", "forged-safety-case")
+            case EvilTwinMutation.ADMISSION_MISMATCH:
+                object.__setattr__(receipt, "policy_admission_checksum", "forged-admission")
+            case EvilTwinMutation.RECEIPT_FIELD_FORGED:
+                object.__setattr__(receipt, "approval_receipt_checksum", "forged-receipt")
+            case EvilTwinMutation.REPLAYED_RECEIPT:
+                object.__setattr__(receipt, "pipeline_result_id", "replayed-pipeline-result")
+            case EvilTwinMutation.PARTIAL_RECEIPT_OVERCLAIM:
+                object.__setattr__(receipt, "policy_result_checksum", "forged-policy-result")
+            case (
+                EvilTwinMutation.NONE
+                | EvilTwinMutation.DIRECT_GATE_ONLY
+                | EvilTwinMutation.TRACE_CHECKSUM_MISMATCH
+                | EvilTwinMutation.CONFUSABLE_STAGE_NAME
+            ):
+                pass
+    if trace is not None:
+        match mutation:
+            case EvilTwinMutation.TRACE_CHECKSUM_MISMATCH:
+                object.__setattr__(trace, "trace_checksum", "0" * 64)
+            case EvilTwinMutation.CONFUSABLE_STAGE_NAME:
+                object.__setattr__(trace.steps[0], "stage_name", "raw_intent ")
+            case (
+                EvilTwinMutation.NONE
+                | EvilTwinMutation.DIRECT_GATE_ONLY
+                | EvilTwinMutation.SAFETY_CASE_FORGED
+                | EvilTwinMutation.ADMISSION_MISMATCH
+                | EvilTwinMutation.RECEIPT_FIELD_FORGED
+                | EvilTwinMutation.REPLAYED_RECEIPT
+                | EvilTwinMutation.PARTIAL_RECEIPT_OVERCLAIM
+            ):
+                pass
+    return (
+        trace,
+        receipt,
+        PipelineOutcome.ERROR,
+        "APPROVAL_RECEIPT_INTEGRITY_FAILED",
+        "receipt_validation",
+    )
+
+
+def _reject_duplicate_scenario_ids(scenarios: tuple[ScenarioDefinition, ...]) -> None:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for scenario in scenarios:
+        if scenario.scenario_id in seen:
+            duplicates.append(scenario.scenario_id)
+        seen.add(scenario.scenario_id)
+    if duplicates:
+        raise ValueError(f"duplicate scenario_id values: {','.join(sorted(duplicates))}")

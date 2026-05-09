@@ -718,3 +718,52 @@ using wildcard authority in ENFORCE, or disabling attestation for ENFORCE approv
 **Required test coverage:** `tests/contracts/test_trust_policy_config_contract.py`,
 `tests/integration/test_pipeline_trust_authority_hardening.py`,
 `tests/invariants/test_attestation_verifier_hardening_invariants.py`.
+
+---
+
+## FM-36: Scenario Category Missing From Coverage Gate
+
+**Trigger:** A scenario suite omits any required ADR-0013 `ScenarioCategory`.
+
+**Expected outcome:** `CoverageGateResult(passed=False)` with the missing category listed
+and count set to zero. The suite result is non-passing.
+
+**Forbidden behaviour:** Silent skips, treating missing required categories as optional,
+or passing a suite because the executed scenarios succeeded locally.
+
+**Required test coverage:** `tests/scenarios/test_scenario_coverage_gate.py`.
+
+---
+
+## FM-37: Scenario Outcome Matches But Receipt Path Does Not
+
+**Trigger:** A scenario reaches the expected final enum but has the wrong reason, wrong
+semantic terminal stage, missing required stage, forbidden late stage, invalid trace, invalid
+receipt, or forbidden late-stage approval artifact.
+
+**Expected outcome:** `ScenarioRunResult(passed=False)` with deterministic
+`ScenarioViolation` entries identifying the mismatch.
+
+**Forbidden behaviour:** Passing a scenario on final enum equality alone.
+
+**Required test coverage:** `tests/scenarios/test_scenario_runner.py`,
+`tests/integration/test_pipeline_scenario_receipts.py`,
+`tests/invariants/test_scenario_invariants.py`.
+
+---
+
+## FM-38: Evil-Twin Receipt Or Trace Overclaim
+
+**Trigger:** A scenario uses forged SafetyCase evidence, mismatched admission evidence,
+manual receipt field replacement, replayed receipt identity, trace checksum replacement,
+confusable stage names, partial receipt overclaim, or direct gate `ALLOWED` evidence.
+
+**Expected outcome:** The scenario fails closed as `ERROR` with
+`APPROVAL_RECEIPT_INTEGRITY_FAILED`, or as non-ALLOWED for direct gate bypass. It is never
+classified as full pipeline approval.
+
+**Forbidden behaviour:** Accepting late-stage claims not proven by the trace, treating direct
+gate output as a full pipeline approval, or trusting replayed receipt fields.
+
+**Required test coverage:** `tests/adversarial/test_evil_twin_scenarios.py`,
+`tests/integration/test_pipeline_scenario_receipts.py`.

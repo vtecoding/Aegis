@@ -1,4 +1,4 @@
-# Aegis Master Specification — Phase 1 + Phase 2 Part 7
+# Aegis Master Specification - Phase 1 + Phase 2 Part 10
 
 ## Purpose
 
@@ -19,7 +19,10 @@ unauthenticated world state cannot approve physical or DIG-relevant plans under 
 mode.
 Phase 2 Part 7 hardens that boundary: arbitrary verifier objects and arbitrary trust
 policies cannot become approval authority unless they pass deterministic verifier adapter
-certification and trust-policy configuration validation.
+certification and trust-policy configuration validation. Phase 2 Part 8 adds world snapshot
+admissibility before freshness and trust. Phase 2 Part 9 adds decision traces and approval
+receipts to every orchestrated pipeline result. Phase 2 Part 10 adds a deterministic
+scenario runner and evil-twin coverage gate above the sealed pipeline.
 
 Aegis does not execute robot commands. Phase 1 produces a typed decision (`ALLOWED` or
 `BLOCKED`) and an immutable audit receipt. Policy-v1 contracts, the pure evaluator, and
@@ -174,6 +177,42 @@ Forbidden status after Part 7: Aegis proves physical-world truth, cryptographic 
 sensor correctness, middleware safety, ROS safety, collision safety, actuator safety, or
 robot safety.
 
+## Phase 2 Part 8 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| World snapshot admissibility before freshness/trust/policy | Semantic truth of world facts |
+| Required checksum, fact, and capability-scope checks | Live sensing or middleware |
+| Fail-closed missing, empty, malformed, undeclared, or mismatched snapshot evidence | Physical safety proof |
+
+Honest status after Part 8: Aegis can deterministically reject structurally inadmissible
+supplied world snapshot evidence before it can become policy authority.
+
+## Phase 2 Part 9 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Deterministic `DecisionTrace` and `ApprovalReceipt` on pipeline results | Signed external receipts |
+| Hash-linked stage checksums and predecessor links | Physical robot safety claims |
+| Receipt validation for full and partial decision paths | Simulation or runtime actuation |
+
+Honest status after Part 9: Aegis can make every orchestrated pipeline decision
+reconstructable and tamper-evident at the return boundary.
+
+## Phase 2 Part 10 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Immutable scenario contracts and canonical scenario matrix | Simulation engine or robot runtime |
+| Real `run_pipeline` execution for every scenario | ROS 2, hardware, sensors, middleware, network, filesystem, async, or LLM calls |
+| Outcome, reason, terminal-stage, trace, receipt, and checksum validation | Physical robot safety or semantic truth claims |
+| Evil-twin rejection for forged, mismatched, replayed, overclaimed, confusable, checksum-corrupted, and direct-gate-only evidence | External signing or actuation |
+| Required-category coverage gate | Replacing unit, contract, adversarial, or invariant tests |
+
+Honest status after Part 10: Aegis can deterministically execute a closed scenario matrix
+through the real pure pipeline and prove each scenario by both pipeline outcome and
+receipt-bound decision path.
+
 ---
 
 ## Non-Goals
@@ -219,6 +258,11 @@ ENFORCE approval additionally requires an explicit `world_snapshot`, an explicit
 `evaluation_time_ms`, FRESH freshness binding, certified verifier binding, valid
 trust-policy config binding, and TRUSTED evidence binding across policy result,
 SafetyCase, and admission record.
+
+The scenario runner lives above the orchestrator. It does not replace the pipeline and does
+not create approvals. It executes `ScenarioDefinition` values through `run_pipeline`,
+validates expectations with `ScenarioRunResult`, aggregates with `ScenarioSuiteResult`, and
+uses `CoverageGateResult` to prove the required scenario categories are represented.
 
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
 communication uses typed contracts in `contracts/`.

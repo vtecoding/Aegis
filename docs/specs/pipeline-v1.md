@@ -15,6 +15,8 @@ Phase 2 Part 7 adds deterministic verifier adapter certification and trust-polic
 configuration validation before trust evaluation.
 Phase 2 Part 9 adds deterministic decision traces and approval receipts so every
 returned pipeline decision is reconstructable and tamper-evident.
+Phase 2 Part 10 adds a scenario runner above the orchestrator; it consumes `PipelineResult`
+evidence but does not change `run_pipeline` semantics.
 
 ---
 
@@ -42,6 +44,8 @@ returned pipeline decision is reconstructable and tamper-evident.
 ## Non-Goals
 
 - No scenario fixtures — that is the scenario runner's job.
+- No scenario verdicts or coverage gates inside `run_pipeline`; ADR-0013 keeps them in
+    `aegis.scenarios` above the orchestrator.
 - No simulation, no robot adapter, no execution of commands.
 - No ROS 2, no hardware interfaces, no network or filesystem I/O.
 - No LLM SDK dependencies.
@@ -226,4 +230,6 @@ disabled_policy_admission_allowed_count = 0
 outcome == INVALID for all invalid or unsupported intents
 gate_integrity_mismatch_count = 0 (via scenario runner)
 deterministic replay passes
+canonical ADR-0013 scenario suite passes through the scenario runner
+scenario coverage gate includes every required category
 ```

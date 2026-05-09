@@ -5,6 +5,11 @@
 Scenario Runner v1 is a deterministic proof harness that runs structured JSON scenario fixtures
 through the full Aegis Phase 1 pipeline and emits structured results with aggregate metrics.
 
+Phase 2 Part 10 extends the package with ADR-0013 scenario contracts and a coverage-gated
+runner over the real `run_pipeline` orchestrator. The legacy JSON fixture runner remains for
+Phase 1 demo coverage; the ADR-0013 runner validates outcome, reason, terminal stage, trace
+path, receipt validity, forbidden late artifacts, and deterministic checksums.
+
 It is not a production execution path. Its purpose is to prove that the Aegis pipeline correctly
 handles untrusted LLM-like intent: blocking invalid commands, dropping hostile metadata, producing
 deterministic plans, and emitting audit receipts — without any hardware or network dependencies.
@@ -208,6 +213,9 @@ gate_integrity_mismatch_count = 0
 invalid intents are never planned
 valid supported intents are planned and audited
 all audited plans are gate-allowed
+ADR-0013 canonical suite covers every required category
+ADR-0013 evil twins fail closed
+ADR-0013 scenario result checksums are deterministic
 ```
 
 ---
@@ -259,8 +267,12 @@ src/
 └── aegis/
     └── scenarios/
         ├── __init__.py
-        ├── models.py        # Frozen dataclass models
-        └── runner.py        # parse_scenario_fixture, run_scenario, run_scenarios
+        ├── contracts.py     # ADR-0013 immutable scenario contracts
+        ├── coverage.py      # Required category coverage gate
+        ├── fixtures.py      # Canonical ADR-0013 scenario matrix
+        ├── models.py        # Legacy JSON fixture dataclass models
+        ├── runner.py        # Legacy and ADR-0013 runner APIs
+        └── validators.py    # Outcome, trace, receipt, and artifact validation
 
 tests/
 ├── fixtures/
@@ -272,7 +284,13 @@ tests/
 │       ├── valid_inspect_front_sensor.json
 │       └── invalid_command_unsupported.json
 ├── integration/
+│   ├── test_scenario_runner.py
+│   └── test_pipeline_scenario_receipts.py
+├── scenarios/
+│   ├── test_scenario_contracts.py
+│   ├── test_scenario_coverage_gate.py
 │   └── test_scenario_runner.py
 └── adversarial/
+    ├── test_evil_twin_scenarios.py
     └── test_scenario_runner_adversarial.py
 ```

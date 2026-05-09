@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** → **Phase 2 Part 9: Decision trace and approval receipt integrity** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2 Part 10: Deterministic scenario runner and evil-twin coverage gate** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 2 Part 9 — Decision Trace and Approval Receipt Integrity
+## 2. Current Phase: Phase 2 Part 10 - Deterministic Scenario Runner and Evil-Twin Coverage Gate
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -319,6 +319,24 @@ If a would-be approval cannot prove its receipt integrity, the pipeline must ret
 decision-boundary evidence integrity only; it does not prove physical robot safety,
 semantic world truth, simulation safety, middleware safety, actuator safety, certification
 readiness, or signed external receipt authenticity.
+
+### Phase 2 Part 10: Deterministic Scenario Runner & Evil-Twin Coverage Gate
+
+Phase 2 Part 10 adds a deterministic scenario validation layer above the sealed pipeline.
+Scenario definitions execute through the real `run_pipeline` path, then validate the final
+`PipelineOutcome`, final reason, semantic terminal stage, decision trace path, approval
+receipt validity, forbidden late approval artifacts, required artifacts, and stable
+scenario checksums.
+
+The canonical scenario suite covers positive, blocked, inadmissible, stale, future-dated,
+missing-evidence, invalid-attestation, uncertified-verifier, invalid-trust-config,
+wrong-capability, policy-denied, forged SafetyCase, admission mismatch, forged receipt,
+direct gate bypass, replayed receipt, checksum mismatch, confusable stage name, and partial
+receipt overclaim categories. The coverage gate fails if any required category is absent.
+
+This slice proves deterministic evidence-bound scenario behavior only. It does not add ROS,
+simulation, hardware, sensors, middleware, network calls, filesystem reads, wall-clock reads,
+async jobs, LLM calls, signing, runtime actuation, or physical robot safety claims.
 
 ---
 

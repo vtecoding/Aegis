@@ -614,3 +614,42 @@ pipeline approval unless the policy chain and approval receipt also validate aga
 same audited plan.
 
 **Regression test:** `tests/regression/test_direct_gate_not_full_approval_receipt.py`
+
+---
+
+## INV-SCENARIO-001: Scenario Pass Requires Outcome And Receipt Path
+
+**Statement:** A scenario is valid only when the observed outcome, reason, semantic
+terminal stage, required receipt path, forbidden receipt path, trace validity, and receipt
+validity match its `ScenarioExpectation`.
+
+**Scenario tests:** `tests/scenarios/test_scenario_runner.py`,
+`tests/integration/test_pipeline_scenario_receipts.py`
+
+---
+
+## INV-SCENARIO-002: Required Scenario Categories Are Covered
+
+**Statement:** The scenario coverage gate fails unless every ADR-0013 required category is
+represented at least once.
+
+**Scenario test:** `tests/scenarios/test_scenario_coverage_gate.py`
+
+---
+
+## INV-SCENARIO-003: Scenario Result Checksums Are Deterministic
+
+**Statement:** Re-running the same `ScenarioDefinition` through the same pipeline inputs
+produces identical `pipeline_result_checksum` and `scenario_result_checksum` values.
+
+**Invariant test:** `tests/invariants/test_scenario_invariants.py`
+
+---
+
+## INV-SCENARIO-004: Evil Twins Fail Closed
+
+**Statement:** Forged SafetyCase, admission mismatch, forged receipt, replayed receipt,
+checksum mismatch, confusable stage name, partial receipt overclaim, and direct-gate-only
+evidence cannot be classified as full pipeline approval.
+
+**Adversarial test:** `tests/adversarial/test_evil_twin_scenarios.py`

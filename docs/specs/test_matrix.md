@@ -65,6 +65,10 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | INV-POLICY-TRUST-006: Verifier certification deterministic | — | ✓ | ✓ | ✓ | — |
 | INV-POLICY-TRUST-007: Trust policy config validation deterministic | — | ✓ | ✓ | — | — |
 | INV-POLICY-TRUST-008: Arbitrary verifier or trust policy cannot approve | — | ✓ | ✓ | ✓ | ✓ |
+| INV-SCENARIO-001: Scenario pass requires outcome and receipt path | — | ✓ | ✓ | ✓ | ✓ |
+| INV-SCENARIO-002: Required scenario categories are covered | — | ✓ | — | — | ✓ |
+| INV-SCENARIO-003: Scenario result checksums deterministic | — | — | ✓ | — | ✓ |
+| INV-SCENARIO-004: Evil twins fail closed | — | — | ✓ | ✓ | ✓ |
 
 ---
 
@@ -107,6 +111,9 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-33: Malformed, contradictory, or forged trust binding | — | ✓ | ✓ | ✓ |
 | FM-34: Uncertified attestation verifier adapter | — | ✓ | ✓ | ✓ |
 | FM-35: Invalid trust policy configuration | — | ✓ | — | ✓ |
+| FM-36: Scenario category missing from coverage gate | — | ✓ | — | ✓ |
+| FM-37: Scenario outcome matches but receipt path does not | — | ✓ | ✓ | ✓ |
+| FM-38: Evil-twin receipt or trace overclaim | — | — | ✓ | ✓ |
 
 ---
 
@@ -129,7 +136,16 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_world_snapshot_freshness_invariants.py` | INV-POLICY-FRESH-001 through INV-POLICY-FRESH-005 |
 | `test_world_snapshot_trust_invariants.py` | INV-POLICY-TRUST-001, INV-POLICY-TRUST-003, INV-POLICY-TRUST-004 |
 | `test_attestation_verifier_hardening_invariants.py` | INV-POLICY-TRUST-006, INV-POLICY-TRUST-007, INV-POLICY-TRUST-008 |
+| `test_scenario_invariants.py` | INV-SCENARIO-001, INV-SCENARIO-003, INV-SCENARIO-004 |
 | `test_invariant_bootstrap.py` | Package imports resolve cleanly |
+
+### `tests/scenarios/`
+
+| File | Coverage |
+|------|----------|
+| `test_scenario_contracts.py` | ScenarioDefinition, ScenarioExpectation, duplicate ID rejection, metadata freezing |
+| `test_scenario_runner.py` | Canonical suite pass, allowed full receipt path, blocked terminal stages |
+| `test_scenario_coverage_gate.py` | Required category coverage and missing-category failure |
 
 ### `tests/contracts/`
 
@@ -197,6 +213,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_world_snapshot_staleness_bypass.py` | FM-29, FM-31, INV-POLICY-FRESH-003 through INV-POLICY-FRESH-005 |
 | `test_world_snapshot_trust_bypass.py` | FM-32, FM-33, INV-POLICY-TRUST-001 through INV-POLICY-TRUST-004 |
 | `test_attestation_verifier_adapter_bypass.py` | FM-34, INV-POLICY-TRUST-006, INV-POLICY-TRUST-008 |
+| `test_evil_twin_scenarios.py` | FM-38, INV-SCENARIO-004 |
 
 ### `tests/integration/`
 
@@ -207,6 +224,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_pipeline_world_snapshot_freshness.py` | ENFORCE mode freshness allow, stale, missing snapshot, missing evaluation time, malformed metadata, evaluator-after-freshness error, and disabled non-approval |
 | `test_pipeline_world_snapshot_trust.py` | ENFORCE mode trust allow, missing evidence, disallowed domain, invalid attestation, and malformed evidence handling |
 | `test_pipeline_trust_authority_hardening.py` | ENFORCE mode missing verifier and invalid trust-policy config block before trust evaluation |
+| `test_pipeline_scenario_receipts.py` | Scenario receipt-path validation, blocked path artifact absence, checksum stability |
 
 ### `tests/regression/`
 
