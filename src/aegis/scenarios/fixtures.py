@@ -215,6 +215,25 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_adapter_replay_scenarios(),
         *_runtime_dispatch_scenarios(),
         *_backend_certification_scenarios(),
+        *_backend_replay_scenarios(),
+    )
+
+
+def _backend_replay_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.BACKEND_REPLAY_POSITIVE,
+            ScenarioCategory.BACKEND_REPLAY_REQUIRES_CERTIFIED_NULL,
+            ScenarioCategory.BACKEND_REPLAY_DISPATCH_DRIFT,
+            ScenarioCategory.BACKEND_REPLAY_FIREWALL_DRIFT,
+            ScenarioCategory.BACKEND_REPLAY_DESCRIPTOR_DRIFT,
+            ScenarioCategory.BACKEND_REPLAY_SCOPE_DRIFT,
+            ScenarioCategory.BACKEND_REPLAY_RECEIPT_EXECUTION_DRIFT,
+            ScenarioCategory.BACKEND_REPLAY_CROSS_PLAN_SWAP,
+            ScenarioCategory.BACKEND_REPLAY_RUNTIME_OBJECT_INJECTION,
+            ScenarioCategory.BACKEND_REPLAY_CHECKSUM_DRIFT,
+        )
     )
 
 

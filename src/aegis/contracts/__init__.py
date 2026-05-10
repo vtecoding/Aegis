@@ -32,6 +32,16 @@ from aegis.contracts.attestation_verifier import (
     certify_attestation_verifier_adapter,
 )
 from aegis.contracts.audit import AuditedPlan
+from aegis.contracts.backend_replay import (
+    BackendReplayMutationProfile,
+    BackendReplayProfile,
+    BackendReplayProofResult,
+    BackendReplayReason,
+    BackendReplayRequest,
+    backend_replay_proof_checksum,
+    backend_replay_request_source_checksum,
+    recompute_backend_replay_proof_checksum,
+)
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.decision_trace import DecisionTrace, DecisionTraceStep
 from aegis.contracts.execution_adapter import (
@@ -167,6 +177,11 @@ __all__ = [
     "BackendCertificationResult",
     "BackendCertificationStatus",
     "BackendDryRunReceipt",
+    "BackendReplayMutationProfile",
+    "BackendReplayProfile",
+    "BackendReplayProofResult",
+    "BackendReplayReason",
+    "BackendReplayRequest",
     "Capability",
     "CommandPlan",
     "CommandStep",
@@ -267,6 +282,8 @@ __all__ = [
     "backend_certification_result_checksum",
     "backend_dry_run_receipt_checksum",
     "backend_dry_run_receipt_id",
+    "backend_replay_proof_checksum",
+    "backend_replay_request_source_checksum",
     "build_adapter_receipt",
     "execution_adapter_envelope_checksum",
     "execution_adapter_mapping_checksum",
@@ -275,6 +292,7 @@ __all__ = [
     "recompute_adapter_replay_proof_checksum",
     "recompute_backend_certification_checksum",
     "recompute_backend_dry_run_receipt_checksum",
+    "recompute_backend_replay_proof_checksum",
     "recompute_dispatch_firewall_decision_checksum",
     "recompute_execution_adapter_envelope_checksum",
     "recompute_execution_adapter_mapping_checksum",

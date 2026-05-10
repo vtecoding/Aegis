@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from aegis.contracts.adapter_receipt import AdapterReceipt
 from aegis.contracts.adapter_replay import AdapterReplayProofResult, AdapterReplayRequest
+from aegis.contracts.backend_replay import BackendReplayProofResult, BackendReplayRequest
 from aegis.contracts.execution_adapter import ExecutionAdapterEnvelope, ExecutionAdapterMapping
 from aegis.contracts.ros2_mapping import Ros2MessageMapping, Ros2QoSProfileSpec, RuntimeTarget
 from aegis.contracts.runtime_backend import (
@@ -319,6 +320,46 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="backend_dry_run_receipt_checksum",
         reason="backend dry-run receipts prove observed intent with zero execution",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendReplayRequest,
+        authoritative_fields=(
+            "dispatch_plan",
+            "firewall_decision",
+            "backend_descriptor",
+            "expected_certification",
+            "expected_receipt",
+            "replay_profile",
+            "mutation_profile",
+        ),
+        checksum_function="backend_replay_request_source_checksum",
+        reason=(
+            "backend replay requests bind dispatch, firewall, descriptor, and expected "
+            "proof evidence"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=BackendReplayProofResult,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "dispatch_plan_checksum",
+            "firewall_decision_checksum",
+            "backend_descriptor_checksum",
+            "expected_certification_checksum",
+            "replayed_certification_checksum",
+            "expected_receipt_checksum",
+            "replayed_receipt_checksum",
+            "zero_execution_verified",
+            "scope_match_verified",
+            "certification_match",
+            "receipt_match",
+            "mutation_detected",
+            "failure_stage",
+            "proof_checksum",
+        ),
+        checksum_function="backend_replay_proof_checksum",
+        reason="backend replay proofs bind certification and receipt reconstruction comparisons",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""
