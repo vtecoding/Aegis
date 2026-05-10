@@ -153,46 +153,27 @@ def quarantine_release_decision(
     quarantine_epoch: int = 1,
 ) -> QuarantineReleaseDecision:
     """Return a deterministic positive quarantine release decision."""
-    (
-        dispatch_plan,
-        firewall_decision,
-        backend_descriptor,
-        backend_certification,
-        backend_replay_proof,
-        authority_manifest,
-        backend_registry,
-        backend_admission_decision,
-        context_authority,
-        capability_lease,
-    ) = command_quarantine_parts(request_id=request_id, lease_epoch=lease_epoch)
-    quarantine = quarantine_runtime_command(
-        dispatch_plan=dispatch_plan,
-        backend_admission_decision=backend_admission_decision,
-        capability_lease=capability_lease,
-        backend_descriptor=backend_descriptor,
-        authority_manifest=authority_manifest,
-        registry_checksum=backend_registry.registry_checksum,
-        backend_certification=backend_certification,
-        backend_replay_proof=backend_replay_proof,
-        firewall_decision=firewall_decision,
-        context_authority_checksum=context_authority.context_checksum,
+    from tests.operator_authority_fixtures import operator_authority_parts
+
+    parts = operator_authority_parts(
+        request_id=request_id,
+        lease_epoch=lease_epoch,
         quarantine_epoch=quarantine_epoch,
-        current_lease_epoch=lease_epoch,
     )
-    approval = operator_approval_receipt(quarantine=quarantine)
     return evaluate_quarantine_release(
-        quarantine=quarantine,
-        approval=approval,
-        capability_lease=capability_lease,
-        dispatch_plan=dispatch_plan,
-        backend_admission_decision=backend_admission_decision,
-        backend_descriptor=backend_descriptor,
-        authority_manifest=authority_manifest,
-        registry_checksum=backend_registry.registry_checksum,
-        backend_certification=backend_certification,
-        backend_replay_proof=backend_replay_proof,
-        firewall_decision=firewall_decision,
-        context_authority_checksum=context_authority.context_checksum,
+        quarantine=parts.quarantine,
+        approval=parts.approval,
+        approval_replay_validation=parts.replay_validation,
+        capability_lease=parts.capability_lease,
+        dispatch_plan=parts.dispatch_plan,
+        backend_admission_decision=parts.backend_admission_decision,
+        backend_descriptor=parts.backend_descriptor,
+        authority_manifest=parts.backend_authority_manifest,
+        registry_checksum=parts.backend_registry.registry_checksum,
+        backend_certification=parts.backend_certification,
+        backend_replay_proof=parts.backend_replay_proof,
+        firewall_decision=parts.firewall_decision,
+        context_authority_checksum=parts.context_authority.context_checksum,
         current_lease_epoch=lease_epoch,
     )
 

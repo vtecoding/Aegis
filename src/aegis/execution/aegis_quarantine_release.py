@@ -16,6 +16,14 @@ from aegis.contracts.aegis_runtime_backend import (
     RuntimeBackendDescriptor,
 )
 from aegis.contracts.aegis_runtime_dispatch import DispatchFirewallDecision, RuntimeDispatchPlan
+from aegis.execution.aegis_approval_replay import (
+    ApprovalReplayValidationResult,
+    AuthorityBoundApprovalReceipt,
+    approval_replay_validation_checksum_or_fallback,
+    authority_bound_approval_checksum_or_fallback,
+    recompute_approval_replay_validation_checksum,
+    recompute_authority_bound_approval_checksum,
+)
 from aegis.execution.aegis_backend_admission import BackendAdmissionDecision
 from aegis.execution.aegis_backend_authority import BackendAuthorityManifest
 from aegis.execution.aegis_capability_lease import RuntimeCapabilityLease, checksum_or_fallback
@@ -30,13 +38,7 @@ from aegis.execution.aegis_command_quarantine import (
     recompute_command_quarantine_checksum,
 )
 from aegis.execution.aegis_lease_validation import validate_runtime_capability_lease
-from aegis.execution.aegis_operator_approval import (
-    OperatorApprovalReceipt,
-    OperatorApprovalStatus,
-    approval_checksum_or_fallback,
-    normalize_operator_id,
-    recompute_operator_approval_checksum,
-)
+from aegis.execution.aegis_operator_approval import OperatorApprovalStatus
 
 type QuarantineReleaseStatusValue = Literal["RELEASED_DRY_RUN", "BLOCKED"]
 type CanonicalQuarantineReleaseValue = (
@@ -63,7 +65,8 @@ class _QuarantineReleaseAuthorization:
     """Internal proof object required to emit RELEASED_DRY_RUN decisions."""
 
     quarantine: CommandQuarantineEnvelope
-    approval: OperatorApprovalReceipt
+    approval: AuthorityBoundApprovalReceipt
+    approval_replay_validation: ApprovalReplayValidationResult
     lease: RuntimeCapabilityLease
     dispatch_plan: RuntimeDispatchPlan
 
@@ -76,6 +79,7 @@ class QuarantineReleaseDecision:
     reason_code: str
     quarantine_checksum: str
     approval_checksum: str
+    approval_replay_validation_checksum: str
     lease_checksum: str
     dispatch_plan_checksum: str
     released_item_count: int
@@ -88,6 +92,7 @@ class QuarantineReleaseDecision:
         reason_code: object,
         quarantine_checksum: object,
         approval_checksum: object,
+        approval_replay_validation_checksum: object,
         lease_checksum: object,
         dispatch_plan_checksum: object,
         released_item_count: object,
@@ -100,6 +105,9 @@ class QuarantineReleaseDecision:
             quarantine_checksum, "quarantine_checksum"
         )
         normalized_approval = _normalize_required_checksum(approval_checksum, "approval_checksum")
+        normalized_replay_validation = _normalize_required_checksum(
+            approval_replay_validation_checksum, "approval_replay_validation_checksum"
+        )
         normalized_lease = _normalize_required_checksum(lease_checksum, "lease_checksum")
         normalized_dispatch = _normalize_required_checksum(
             dispatch_plan_checksum, "dispatch_plan_checksum"
@@ -110,6 +118,7 @@ class QuarantineReleaseDecision:
             reason_code=normalized_reason,
             quarantine_checksum=normalized_quarantine,
             approval_checksum=normalized_approval,
+            approval_replay_validation_checksum=normalized_replay_validation,
             lease_checksum=normalized_lease,
             dispatch_plan_checksum=normalized_dispatch,
             released_item_count=normalized_count,
@@ -120,6 +129,7 @@ class QuarantineReleaseDecision:
             reason_code=normalized_reason,
             quarantine_checksum=normalized_quarantine,
             approval_checksum=normalized_approval,
+            approval_replay_validation_checksum=normalized_replay_validation,
             lease_checksum=normalized_lease,
             dispatch_plan_checksum=normalized_dispatch,
             released_item_count=normalized_count,
@@ -132,6 +142,9 @@ class QuarantineReleaseDecision:
         object.__setattr__(self, "reason_code", normalized_reason)
         object.__setattr__(self, "quarantine_checksum", normalized_quarantine)
         object.__setattr__(self, "approval_checksum", normalized_approval)
+        object.__setattr__(
+            self, "approval_replay_validation_checksum", normalized_replay_validation
+        )
         object.__setattr__(self, "lease_checksum", normalized_lease)
         object.__setattr__(self, "dispatch_plan_checksum", normalized_dispatch)
         object.__setattr__(self, "released_item_count", normalized_count)
@@ -142,6 +155,7 @@ def evaluate_quarantine_release(
     *,
     quarantine: object,
     approval: object,
+    approval_replay_validation: object = None,
     capability_lease: object,
     dispatch_plan: object,
     backend_admission_decision: object,
@@ -162,6 +176,7 @@ def evaluate_quarantine_release(
     reason = quarantine_release_block_reason(
         quarantine=quarantine,
         approval=approval,
+        approval_replay_validation=approval_replay_validation,
         capability_lease=capability_lease,
         dispatch_plan=dispatch_plan,
         backend_admission_decision=backend_admission_decision,
@@ -183,20 +198,23 @@ def evaluate_quarantine_release(
             dispatch_plan=dispatch_plan,
         )
     current_quarantine = cast(CommandQuarantineEnvelope, quarantine)
-    current_approval = cast(OperatorApprovalReceipt, approval)
+    current_approval = cast(AuthorityBoundApprovalReceipt, approval)
+    current_replay_validation = cast(ApprovalReplayValidationResult, approval_replay_validation)
     lease = cast(RuntimeCapabilityLease, capability_lease)
     plan = cast(RuntimeDispatchPlan, dispatch_plan)
     return QuarantineReleaseDecision(
         status="RELEASED_DRY_RUN",
         reason_code=CommandQuarantineReason.COMMAND_QUARANTINE_RELEASED_DRY_RUN.value,
         quarantine_checksum=current_quarantine.quarantine_checksum,
-        approval_checksum=current_approval.approval_checksum,
+        approval_checksum=current_approval.authority_bound_checksum,
+        approval_replay_validation_checksum=current_replay_validation.replay_validation_checksum,
         lease_checksum=lease.lease_checksum,
         dispatch_plan_checksum=plan.plan_checksum,
         released_item_count=len(current_quarantine.quarantined_items),
         authorization=_QuarantineReleaseAuthorization(
             quarantine=current_quarantine,
             approval=current_approval,
+            approval_replay_validation=current_replay_validation,
             lease=lease,
             dispatch_plan=plan,
         ),
@@ -207,6 +225,7 @@ def quarantine_release_block_reason(
     *,
     quarantine: object,
     approval: object,
+    approval_replay_validation: object = None,
     capability_lease: object,
     dispatch_plan: object,
     backend_admission_decision: object,
@@ -289,13 +308,15 @@ def quarantine_release_block_reason(
         return CommandQuarantineReason.COMMAND_QUARANTINE_LEASE_INVALID
     if approval is None:
         return CommandQuarantineReason.COMMAND_QUARANTINE_MISSING_APPROVAL
-    if type(approval) is not OperatorApprovalReceipt:
+    if type(approval) is not AuthorityBoundApprovalReceipt:
         return CommandQuarantineReason.COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION
     current_approval = approval
     approval_shape_reason = _approval_shape_reason(current_approval)
     if approval_shape_reason is not None:
         return approval_shape_reason
-    if current_approval.approval_checksum != recompute_operator_approval_checksum(current_approval):
+    if current_approval.authority_bound_checksum != recompute_authority_bound_approval_checksum(
+        current_approval
+    ):
         return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_CHECKSUM_DRIFT
     if current_approval.quarantine_checksum != current_quarantine.quarantine_checksum:
         return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_QUARANTINE_MISMATCH
@@ -305,7 +326,31 @@ def quarantine_release_block_reason(
         return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_STATUS_INVALID
     if current_approval.approval_epoch != current_quarantine.quarantine_epoch:
         return CommandQuarantineReason.COMMAND_QUARANTINE_STALE_APPROVAL_EPOCH
-    return _approval_scope_reason(current_quarantine, current_approval)
+    approval_scope_reason = _approval_scope_reason(current_quarantine, current_approval)
+    if approval_scope_reason is not None:
+        return approval_scope_reason
+    if approval_replay_validation is None:
+        return CommandQuarantineReason.COMMAND_QUARANTINE_MISSING_APPROVAL_REPLAY_VALIDATION
+    if type(approval_replay_validation) is not ApprovalReplayValidationResult:
+        return CommandQuarantineReason.COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION
+    current_replay_validation = approval_replay_validation
+    if (
+        current_replay_validation.replay_validation_checksum
+        != recompute_approval_replay_validation_checksum(current_replay_validation)
+    ):
+        return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_CHECKSUM_DRIFT
+    if current_replay_validation.status != "VALID":
+        return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BLOCKED
+    if current_replay_validation.approval_checksum != current_approval.authority_bound_checksum:
+        return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH
+    if current_replay_validation.quarantine_checksum != current_quarantine.quarantine_checksum:
+        return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH
+    if (
+        current_replay_validation.context_authority_checksum
+        != current_quarantine.context_authority_checksum
+    ):
+        return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH
+    return None
 
 
 def quarantine_release_decision_checksum(
@@ -314,6 +359,7 @@ def quarantine_release_decision_checksum(
     reason_code: str,
     quarantine_checksum: str,
     approval_checksum: str,
+    approval_replay_validation_checksum: str,
     lease_checksum: str,
     dispatch_plan_checksum: str,
     released_item_count: int,
@@ -326,6 +372,7 @@ def quarantine_release_decision_checksum(
             "reason_code": reason_code,
             "quarantine_checksum": quarantine_checksum,
             "approval_checksum": approval_checksum,
+            "approval_replay_validation_checksum": approval_replay_validation_checksum,
             "lease_checksum": lease_checksum,
             "dispatch_plan_checksum": dispatch_plan_checksum,
             "released_item_count": released_item_count,
@@ -340,6 +387,7 @@ def recompute_quarantine_release_decision_checksum(decision: QuarantineReleaseDe
         reason_code=decision.reason_code,
         quarantine_checksum=decision.quarantine_checksum,
         approval_checksum=decision.approval_checksum,
+        approval_replay_validation_checksum=decision.approval_replay_validation_checksum,
         lease_checksum=decision.lease_checksum,
         dispatch_plan_checksum=decision.dispatch_plan_checksum,
         released_item_count=decision.released_item_count,
@@ -358,7 +406,8 @@ def _blocked_decision(
         status="BLOCKED",
         reason_code=reason.value,
         quarantine_checksum=_quarantine_checksum_or_fallback(quarantine),
-        approval_checksum=approval_checksum_or_fallback(approval),
+        approval_checksum=authority_bound_approval_checksum_or_fallback(approval),
+        approval_replay_validation_checksum=approval_replay_validation_checksum_or_fallback(None),
         lease_checksum=_lease_checksum_or_fallback(capability_lease),
         dispatch_plan_checksum=_dispatch_plan_checksum_or_fallback(dispatch_plan),
         released_item_count=0,
@@ -371,6 +420,7 @@ def _validate_release_authorization(
     reason_code: str,
     quarantine_checksum: str,
     approval_checksum: str,
+    approval_replay_validation_checksum: str,
     lease_checksum: str,
     dispatch_plan_checksum: str,
     released_item_count: int,
@@ -388,8 +438,19 @@ def _validate_release_authorization(
         raise ValueError("RELEASED_DRY_RUN requires release reason")
     if quarantine_checksum != authorization.quarantine.quarantine_checksum:
         raise ValueError("RELEASED_DRY_RUN quarantine checksum must match authorization")
-    if approval_checksum != authorization.approval.approval_checksum:
+    if approval_checksum != authorization.approval.authority_bound_checksum:
         raise ValueError("RELEASED_DRY_RUN approval checksum must match authorization")
+    if (
+        approval_replay_validation_checksum
+        != authorization.approval_replay_validation.replay_validation_checksum
+    ):
+        raise ValueError("RELEASED_DRY_RUN replay validation checksum must match authorization")
+    if authorization.approval_replay_validation.status != "VALID":
+        raise ValueError("RELEASED_DRY_RUN requires VALID approval replay validation")
+    if authorization.approval_replay_validation.approval_checksum != approval_checksum:
+        raise ValueError("RELEASED_DRY_RUN replay validation must bind approval checksum")
+    if authorization.approval_replay_validation.quarantine_checksum != quarantine_checksum:
+        raise ValueError("RELEASED_DRY_RUN replay validation must bind quarantine checksum")
     if lease_checksum != authorization.lease.lease_checksum:
         raise ValueError("RELEASED_DRY_RUN lease checksum must match authorization")
     if dispatch_plan_checksum != authorization.dispatch_plan.plan_checksum:
@@ -450,11 +511,9 @@ def _quarantine_shape_reason(
     return None
 
 
-def _approval_shape_reason(approval: OperatorApprovalReceipt) -> CommandQuarantineReason | None:
-    try:
-        normalize_operator_id(approval.operator_id)
-    except ValueError:
-        return CommandQuarantineReason.COMMAND_QUARANTINE_OPERATOR_ID_MALFORMED
+def _approval_shape_reason(
+    approval: AuthorityBoundApprovalReceipt,
+) -> CommandQuarantineReason | None:
     approved_scope = cast(object, approval.approved_scope)
     if not isinstance(approved_scope, frozenset):
         return CommandQuarantineReason.COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION
@@ -473,7 +532,7 @@ def _approval_shape_reason(approval: OperatorApprovalReceipt) -> CommandQuaranti
 
 def _approval_scope_reason(
     quarantine: CommandQuarantineEnvelope,
-    approval: OperatorApprovalReceipt,
+    approval: AuthorityBoundApprovalReceipt,
 ) -> CommandQuarantineReason | None:
     quarantine_scope = quarantine_item_checksums(quarantine)
     if "*" in approval.approved_scope:

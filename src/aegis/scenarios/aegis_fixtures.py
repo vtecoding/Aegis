@@ -225,6 +225,7 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_backend_admission_scenarios(),
         *_capability_lease_scenarios(),
         *_command_quarantine_scenarios(),
+        *_operator_authority_scenarios(),
     )
 
 
@@ -278,6 +279,24 @@ def _command_quarantine_scenarios() -> tuple[ScenarioDefinition, ...]:
             ScenarioCategory.COMMAND_QUARANTINE_PARTIAL_OMISSION,
             ScenarioCategory.COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION,
             ScenarioCategory.COMMAND_QUARANTINE_RELEASE_DRY_RUN_ONLY,
+        )
+    )
+
+
+def _operator_authority_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.OPERATOR_AUTHORITY_POSITIVE,
+            ScenarioCategory.OPERATOR_AUTHORITY_UNKNOWN_ROLE,
+            ScenarioCategory.OPERATOR_AUTHORITY_SCOPE_OVERCLAIM,
+            ScenarioCategory.OPERATOR_AUTHORITY_MANIFEST_DRIFT,
+            ScenarioCategory.OPERATOR_AUTHORITY_CONTEXT_DRIFT,
+            ScenarioCategory.OPERATOR_AUTHORITY_NONCE_REPLAY,
+            ScenarioCategory.OPERATOR_AUTHORITY_CROSS_QUARANTINE_REPLAY,
+            ScenarioCategory.OPERATOR_AUTHORITY_CROSS_OPERATOR_REPLAY,
+            ScenarioCategory.OPERATOR_AUTHORITY_EPOCH_REPLAY,
+            ScenarioCategory.OPERATOR_AUTHORITY_OBJECT_INJECTION,
         )
     )
 

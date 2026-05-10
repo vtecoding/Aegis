@@ -1,22 +1,14 @@
-"""Adversarial bypass tests for ADR-0022 quarantine release."""
+"""Adversarial bypass tests for ADR-0022/ADR-0023 quarantine release."""
 
 from __future__ import annotations
 
 import pytest
-from tests.command_quarantine_fixtures import (
-    command_quarantine_parts,
-    operator_approval_receipt,
-)
+from tests.operator_authority_fixtures import OperatorAuthorityParts, operator_authority_parts
 
+from aegis.execution.aegis_approval_replay import recompute_authority_bound_approval_checksum
 from aegis.execution.aegis_command_quarantine import (
     CommandQuarantineReason,
     quarantine_item_checksums,
-    quarantine_runtime_command,
-)
-from aegis.execution.aegis_operator_approval import (
-    OperatorApprovalReceipt,
-    operator_approval_id,
-    recompute_operator_approval_checksum,
 )
 from aegis.execution.aegis_quarantine_release import (
     QuarantineReleaseDecision,
@@ -24,88 +16,39 @@ from aegis.execution.aegis_quarantine_release import (
 )
 
 _DEFAULT_APPROVAL = object()
+_DEFAULT_REPLAY_VALIDATION = object()
 
 
-def _positive_release_parts(request_id: str):
-    (
-        dispatch_plan,
-        firewall_decision,
-        backend_descriptor,
-        backend_certification,
-        backend_replay_proof,
-        authority_manifest,
-        backend_registry,
-        backend_admission_decision,
-        context_authority,
-        capability_lease,
-    ) = command_quarantine_parts(request_id=request_id)
-    quarantine = quarantine_runtime_command(
-        dispatch_plan=dispatch_plan,
-        backend_admission_decision=backend_admission_decision,
-        capability_lease=capability_lease,
-        backend_descriptor=backend_descriptor,
-        authority_manifest=authority_manifest,
-        registry_checksum=backend_registry.registry_checksum,
-        backend_certification=backend_certification,
-        backend_replay_proof=backend_replay_proof,
-        firewall_decision=firewall_decision,
-        context_authority_checksum=context_authority.context_checksum,
-        quarantine_epoch=1,
-        current_lease_epoch=1,
-    )
-    approval = operator_approval_receipt(quarantine=quarantine)
-    return (
-        dispatch_plan,
-        firewall_decision,
-        backend_descriptor,
-        backend_certification,
-        backend_replay_proof,
-        authority_manifest,
-        backend_registry,
-        backend_admission_decision,
-        context_authority,
-        capability_lease,
-        quarantine,
-        approval,
-    )
+def _positive_release_parts(request_id: str) -> OperatorAuthorityParts:
+    return operator_authority_parts(request_id=request_id)
 
 
 def _release_with_parts(
-    parts,
+    parts: OperatorAuthorityParts,
     *,
-    approval=_DEFAULT_APPROVAL,
-    registry_checksum=None,
-    context_checksum=None,
-):
-    (
-        dispatch_plan,
-        firewall_decision,
-        backend_descriptor,
-        backend_certification,
-        backend_replay_proof,
-        authority_manifest,
-        backend_registry,
-        backend_admission_decision,
-        context_authority,
-        capability_lease,
-        quarantine,
-        default_approval,
-    ) = parts
+    approval: object = _DEFAULT_APPROVAL,
+    replay_validation: object = _DEFAULT_REPLAY_VALIDATION,
+    registry_checksum: object | None = None,
+    context_checksum: object | None = None,
+) -> QuarantineReleaseDecision:
     return evaluate_quarantine_release(
-        quarantine=quarantine,
-        approval=default_approval if approval is _DEFAULT_APPROVAL else approval,
-        capability_lease=capability_lease,
-        dispatch_plan=dispatch_plan,
-        backend_admission_decision=backend_admission_decision,
-        backend_descriptor=backend_descriptor,
-        authority_manifest=authority_manifest,
-        registry_checksum=backend_registry.registry_checksum
+        quarantine=parts.quarantine,
+        approval=parts.approval if approval is _DEFAULT_APPROVAL else approval,
+        approval_replay_validation=parts.replay_validation
+        if replay_validation is _DEFAULT_REPLAY_VALIDATION
+        else replay_validation,
+        capability_lease=parts.capability_lease,
+        dispatch_plan=parts.dispatch_plan,
+        backend_admission_decision=parts.backend_admission_decision,
+        backend_descriptor=parts.backend_descriptor,
+        authority_manifest=parts.backend_authority_manifest,
+        registry_checksum=parts.backend_registry.registry_checksum
         if registry_checksum is None
         else registry_checksum,
-        backend_certification=backend_certification,
-        backend_replay_proof=backend_replay_proof,
-        firewall_decision=firewall_decision,
-        context_authority_checksum=context_authority.context_checksum
+        backend_certification=parts.backend_certification,
+        backend_replay_proof=parts.backend_replay_proof,
+        firewall_decision=parts.firewall_decision,
+        context_authority_checksum=parts.context_authority.context_checksum
         if context_checksum is None
         else context_checksum,
         current_lease_epoch=1,
@@ -121,46 +64,50 @@ def test_missing_approval_blocks_release() -> None:
     assert release.reason_code == CommandQuarantineReason.COMMAND_QUARANTINE_MISSING_APPROVAL.value
 
 
-def test_rejected_approval_blocks_release() -> None:
-    parts = _positive_release_parts("quarantine-bypass-rejected")
-    rejected = operator_approval_receipt(quarantine=parts[10], approval_status="REJECTED")
+def test_structural_approval_without_replay_validation_blocks_release() -> None:
+    parts = _positive_release_parts("quarantine-bypass-missing-replay-validation")
 
-    release = _release_with_parts(parts, approval=rejected)
+    release = _release_with_parts(parts, replay_validation=None)
+
+    assert release.status == "BLOCKED"
+    assert release.reason_code == (
+        CommandQuarantineReason.COMMAND_QUARANTINE_MISSING_APPROVAL_REPLAY_VALIDATION.value
+    )
+
+
+def test_rejected_approval_blocks_release() -> None:
+    parts = operator_authority_parts(
+        request_id="quarantine-bypass-rejected", approval_status="REJECTED"
+    )
+
+    release = _release_with_parts(parts)
 
     assert release.status == "BLOCKED"
     assert release.reason_code == CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REJECTED.value
 
 
 def test_wildcard_overbroad_and_partial_scope_block_release() -> None:
-    parts = _positive_release_parts("quarantine-bypass-scope")
-    quarantine = parts[10]
-    scope = quarantine_item_checksums(quarantine)
-    overbroad_scope = scope.union({"f" * 64})
-    overbroad_id = operator_approval_id(
-        operator_id="operator-001",
-        approval_status="APPROVED",
-        quarantine_checksum=quarantine.quarantine_checksum,
-        approved_scope=overbroad_scope,
-        approval_epoch=quarantine.quarantine_epoch,
-        approval_reason="overbroad",
-    )
-    overbroad = OperatorApprovalReceipt(
-        approval_id=overbroad_id,
-        operator_id="operator-001",
-        approval_status="APPROVED",
-        quarantine_checksum=quarantine.quarantine_checksum,
-        approved_scope=overbroad_scope,
-        approval_epoch=quarantine.quarantine_epoch,
-        approval_reason="overbroad",
-    )
-    wildcard = operator_approval_receipt(quarantine=quarantine)
-    object.__setattr__(wildcard, "approved_scope", frozenset({"*"}))
-    partial = operator_approval_receipt(quarantine=quarantine)
-    object.__setattr__(partial, "approved_scope", frozenset())
+    wildcard_parts = _positive_release_parts("quarantine-bypass-scope-wildcard")
+    object.__setattr__(wildcard_parts.approval, "approved_scope", frozenset({"*"}))
 
-    wildcard_release = _release_with_parts(parts, approval=wildcard)
-    overbroad_release = _release_with_parts(parts, approval=overbroad)
-    partial_release = _release_with_parts(parts, approval=partial)
+    overbroad_parts = _positive_release_parts("quarantine-bypass-scope-overbroad")
+    object.__setattr__(
+        overbroad_parts.approval,
+        "approved_scope",
+        quarantine_item_checksums(overbroad_parts.quarantine).union({"f" * 64}),
+    )
+    object.__setattr__(
+        overbroad_parts.approval,
+        "authority_bound_checksum",
+        recompute_authority_bound_approval_checksum(overbroad_parts.approval),
+    )
+
+    partial_parts = _positive_release_parts("quarantine-bypass-scope-partial")
+    object.__setattr__(partial_parts.approval, "approved_scope", frozenset())
+
+    wildcard_release = _release_with_parts(wildcard_parts)
+    overbroad_release = _release_with_parts(overbroad_parts)
+    partial_release = _release_with_parts(partial_parts)
 
     assert wildcard_release.reason_code == (
         CommandQuarantineReason.COMMAND_QUARANTINE_WILDCARD_APPROVAL_SCOPE.value
@@ -187,14 +134,14 @@ def test_wildcard_overbroad_and_partial_scope_block_release() -> None:
 )
 def test_evidence_drift_blocks_release(field_name: str, reason_code: str) -> None:
     parts = _positive_release_parts(f"quarantine-bypass-{field_name}")
-    target_by_field = {
-        "quarantine_checksum": parts[10],
-        "lease_checksum": parts[9],
-        "plan_checksum": parts[0],
-        "decision_checksum": parts[7],
-        "manifest_checksum": parts[5],
-        "certification_checksum": parts[3],
-        "proof_checksum": parts[4],
+    target_by_field: dict[str, object] = {
+        "quarantine_checksum": parts.quarantine,
+        "lease_checksum": parts.capability_lease,
+        "plan_checksum": parts.dispatch_plan,
+        "decision_checksum": parts.backend_admission_decision,
+        "manifest_checksum": parts.backend_authority_manifest,
+        "certification_checksum": parts.backend_certification,
+        "proof_checksum": parts.backend_replay_proof,
     }
     object.__setattr__(target_by_field[field_name], field_name, "1" * 64)
 
@@ -221,34 +168,30 @@ def test_registry_and_context_authority_drift_block_release() -> None:
     )
 
 
-def test_stale_approval_epoch_and_malformed_operator_block_release() -> None:
-    stale_parts = _positive_release_parts("quarantine-bypass-stale-approval")
-    stale = operator_approval_receipt(quarantine=stale_parts[10], approval_epoch=2)
-    malformed_parts = _positive_release_parts("quarantine-bypass-operator")
-    malformed = malformed_parts[11]
-    object.__setattr__(malformed, "operator_id", "")
-
-    stale_release = _release_with_parts(stale_parts, approval=stale)
-    malformed_release = _release_with_parts(malformed_parts, approval=malformed)
-
-    assert stale_release.reason_code == (
-        CommandQuarantineReason.COMMAND_QUARANTINE_STALE_APPROVAL_EPOCH.value
+def test_stale_approval_epoch_blocks_release() -> None:
+    parts = _positive_release_parts("quarantine-bypass-stale-approval")
+    object.__setattr__(parts.approval, "approval_epoch", 2)
+    object.__setattr__(
+        parts.approval,
+        "authority_bound_checksum",
+        recompute_authority_bound_approval_checksum(parts.approval),
     )
-    assert malformed_release.reason_code == (
-        CommandQuarantineReason.COMMAND_QUARANTINE_OPERATOR_ID_MALFORMED.value
+
+    release = _release_with_parts(parts)
+
+    assert release.reason_code == (
+        CommandQuarantineReason.COMMAND_QUARANTINE_STALE_APPROVAL_EPOCH.value
     )
 
 
 def test_approval_checksum_and_quarantine_binding_drift_block_release() -> None:
     checksum_parts = _positive_release_parts("quarantine-bypass-approval-checksum")
-    checksum_approval = checksum_parts[11]
-    object.__setattr__(checksum_approval, "approval_checksum", "1" * 64)
+    object.__setattr__(checksum_parts.approval, "authority_bound_checksum", "1" * 64)
     mismatch_parts = _positive_release_parts("quarantine-bypass-approval-mismatch")
     other_parts = _positive_release_parts("quarantine-bypass-approval-other")
-    mismatch_approval = operator_approval_receipt(quarantine=other_parts[10])
 
-    checksum_release = _release_with_parts(checksum_parts, approval=checksum_approval)
-    mismatch_release = _release_with_parts(mismatch_parts, approval=mismatch_approval)
+    checksum_release = _release_with_parts(checksum_parts)
+    mismatch_release = _release_with_parts(mismatch_parts, approval=other_parts.approval)
 
     assert checksum_release.reason_code == (
         CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_CHECKSUM_DRIFT.value
@@ -260,17 +203,16 @@ def test_approval_checksum_and_quarantine_binding_drift_block_release() -> None:
 
 def test_invalid_approval_status_and_partial_quarantine_block_release() -> None:
     status_parts = _positive_release_parts("quarantine-bypass-approval-status")
-    invalid_status = status_parts[11]
-    object.__setattr__(invalid_status, "approval_status", "MAYBE")
+    object.__setattr__(status_parts.approval, "approval_status", "MAYBE")
     object.__setattr__(
-        invalid_status,
-        "approval_checksum",
-        recompute_operator_approval_checksum(invalid_status),
+        status_parts.approval,
+        "authority_bound_checksum",
+        recompute_authority_bound_approval_checksum(status_parts.approval),
     )
     partial_parts = _positive_release_parts("quarantine-bypass-partial-quarantine")
-    object.__setattr__(partial_parts[10], "quarantined_items", ())
+    object.__setattr__(partial_parts.quarantine, "quarantined_items", ())
 
-    status_release = _release_with_parts(status_parts, approval=invalid_status)
+    status_release = _release_with_parts(status_parts)
     partial_release = _release_with_parts(partial_parts)
 
     assert status_release.reason_code == (
@@ -278,6 +220,25 @@ def test_invalid_approval_status_and_partial_quarantine_block_release() -> None:
     )
     assert partial_release.reason_code == (
         CommandQuarantineReason.COMMAND_QUARANTINE_PARTIAL_ITEM_OMISSION.value
+    )
+
+
+def test_replay_validation_drift_and_binding_mismatch_block_release() -> None:
+    drift_parts = _positive_release_parts("quarantine-bypass-replay-drift")
+    object.__setattr__(drift_parts.replay_validation, "replay_validation_checksum", "1" * 64)
+    mismatch_parts = _positive_release_parts("quarantine-bypass-replay-mismatch")
+    other_parts = _positive_release_parts("quarantine-bypass-replay-other")
+
+    drift_release = _release_with_parts(drift_parts)
+    mismatch_release = _release_with_parts(
+        mismatch_parts, replay_validation=other_parts.replay_validation
+    )
+
+    assert drift_release.reason_code == (
+        CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_CHECKSUM_DRIFT.value
+    )
+    assert mismatch_release.reason_code == (
+        CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH.value
     )
 
 
@@ -290,6 +251,7 @@ def test_release_decision_rejects_malformed_direct_construction() -> None:
             reason_code=CommandQuarantineReason.COMMAND_QUARANTINE_RELEASED_DRY_RUN.value,
             quarantine_checksum=release.quarantine_checksum,
             approval_checksum=release.approval_checksum,
+            approval_replay_validation_checksum=release.approval_replay_validation_checksum,
             lease_checksum=release.lease_checksum,
             dispatch_plan_checksum=release.dispatch_plan_checksum,
             released_item_count=0,
@@ -300,6 +262,7 @@ def test_release_decision_rejects_malformed_direct_construction() -> None:
             reason_code=CommandQuarantineReason.COMMAND_QUARANTINE_MISSING_APPROVAL.value,
             quarantine_checksum=release.quarantine_checksum,
             approval_checksum=release.approval_checksum,
+            approval_replay_validation_checksum=release.approval_replay_validation_checksum,
             lease_checksum=release.lease_checksum,
             dispatch_plan_checksum=release.dispatch_plan_checksum,
             released_item_count=0,
@@ -313,6 +276,7 @@ def test_release_decision_rejects_malformed_direct_construction() -> None:
             reason_code=CommandQuarantineReason.COMMAND_QUARANTINE_RELEASED_DRY_RUN.value,
             quarantine_checksum=release.quarantine_checksum,
             approval_checksum=release.approval_checksum,
+            approval_replay_validation_checksum=release.approval_replay_validation_checksum,
             lease_checksum=release.lease_checksum,
             dispatch_plan_checksum=release.dispatch_plan_checksum,
             released_item_count=release.released_item_count,
@@ -331,29 +295,32 @@ def test_release_decision_rejects_malformed_direct_construction() -> None:
         "backend_certification",
         "backend_replay_proof",
         "firewall_decision",
+        "approval_replay_validation",
     ),
 )
 def test_release_rejects_runtime_object_injection_in_source_evidence(field_name: str) -> None:
     parts = _positive_release_parts(f"quarantine-bypass-source-shape-{field_name}")
     values: dict[str, object] = {
-        "dispatch_plan": parts[0],
-        "firewall_decision": parts[1],
-        "backend_descriptor": parts[2],
-        "backend_certification": parts[3],
-        "backend_replay_proof": parts[4],
-        "authority_manifest": parts[5],
-        "registry_checksum": parts[6].registry_checksum,
-        "backend_admission_decision": parts[7],
-        "context_authority_checksum": parts[8].context_checksum,
-        "capability_lease": parts[9],
-        "quarantine": parts[10],
-        "approval": parts[11],
+        "dispatch_plan": parts.dispatch_plan,
+        "firewall_decision": parts.firewall_decision,
+        "backend_descriptor": parts.backend_descriptor,
+        "backend_certification": parts.backend_certification,
+        "backend_replay_proof": parts.backend_replay_proof,
+        "authority_manifest": parts.backend_authority_manifest,
+        "registry_checksum": parts.backend_registry.registry_checksum,
+        "backend_admission_decision": parts.backend_admission_decision,
+        "context_authority_checksum": parts.context_authority.context_checksum,
+        "capability_lease": parts.capability_lease,
+        "quarantine": parts.quarantine,
+        "approval": parts.approval,
+        "approval_replay_validation": parts.replay_validation,
     }
     values[field_name] = object()
 
     release = evaluate_quarantine_release(
         quarantine=values["quarantine"],
         approval=values["approval"],
+        approval_replay_validation=values["approval_replay_validation"],
         capability_lease=values["capability_lease"],
         dispatch_plan=values["dispatch_plan"],
         backend_admission_decision=values["backend_admission_decision"],

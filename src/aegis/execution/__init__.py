@@ -4,6 +4,10 @@ from aegis.execution.aegis_adapter_envelope import build_execution_adapter_envel
 from aegis.execution.aegis_adapter_replay import AdapterReplayOutput, replay_execution_adapter
 from aegis.execution.aegis_adapter_replay_mutations import mutate_adapter_replay_request_in_place
 from aegis.execution.aegis_adapter_replay_proof import prove_adapter_replay
+from aegis.execution.aegis_approval_replay import (
+    build_authority_bound_approval_receipt,
+    validate_approval_replay,
+)
 from aegis.execution.aegis_backend_admission import admit_runtime_backend
 from aegis.execution.aegis_backend_authority import build_backend_authority_manifest
 from aegis.execution.aegis_backend_certification import certify_runtime_backend
@@ -27,6 +31,11 @@ from aegis.execution.aegis_null_runtime_backend import (
     build_null_runtime_backend,
 )
 from aegis.execution.aegis_operator_approval import build_operator_approval_receipt
+from aegis.execution.aegis_operator_authority import build_operator_authority_manifest
+from aegis.execution.aegis_operator_identity import (
+    build_operator_approval_nonce,
+    build_operator_identity_claim,
+)
 from aegis.execution.aegis_quarantine_release import evaluate_quarantine_release
 from aegis.execution.aegis_ros2_mapping_validator import validate_ros2_message_mapping
 from aegis.execution.aegis_runtime_dispatch import build_runtime_dispatch_plan
@@ -44,6 +53,10 @@ __all__ = [
     "build_backend_dry_run_receipt",
     "build_null_runtime_backend",
     "build_operator_approval_receipt",
+    "build_operator_approval_nonce",
+    "build_operator_authority_manifest",
+    "build_operator_identity_claim",
+    "build_authority_bound_approval_receipt",
     "certify_runtime_backend",
     "evaluate_dispatch_firewall",
     "evaluate_quarantine_release",
@@ -59,5 +72,6 @@ __all__ = [
     "replay_execution_adapter",
     "validate_execution_adapter_mapping",
     "validate_runtime_capability_lease",
+    "validate_approval_replay",
     "validate_ros2_message_mapping",
 ]

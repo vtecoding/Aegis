@@ -23,6 +23,10 @@ from aegis.contracts.aegis_runtime_dispatch import (
     RuntimeDispatchPlan,
     RuntimeDispatchReceipt,
 )
+from aegis.execution.aegis_approval_replay import (
+    ApprovalReplayValidationResult,
+    AuthorityBoundApprovalReceipt,
+)
 from aegis.execution.aegis_backend_admission import (
     BackendAdmissionDecision,
     BackendAdmissionRequest,
@@ -34,6 +38,8 @@ from aegis.execution.aegis_command_quarantine import CommandQuarantineEnvelope
 from aegis.execution.aegis_lease_revocation import LeaseRevocationDecision
 from aegis.execution.aegis_lease_validation import LeaseValidationResult
 from aegis.execution.aegis_operator_approval import OperatorApprovalReceipt
+from aegis.execution.aegis_operator_authority import OperatorAuthorityManifest
+from aegis.execution.aegis_operator_identity import OperatorApprovalNonce, OperatorIdentityClaim
 from aegis.execution.aegis_quarantine_release import QuarantineReleaseDecision
 
 
@@ -527,6 +533,7 @@ ADAPTER_AUTHORITY_CONTRACTS = (
             "reason_code",
             "quarantine_checksum",
             "approval_checksum",
+            "approval_replay_validation_checksum",
             "lease_checksum",
             "dispatch_plan_checksum",
             "released_item_count",
@@ -536,6 +543,78 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         reason=(
             "quarantine release decisions prove only approved dry-run intent may leave quarantine"
         ),
+    ),
+    adapter_manifest_for(
+        contract_type=OperatorAuthorityManifest,
+        authoritative_fields=(
+            "authority_id",
+            "authority_version",
+            "allowed_operator_roles",
+            "allowed_approval_scopes",
+            "required_context_authority_checksum",
+            "approval_epoch",
+            "manifest_status",
+            "manifest_checksum",
+        ),
+        checksum_function="operator_authority_manifest_checksum",
+        reason="operator authority manifests bind structural approval roles and scope",
+    ),
+    adapter_manifest_for(
+        contract_type=OperatorIdentityClaim,
+        authoritative_fields=(
+            "operator_id",
+            "operator_role",
+            "operator_authority_manifest_checksum",
+            "context_authority_checksum",
+            "identity_epoch",
+            "identity_checksum",
+        ),
+        checksum_function="operator_identity_claim_checksum",
+        reason="operator identity claims bind a structural operator to an authority manifest",
+    ),
+    adapter_manifest_for(
+        contract_type=OperatorApprovalNonce,
+        authoritative_fields=(
+            "nonce_id",
+            "quarantine_checksum",
+            "operator_identity_checksum",
+            "approval_epoch",
+            "nonce_checksum",
+        ),
+        checksum_function="operator_approval_nonce_checksum",
+        reason="operator approval nonces bind one identity to one quarantine checksum",
+    ),
+    adapter_manifest_for(
+        contract_type=AuthorityBoundApprovalReceipt,
+        authoritative_fields=(
+            "approval_id",
+            "approval_status",
+            "quarantine_checksum",
+            "operator_identity_checksum",
+            "operator_authority_manifest_checksum",
+            "approval_nonce_checksum",
+            "approved_scope",
+            "approval_epoch",
+            "authority_bound_checksum",
+        ),
+        checksum_function="authority_bound_approval_receipt_checksum",
+        reason="authority-bound approvals bind identity, manifest, nonce, scope, and quarantine",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalReplayValidationResult,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "approval_checksum",
+            "quarantine_checksum",
+            "operator_identity_checksum",
+            "authority_manifest_checksum",
+            "nonce_checksum",
+            "context_authority_checksum",
+            "replay_validation_checksum",
+        ),
+        checksum_function="approval_replay_validation_checksum",
+        reason="approval replay validation binds the release proof to one evidence chain",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

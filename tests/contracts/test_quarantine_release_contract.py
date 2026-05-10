@@ -5,16 +5,10 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError
 
 import pytest
-from tests.command_quarantine_fixtures import (
-    command_quarantine_parts,
-    operator_approval_receipt,
-    quarantine_release_decision,
-)
+from tests.command_quarantine_fixtures import quarantine_release_decision
+from tests.operator_authority_fixtures import operator_authority_parts
 
-from aegis.execution.aegis_command_quarantine import (
-    CommandQuarantineReason,
-    quarantine_runtime_command,
-)
+from aegis.execution.aegis_command_quarantine import CommandQuarantineReason
 from aegis.execution.aegis_quarantine_release import (
     QuarantineReleaseDecision,
     recompute_quarantine_release_decision_checksum,
@@ -45,6 +39,7 @@ def test_quarantine_release_decision_is_immutable_and_direct_release_is_blocked(
             reason_code=release.reason_code,
             quarantine_checksum=release.quarantine_checksum,
             approval_checksum=release.approval_checksum,
+            approval_replay_validation_checksum=release.approval_replay_validation_checksum,
             lease_checksum=release.lease_checksum,
             dispatch_plan_checksum=release.dispatch_plan_checksum,
             released_item_count=release.released_item_count,
@@ -60,6 +55,7 @@ def test_blocked_quarantine_release_cannot_release_items() -> None:
             reason_code=CommandQuarantineReason.COMMAND_QUARANTINE_MISSING_APPROVAL.value,
             quarantine_checksum=release.quarantine_checksum,
             approval_checksum=release.approval_checksum,
+            approval_replay_validation_checksum=release.approval_replay_validation_checksum,
             lease_checksum=release.lease_checksum,
             dispatch_plan_checksum=release.dispatch_plan_checksum,
             released_item_count=1,
@@ -80,48 +76,25 @@ def test_quarantine_release_checksum_changes_on_bound_field_change() -> None:
 
 
 def test_rejected_approval_blocks_release() -> None:
-    (
-        dispatch_plan,
-        firewall_decision,
-        backend_descriptor,
-        backend_certification,
-        backend_replay_proof,
-        authority_manifest,
-        backend_registry,
-        backend_admission_decision,
-        context_authority,
-        capability_lease,
-    ) = command_quarantine_parts(request_id="quarantine-release-rejected")
-    quarantine = quarantine_runtime_command(
-        dispatch_plan=dispatch_plan,
-        backend_admission_decision=backend_admission_decision,
-        capability_lease=capability_lease,
-        backend_descriptor=backend_descriptor,
-        authority_manifest=authority_manifest,
-        registry_checksum=backend_registry.registry_checksum,
-        backend_certification=backend_certification,
-        backend_replay_proof=backend_replay_proof,
-        firewall_decision=firewall_decision,
-        context_authority_checksum=context_authority.context_checksum,
-        quarantine_epoch=1,
-        current_lease_epoch=1,
+    parts = operator_authority_parts(
+        request_id="quarantine-release-rejected", approval_status="REJECTED"
     )
-    approval = operator_approval_receipt(quarantine=quarantine, approval_status="REJECTED")
     from aegis.execution.aegis_quarantine_release import evaluate_quarantine_release
 
     release = evaluate_quarantine_release(
-        quarantine=quarantine,
-        approval=approval,
-        capability_lease=capability_lease,
-        dispatch_plan=dispatch_plan,
-        backend_admission_decision=backend_admission_decision,
-        backend_descriptor=backend_descriptor,
-        authority_manifest=authority_manifest,
-        registry_checksum=backend_registry.registry_checksum,
-        backend_certification=backend_certification,
-        backend_replay_proof=backend_replay_proof,
-        firewall_decision=firewall_decision,
-        context_authority_checksum=context_authority.context_checksum,
+        quarantine=parts.quarantine,
+        approval=parts.approval,
+        approval_replay_validation=parts.replay_validation,
+        capability_lease=parts.capability_lease,
+        dispatch_plan=parts.dispatch_plan,
+        backend_admission_decision=parts.backend_admission_decision,
+        backend_descriptor=parts.backend_descriptor,
+        authority_manifest=parts.backend_authority_manifest,
+        registry_checksum=parts.backend_registry.registry_checksum,
+        backend_certification=parts.backend_certification,
+        backend_replay_proof=parts.backend_replay_proof,
+        firewall_decision=parts.firewall_decision,
+        context_authority_checksum=parts.context_authority.context_checksum,
         current_lease_epoch=1,
     )
 

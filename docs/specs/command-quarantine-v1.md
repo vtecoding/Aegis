@@ -15,7 +15,10 @@ sign receipts, or make physical safety claims.
   certification, backend replay proof, context authority, every quarantined item, epoch, and
   quarantine checksum.
 - `OperatorApprovalReceipt` records `APPROVED` or `REJECTED`, operator id, quarantine checksum,
-  explicit approved item-checksum scope, epoch, reason, and approval checksum.
+  explicit approved item-checksum scope, epoch, reason, and approval checksum. ADR-0023
+  supersedes this as release authority; it remains structural evidence only.
+- `AuthorityBoundApprovalReceipt` and `ApprovalReplayValidationResult` record the ADR-0023
+  authority-bound approval and replay validation proof required for release.
 - `QuarantineReleaseDecision` records `RELEASED_DRY_RUN` or `BLOCKED`, reason code, quarantine
   checksum, approval checksum, lease checksum, dispatch plan checksum, released item count,
   and decision checksum.
@@ -31,7 +34,9 @@ sign receipts, or make physical safety claims.
 - backend admission decision status is exactly `ADMITTED`
 - dispatch plan, backend admission, descriptor, manifest, registry, certification, replay proof,
   lease, and context authority checksums match exactly
-- approval is an exact `OperatorApprovalReceipt`
+- approval is an exact ADR-0023 `AuthorityBoundApprovalReceipt`
+- approval replay validation is an exact ADR-0023 `ApprovalReplayValidationResult` with status
+  `VALID`
 - approval status is `APPROVED`
 - approval checksum recomputes
 - approval quarantine checksum matches the quarantine envelope
@@ -63,6 +68,10 @@ sign receipts, or make physical safety claims.
 - `COMMAND_QUARANTINE_WILDCARD_APPROVAL_SCOPE`
 - `COMMAND_QUARANTINE_OVERBROAD_APPROVAL_SCOPE`
 - `COMMAND_QUARANTINE_APPROVAL_SCOPE_EMPTY`
+- `COMMAND_QUARANTINE_MISSING_APPROVAL_REPLAY_VALIDATION`
+- `COMMAND_QUARANTINE_APPROVAL_REPLAY_BLOCKED`
+- `COMMAND_QUARANTINE_APPROVAL_REPLAY_CHECKSUM_DRIFT`
+- `COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH`
 - `COMMAND_QUARANTINE_PARTIAL_ITEM_OMISSION`
 - `COMMAND_QUARANTINE_STALE_APPROVAL_EPOCH`
 - `COMMAND_QUARANTINE_OPERATOR_ID_MALFORMED`
@@ -88,6 +97,7 @@ sign receipts, or make physical safety claims.
 - Repeated release over identical quarantine, approval, lease, and evidence produces the same
   release checksum.
 - No release is possible without explicit approval evidence.
+- No release is possible without replay-valid ADR-0023 operator authority evidence.
 - Rejected approval never releases quarantine.
 - Any bound field change changes a checksum or blocks release.
 - Approval scope cannot be wildcard, empty, overbroad, or partial for release.
@@ -97,7 +107,8 @@ sign receipts, or make physical safety claims.
 ## Release Gate
 
 Command Quarantine v1 is complete only when lease-valid dispatch intent is quarantined by
-default, no quarantine releases without explicit operator approval, approval/release is bound to
-the dispatch, backend, lease, registry, manifest, replay, and context chain, rejected, missing,
-stale, overbroad, drifted, or injected paths fail closed, scenario/governance sentinels cover
-ADR-0022, forbidden runtime imports remain absent, and `python scripts\verify.py verify` passes.
+default, no quarantine releases without explicit replay-valid ADR-0023 operator authority,
+approval/release is bound to the dispatch, backend, lease, registry, manifest, replay, and
+context chain, rejected, missing, stale, overbroad, drifted, or injected paths fail closed,
+scenario/governance sentinels cover ADR-0022 and ADR-0023, forbidden runtime imports remain
+absent, and `python scripts\verify.py verify` passes.
