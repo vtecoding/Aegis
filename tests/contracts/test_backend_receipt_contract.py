@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendDryRunReceipt,
     backend_dry_run_receipt_checksum,
     recompute_backend_dry_run_receipt_checksum,

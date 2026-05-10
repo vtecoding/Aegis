@@ -11,7 +11,10 @@ from tests.execution_adapter_fixtures import (
     ros2_move_mapping,
 )
 
-from aegis.contracts.execution_adapter import ExecutionAdapterEnvelopeStatus, ExecutionAdapterReason
+from aegis.contracts.aegis_execution_adapter import (
+    ExecutionAdapterEnvelopeStatus,
+    ExecutionAdapterReason,
+)
 from aegis.execution import build_execution_adapter_envelope
 
 

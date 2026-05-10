@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from aegis.governance.authority_fields import manifest_for
-from aegis.governance.context_authority import ContextAuthority
-from aegis.governance.contract_drift import assert_no_contract_drift, evaluate_contract_drift
+from aegis.governance.aegis_authority_fields import manifest_for
+from aegis.governance.aegis_context_authority import ContextAuthority
+from aegis.governance.aegis_contract_drift import assert_no_contract_drift, evaluate_contract_drift
 
 
 def test_contract_drift_sentinel_passes_for_registered_manifests() -> None:

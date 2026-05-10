@@ -4,7 +4,7 @@ from collections.abc import Mapping
 
 import pytest
 
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -12,7 +12,7 @@ from aegis.contracts.policy import (
     PolicyRule,
     WorldSnapshotStub,
 )
-from aegis.policy.evaluator import evaluate_policy, evaluate_policy_with_safety_case
+from aegis.policy.aegis_evaluator import evaluate_policy, evaluate_policy_with_safety_case
 
 
 def move_policy(constraints: tuple[Constraint, ...]) -> Policy:

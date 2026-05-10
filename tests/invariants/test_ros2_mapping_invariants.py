@@ -8,7 +8,7 @@ from tests.execution_adapter_fixtures import (
     ros2_move_mapping,
 )
 
-from aegis.contracts.ros2_mapping import DANGEROUS_RUNTIME_OVERRIDE_FIELDS
+from aegis.contracts.aegis_ros2_mapping import DANGEROUS_RUNTIME_OVERRIDE_FIELDS
 
 
 def test_invariant_mapping_key_order_does_not_change_mapping_checksum() -> None:

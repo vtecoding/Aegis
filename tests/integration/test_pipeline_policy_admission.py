@@ -12,10 +12,11 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import (
+from aegis.aegis_errors import PolicyAdmissionIntegrityError
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -23,8 +24,7 @@ from aegis.contracts.policy import (
     PolicyEvaluationResult,
     PolicyRule,
 )
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
-from aegis.errors import PolicyAdmissionIntegrityError
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.pipeline import run_pipeline
 
 
@@ -148,7 +148,7 @@ def test_policy_invalid_returns_invalid_without_gate() -> None:
         ["POLICY_EVALUATION_CONTEXT_INVALID"],
     )
 
-    with patch("aegis.pipeline.orchestrator.evaluate_policy", return_value=invalid_result):
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_policy", return_value=invalid_result):
         admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
@@ -164,7 +164,9 @@ def test_policy_invalid_returns_invalid_without_gate() -> None:
 
 def test_policy_evaluator_exception_returns_error_without_approval() -> None:
     context = _context("policy-integration-evaluator-error")
-    with patch("aegis.pipeline.orchestrator.evaluate_policy", side_effect=RuntimeError("boom")):
+    with patch(
+        "aegis.pipeline.aegis_orchestrator.evaluate_policy", side_effect=RuntimeError("boom")
+    ):
         admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
@@ -181,7 +183,9 @@ def test_policy_evaluator_exception_returns_error_without_approval() -> None:
 
 def test_safety_case_exception_returns_error_without_approval() -> None:
     context = _context("policy-integration-safety-case-error")
-    with patch("aegis.pipeline.orchestrator.build_safety_case", side_effect=RuntimeError("boom")):
+    with patch(
+        "aegis.pipeline.aegis_orchestrator.build_safety_case", side_effect=RuntimeError("boom")
+    ):
         admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),
@@ -199,7 +203,9 @@ def test_safety_case_exception_returns_error_without_approval() -> None:
 def test_admission_integrity_exception_returns_error_without_approval() -> None:
     context = _context("policy-integration-integrity-error")
     error = PolicyAdmissionIntegrityError("forced", "policy", {"reason": "test"})
-    with patch("aegis.pipeline.orchestrator.assert_policy_admission_integrity", side_effect=error):
+    with patch(
+        "aegis.pipeline.aegis_orchestrator.assert_policy_admission_integrity", side_effect=error
+    ):
         admission = _admission(_policy(Constraint("max_velocity", {"max_mps": 1.0})))
         result = run_pipeline(
             _intent(context),

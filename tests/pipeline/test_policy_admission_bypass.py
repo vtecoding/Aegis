@@ -11,10 +11,10 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -22,7 +22,7 @@ from aegis.contracts.policy import (
     PolicyRule,
     WorldSnapshotStub,
 )
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.pipeline import run_pipeline
 
 

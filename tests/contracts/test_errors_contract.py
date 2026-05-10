@@ -4,7 +4,7 @@ from collections.abc import Mapping
 
 import pytest
 
-from aegis.errors import (
+from aegis.aegis_errors import (
     AegisError,
     AuditError,
     ConfigurationError,

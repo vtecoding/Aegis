@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from aegis.contracts.decision_trace import DECISION_TRACE_STAGE_ORDER
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.scenarios.contracts import ScenarioCategory
-from aegis.scenarios.fixtures import canonical_scenario_definitions
-from aegis.scenarios.runner import run_canonical_scenario_suite, run_pipeline_scenario
+from aegis.contracts.aegis_decision_trace import DECISION_TRACE_STAGE_ORDER
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.scenarios.aegis_contracts import ScenarioCategory
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
+from aegis.scenarios.aegis_runner import run_canonical_scenario_suite, run_pipeline_scenario
 
 
 def test_canonical_scenario_suite_passes() -> None:

@@ -11,9 +11,12 @@ from tests.execution_adapter_fixtures import (
     runtime_target,
 )
 
-from aegis.constants import MAX_ADAPTER_FIELD_COUNT
-from aegis.contracts.execution_adapter import ExecutionAdapterEnvelopeStatus, ExecutionAdapterReason
-from aegis.contracts.ros2_mapping import Ros2MessageMapping, RuntimeKind, RuntimeTarget
+from aegis.aegis_constants import MAX_ADAPTER_FIELD_COUNT
+from aegis.contracts.aegis_execution_adapter import (
+    ExecutionAdapterEnvelopeStatus,
+    ExecutionAdapterReason,
+)
+from aegis.contracts.aegis_ros2_mapping import Ros2MessageMapping, RuntimeKind, RuntimeTarget
 from aegis.execution import build_execution_adapter_envelope
 
 

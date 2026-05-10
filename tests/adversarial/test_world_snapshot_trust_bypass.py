@@ -20,16 +20,16 @@ from tests.policy_trust_fixtures import (
 )
 
 from aegis.audit import build_audited_plan
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
-from aegis.contracts.world_snapshot_freshness import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_world_snapshot_freshness import (
     DEFAULT_FRESHNESS_POLICY,
     validate_world_snapshot_freshness,
 )
-from aegis.contracts.world_snapshot_trust import (
+from aegis.contracts.aegis_world_snapshot_trust import (
     TrustDomain,
     WorldSnapshotEvidenceEnvelope,
     WorldSnapshotSourceType,
@@ -96,7 +96,7 @@ def test_fresh_snapshot_with_metadata_self_trust_blocks_before_policy() -> None:
         metadata={"trusted": True, "source_id": "trusted-simulator"},
     )
 
-    with patch("aegis.pipeline.orchestrator.evaluate_policy") as evaluator:
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_policy") as evaluator:
         result = run_pipeline(
             _intent(context),
             context,

@@ -14,8 +14,11 @@ from tests.execution_adapter_fixtures import (
 )
 
 from aegis.audit import build_audited_plan
-from aegis.contracts.execution_adapter import ExecutionAdapterEnvelopeStatus, ExecutionAdapterReason
-from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.aegis_execution_adapter import (
+    ExecutionAdapterEnvelopeStatus,
+    ExecutionAdapterReason,
+)
+from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult
 from aegis.execution import build_execution_adapter_envelope
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent

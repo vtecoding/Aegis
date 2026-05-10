@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_backend import BackendCertificationReason, BackendCertificationStatus
+from aegis.contracts.aegis_runtime_backend import (
+    BackendCertificationReason,
+    BackendCertificationStatus,
+)
 from aegis.execution import (
     build_null_runtime_backend,
     build_runtime_dispatch_plan,
@@ -81,7 +84,7 @@ def test_backend_certification_blocks_mutable_runtime_state() -> None:
 
 
 def test_null_runtime_backend_rejects_non_descriptor_object() -> None:
-    from aegis.execution.null_runtime_backend import NullRuntimeBackend
+    from aegis.execution.aegis_null_runtime_backend import NullRuntimeBackend
 
     try:
         NullRuntimeBackend(descriptor=object())

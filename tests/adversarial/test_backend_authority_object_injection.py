@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.backend_authority_fixtures import backend_admission_request, backend_authority_parts
 
-from aegis.execution.backend_admission import BackendAdmissionRequest, admit_runtime_backend
+from aegis.execution.aegis_backend_admission import BackendAdmissionRequest, admit_runtime_backend
 
 
 class _InjectedBackendClient:

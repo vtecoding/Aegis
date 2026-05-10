@@ -6,22 +6,22 @@ import ast
 from dataclasses import fields
 from pathlib import Path
 
-from aegis.contracts.runtime_dispatch import (
+from aegis.contracts.aegis_runtime_dispatch import (
     DispatchFirewallDecision,
     RuntimeDispatchPlan,
     RuntimeDispatchReceipt,
 )
-from aegis.execution.dispatch_fields import (
+from aegis.execution.aegis_dispatch_fields import (
     DISPATCH_FIREWALL_DECISION_CHECKSUM_FIELDS,
     RUNTIME_DISPATCH_PLAN_CHECKSUM_FIELDS,
     RUNTIME_DISPATCH_RECEIPT_CHECKSUM_FIELDS,
     RUNTIME_DISPATCH_SCENARIO_CATEGORY_NAMES,
     STRICT_RUNTIME_DISPATCH_DRY_RUN_V1_PROPERTIES,
 )
-from aegis.governance.adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
-from aegis.scenarios.contracts import ScenarioCategory
-from aegis.scenarios.coverage import evaluate_scenario_coverage
-from aegis.scenarios.fixtures import canonical_scenario_definitions
+from aegis.governance.aegis_adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
+from aegis.scenarios.aegis_contracts import ScenarioCategory
+from aegis.scenarios.aegis_coverage import evaluate_scenario_coverage
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
 
 
 def test_runtime_dispatch_categories_are_registered_and_covered() -> None:

@@ -6,7 +6,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from tests.backend_authority_fixtures import backend_admission_request
 
-from aegis.execution.backend_admission import BackendAdmissionDecision, admit_runtime_backend
+from aegis.execution.aegis_backend_admission import BackendAdmissionDecision, admit_runtime_backend
 
 
 @given(st.integers(min_value=1, max_value=20))

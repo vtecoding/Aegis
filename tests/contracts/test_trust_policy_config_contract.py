@@ -10,12 +10,12 @@ from tests.policy_trust_fixtures import (
     trusted_world_snapshot_policy,
 )
 
-from aegis.contracts.attestation_verifier import AttestationVerifierAdapterMetadata
-from aegis.contracts.trust_policy_config import (
+from aegis.contracts.aegis_attestation_verifier import AttestationVerifierAdapterMetadata
+from aegis.contracts.aegis_trust_policy_config import (
     TrustPolicyConfigStatus,
     validate_trust_policy_config,
 )
-from aegis.contracts.world_snapshot_trust import TrustDomain, WorldSnapshotSourceType
+from aegis.contracts.aegis_world_snapshot_trust import TrustDomain, WorldSnapshotSourceType
 
 
 def test_fixture_trust_policy_config_validates_for_simulation_enforce() -> None:

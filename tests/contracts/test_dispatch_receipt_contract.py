@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_dispatch import (
+from aegis.contracts.aegis_runtime_dispatch import (
     DispatchFirewallDecision,
     DispatchFirewallReason,
     RuntimeDispatchReceipt,

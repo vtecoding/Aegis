@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.adapter_replay import (
+from aegis.contracts.aegis_adapter_replay import (
     AdapterReplayProofResult,
     adapter_replay_proof_checksum,
     recompute_adapter_replay_proof_checksum,

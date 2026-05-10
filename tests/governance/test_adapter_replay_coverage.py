@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from dataclasses import fields
 
-from aegis.contracts.adapter_replay import AdapterReplayProofResult
-from aegis.execution.adapter_replay_fields import (
+from aegis.contracts.aegis_adapter_replay import AdapterReplayProofResult
+from aegis.execution.aegis_adapter_replay_fields import (
     ADAPTER_REPLAY_PROOF_CHECKSUM_FIELDS,
     ADAPTER_REPLAY_SCENARIO_CATEGORY_NAMES,
     STRICT_ADAPTER_REPLAY_V1_PROPERTIES,
 )
-from aegis.governance.adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
-from aegis.scenarios.contracts import ScenarioCategory
-from aegis.scenarios.coverage import evaluate_scenario_coverage
-from aegis.scenarios.fixtures import canonical_scenario_definitions
+from aegis.governance.aegis_adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
+from aegis.scenarios.aegis_contracts import ScenarioCategory
+from aegis.scenarios.aegis_coverage import evaluate_scenario_coverage
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
 
 
 def test_adapter_replay_categories_are_registered_and_covered() -> None:

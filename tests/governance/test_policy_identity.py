@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_policy import (
     Constraint,
     Policy,
     PolicyDefaultDecision,
     PolicyRule,
     policy_identity_checksum,
 )
-from aegis.governance.policy_identity import policy_identity_errors, recompute_policy_checksum
+from aegis.governance.aegis_policy_identity import policy_identity_errors, recompute_policy_checksum
 
 
 def _rule(max_mps: float = 1.0) -> PolicyRule:

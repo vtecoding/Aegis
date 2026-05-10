@@ -7,13 +7,13 @@ from dataclasses import FrozenInstanceError
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.adapter_replay import (
+from aegis.contracts.aegis_adapter_replay import (
     AdapterReplayMutationProfile,
     AdapterReplayProfile,
     AdapterReplayRequest,
     adapter_replay_source_pipeline_checksum,
 )
-from aegis.contracts.execution_adapter import ExecutionAdapterEnvelopeStatus
+from aegis.contracts.aegis_execution_adapter import ExecutionAdapterEnvelopeStatus
 
 
 def test_adapter_replay_request_binds_pipeline_envelope_receipt_and_profiles() -> None:

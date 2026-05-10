@@ -7,13 +7,13 @@ from datetime import UTC, datetime
 from hypothesis import given
 from hypothesis import strategies as st
 
-from aegis.audit.audit_builder import build_audited_plan
-from aegis.audit.checksum import plan_audit_id, plan_checksum
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.planning import CommandPlan
-from aegis.planning.command_planner import plan_validated_intent
-from aegis.validation.semantic_validator import validate_intent
+from aegis.audit.aegis_audit_builder import build_audited_plan
+from aegis.audit.aegis_checksum import plan_audit_id, plan_checksum
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_planning import CommandPlan
+from aegis.planning.aegis_command_planner import plan_validated_intent
+from aegis.validation.aegis_semantic_validator import validate_intent
 
 _TARGET_TEXT = st.text(
     alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters="\x00"),

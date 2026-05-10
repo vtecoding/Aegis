@@ -4,14 +4,14 @@ import os
 
 import pytest
 
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_policy import (
     Constraint,
     Policy,
     PolicyDefaultDecision,
     PolicyRule,
     WorldSnapshotStub,
 )
-from aegis.policy.validation import validate_policy
+from aegis.policy.aegis_validation import validate_policy
 
 
 def make_constraint() -> Constraint:

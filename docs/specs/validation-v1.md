@@ -24,8 +24,8 @@ deterministic `ValidationResult` objects.
 ## API
 
 ```python
-from aegis.validation.schema_validator import validate_schema
-from aegis.validation.semantic_validator import validate_intent, validate_semantics
+from aegis.validation.aegis_schema_validator import validate_schema
+from aegis.validation.aegis_semantic_validator import validate_intent, validate_semantics
 ```
 
 `validate_schema(intent: RawIntent) -> ValidationResult` reports boundary shape and limit

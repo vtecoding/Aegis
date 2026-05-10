@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from tests.execution_adapter_fixtures import adapter_mapping, runtime_target
 
-from aegis.contracts.execution_adapter import ExecutionAdapterReason
-from aegis.contracts.ros2_mapping import Ros2History
+from aegis.contracts.aegis_execution_adapter import ExecutionAdapterReason
+from aegis.contracts.aegis_ros2_mapping import Ros2History
 from aegis.execution import validate_ros2_message_mapping
 
 

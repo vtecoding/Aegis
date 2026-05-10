@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from tests.policy_freshness_fixtures import FRESH_EVALUATION_TIME_MS, fresh_world_snapshot_result
 
-from aegis.contracts.attestation_verifier import (
+from aegis.contracts.aegis_attestation_verifier import (
     AttestationVerifierAdapterMetadata,
     certify_attestation_verifier_adapter,
 )
-from aegis.contracts.policy import PolicyEvaluationResult, WorldSnapshotStub
-from aegis.contracts.trust_policy_config import validate_trust_policy_config
-from aegis.contracts.world_snapshot_trust import (
+from aegis.contracts.aegis_policy import PolicyEvaluationResult, WorldSnapshotStub
+from aegis.contracts.aegis_trust_policy_config import validate_trust_policy_config
+from aegis.contracts.aegis_world_snapshot_trust import (
     AttestationVerificationResult,
     TrustDomain,
     WorldSnapshotAttestation,
@@ -21,7 +21,7 @@ from aegis.contracts.world_snapshot_trust import (
     evaluate_world_snapshot_trust,
     world_snapshot_attestation_payload_checksum,
 )
-from aegis.governance.context_authority import ContextAuthority
+from aegis.governance.aegis_context_authority import ContextAuthority
 
 TRUST_CAPABILITY = "locomotion.translation"
 TRUST_SOURCE_ID = "trusted-simulator"

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from aegis.contracts.approval_receipt import (
+from aegis.contracts.aegis_approval_receipt import (
     ApprovalReceipt,
     ApprovalReceiptReason,
     ApprovalReceiptStatus,
     pipeline_result_id_checksum,
     validate_approval_receipt,
 )
-from aegis.contracts.decision_trace import (
+from aegis.contracts.aegis_decision_trace import (
     ALLOW_REQUIRED_STAGE_CHAIN,
     DecisionTrace,
     DecisionTraceStep,

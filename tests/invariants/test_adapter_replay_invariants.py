@@ -6,7 +6,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.adapter_replay import AdapterReplayProofResult
+from aegis.contracts.aegis_adapter_replay import AdapterReplayProofResult
 from aegis.execution import prove_adapter_replay
 
 

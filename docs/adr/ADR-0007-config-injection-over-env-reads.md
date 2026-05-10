@@ -17,7 +17,7 @@ audit algorithm, gate version, etc. Two access patterns were considered:
 ## Decision
 
 Configuration is represented by `AegisConfig`, a **frozen dataclass with deterministic
-defaults** defined in `src/aegis/config.py`.
+defaults** defined in `src/aegis/aegis_config.py`.
 
 Rules:
 - `AegisConfig` is constructed by the caller (test, CLI adapter, ROS 2 adapter).

@@ -6,22 +6,22 @@ import ast
 from dataclasses import fields
 from pathlib import Path
 
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationResult,
     BackendDryRunReceipt,
     RuntimeBackendDescriptor,
 )
-from aegis.execution.backend_fields import (
+from aegis.execution.aegis_backend_fields import (
     BACKEND_CERTIFICATION_CHECKSUM_FIELDS,
     BACKEND_CERTIFICATION_SCENARIO_CATEGORY_NAMES,
     BACKEND_DRY_RUN_RECEIPT_CHECKSUM_FIELDS,
     RUNTIME_BACKEND_DESCRIPTOR_CHECKSUM_FIELDS,
     STRICT_RUNTIME_BACKEND_NULL_V1_PROPERTIES,
 )
-from aegis.governance.adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
-from aegis.scenarios.contracts import ScenarioCategory
-from aegis.scenarios.coverage import evaluate_scenario_coverage
-from aegis.scenarios.fixtures import canonical_scenario_definitions
+from aegis.governance.aegis_adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
+from aegis.scenarios.aegis_contracts import ScenarioCategory
+from aegis.scenarios.aegis_coverage import evaluate_scenario_coverage
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
 
 
 def test_backend_certification_categories_are_registered_and_covered() -> None:

@@ -6,14 +6,14 @@ from typing import cast
 
 import pytest
 
-from aegis.contracts.decision_trace import (
+from aegis.contracts.aegis_decision_trace import (
     DecisionTrace,
     DecisionTraceStep,
     decision_trace_checksum,
     decision_trace_integrity_errors,
     decision_trace_step_checksum,
 )
-from aegis.contracts.json_types import JsonValue
+from aegis.contracts.aegis_json_types import JsonValue
 
 
 def _step(

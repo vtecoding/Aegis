@@ -1,4 +1,4 @@
-"""Unit tests for aegis.logging — AegisLogEvent, make_log_event, serialise_log_event."""
+"""Unit tests for aegis.aegis_logging — AegisLogEvent, make_log_event, serialise_log_event."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.logging import AegisLogEvent, make_log_event, serialise_log_event
+from aegis.aegis_logging import AegisLogEvent, make_log_event, serialise_log_event
 
 # ---------------------------------------------------------------------------
 # AegisLogEvent construction — happy paths

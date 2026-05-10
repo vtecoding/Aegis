@@ -13,14 +13,14 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
-from aegis.governance.context_authority import ContextAuthority
-from aegis.governance.contract_drift import evaluate_contract_drift
-from aegis.governance.coverage_sentinel import evaluate_coverage_sentinel
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.governance.aegis_context_authority import ContextAuthority
+from aegis.governance.aegis_contract_drift import evaluate_contract_drift
+from aegis.governance.aegis_coverage_sentinel import evaluate_coverage_sentinel
 from aegis.pipeline import run_pipeline
 
 

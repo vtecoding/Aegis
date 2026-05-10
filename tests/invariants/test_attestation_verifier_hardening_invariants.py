@@ -11,9 +11,9 @@ from tests.policy_trust_fixtures import (
     trusted_world_snapshot_policy,
 )
 
-from aegis.contracts.attestation_verifier import certify_attestation_verifier_adapter
-from aegis.contracts.trust_policy_config import validate_trust_policy_config
-from aegis.contracts.world_snapshot_trust import TrustDomain
+from aegis.contracts.aegis_attestation_verifier import certify_attestation_verifier_adapter
+from aegis.contracts.aegis_trust_policy_config import validate_trust_policy_config
+from aegis.contracts.aegis_world_snapshot_trust import TrustDomain
 
 
 @given(replay_count=st.integers(min_value=1, max_value=4))

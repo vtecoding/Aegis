@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_mapping, allowed_pipeline_result
 
-from aegis.contracts.adapter_receipt import (
+from aegis.contracts.aegis_adapter_receipt import (
     AdapterReceipt,
     adapter_receipt_checksum_value,
     build_adapter_receipt,
     recompute_adapter_receipt_checksum,
 )
-from aegis.contracts.execution_adapter import ExecutionAdapterEnvelopeStatus
+from aegis.contracts.aegis_execution_adapter import ExecutionAdapterEnvelopeStatus
 from aegis.execution import build_execution_adapter_envelope
 
 

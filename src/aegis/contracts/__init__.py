@@ -1,12 +1,12 @@
 """Shared typed contracts between Aegis pipeline layers."""
 
-from aegis.contracts.adapter_receipt import (
+from aegis.contracts.aegis_adapter_receipt import (
     AdapterReceipt,
     adapter_receipt_checksum_value,
     build_adapter_receipt,
     recompute_adapter_receipt_checksum,
 )
-from aegis.contracts.adapter_replay import (
+from aegis.contracts.aegis_adapter_replay import (
     AdapterReplayMutationProfile,
     AdapterReplayProfile,
     AdapterReplayProofResult,
@@ -15,14 +15,14 @@ from aegis.contracts.adapter_replay import (
     adapter_replay_source_pipeline_checksum,
     recompute_adapter_replay_proof_checksum,
 )
-from aegis.contracts.approval_receipt import (
+from aegis.contracts.aegis_approval_receipt import (
     ApprovalReceipt,
     ApprovalReceiptReason,
     ApprovalReceiptStatus,
     ApprovalReceiptValidationResult,
     validate_approval_receipt,
 )
-from aegis.contracts.attestation_verifier import (
+from aegis.contracts.aegis_attestation_verifier import (
     AttestationVerifierAdapter,
     AttestationVerifierAdapterMetadata,
     AttestationVerifierTestVector,
@@ -31,8 +31,8 @@ from aegis.contracts.attestation_verifier import (
     build_attestation_verifier_test_vectors,
     certify_attestation_verifier_adapter,
 )
-from aegis.contracts.audit import AuditedPlan
-from aegis.contracts.backend_replay import (
+from aegis.contracts.aegis_audit import AuditedPlan
+from aegis.contracts.aegis_backend_replay import (
     BackendReplayMutationProfile,
     BackendReplayProfile,
     BackendReplayProofResult,
@@ -42,9 +42,9 @@ from aegis.contracts.backend_replay import (
     backend_replay_request_source_checksum,
     recompute_backend_replay_proof_checksum,
 )
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.decision_trace import DecisionTrace, DecisionTraceStep
-from aegis.contracts.execution_adapter import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_decision_trace import DecisionTrace, DecisionTraceStep
+from aegis.contracts.aegis_execution_adapter import (
     ExecutionAdapterEnvelope,
     ExecutionAdapterEnvelopeStatus,
     ExecutionAdapterMapping,
@@ -55,9 +55,9 @@ from aegis.contracts.execution_adapter import (
     recompute_execution_adapter_envelope_checksum,
     recompute_execution_adapter_mapping_checksum,
 )
-from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.json_types import (
+from aegis.contracts.aegis_gate import GateBlockReason, GateDecision, GateDecisionStatus
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_json_types import (
     FrozenJsonValue,
     JsonScalar,
     JsonValue,
@@ -65,9 +65,9 @@ from aegis.contracts.json_types import (
     freeze_json_value,
     is_json_value,
 )
-from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
-from aegis.contracts.planning import CommandPlan, CommandStep, CommandStepType
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.aegis_planning import CommandPlan, CommandStep, CommandStepType
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     FrozenPolicyValue,
@@ -81,7 +81,7 @@ from aegis.contracts.policy import (
     WorldSnapshotStub,
     policy_evaluation_result_checksum,
 )
-from aegis.contracts.policy_admission import (
+from aegis.contracts.aegis_policy_admission import (
     PolicyAdmissionDecision,
     PolicyAdmissionInput,
     PolicyAdmissionIntegrity,
@@ -92,7 +92,7 @@ from aegis.contracts.policy_admission import (
     disabled_policy_admission_record,
     is_policy_backed_approval,
 )
-from aegis.contracts.ros2_mapping import (
+from aegis.contracts.aegis_ros2_mapping import (
     DANGEROUS_RUNTIME_OVERRIDE_FIELDS,
     Ros2CommunicationPrimitive,
     Ros2Durability,
@@ -110,7 +110,7 @@ from aegis.contracts.ros2_mapping import (
     ros2_qos_profile_checksum,
     runtime_target_checksum_value,
 )
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationResult,
     BackendCertificationStatus,
@@ -128,7 +128,7 @@ from aegis.contracts.runtime_backend import (
     runtime_backend_descriptor_checksum,
     runtime_backend_observed_dispatch_items,
 )
-from aegis.contracts.runtime_dispatch import (
+from aegis.contracts.aegis_runtime_dispatch import (
     DispatchFirewallDecision,
     DispatchFirewallDecisionStatus,
     DispatchFirewallReason,
@@ -148,14 +148,14 @@ from aegis.contracts.runtime_dispatch import (
     runtime_dispatch_plan_id,
     runtime_dispatch_receipt_checksum,
 )
-from aegis.contracts.trust_policy_config import (
+from aegis.contracts.aegis_trust_policy_config import (
     TrustPolicyConfigStatus,
     TrustPolicyConfigValidationResult,
     trust_policy_config_validation_result_checksum,
     validate_trust_policy_config,
 )
-from aegis.contracts.validation import ValidationResult, Violation
-from aegis.contracts.world_snapshot_trust import (
+from aegis.contracts.aegis_validation import ValidationResult, Violation
+from aegis.contracts.aegis_world_snapshot_trust import (
     AttestationVerificationResult,
     TrustDomain,
     WorldSnapshotAttestation,

@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
 
 
 def make_context() -> ExecutionContext:

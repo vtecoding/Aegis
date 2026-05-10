@@ -11,7 +11,7 @@ from tests.policy_freshness_fixtures import (
     fresh_world_snapshot,
 )
 
-from aegis.contracts.world_snapshot_freshness import (
+from aegis.contracts.aegis_world_snapshot_freshness import (
     DEFAULT_FRESHNESS_POLICY,
     FreshnessPolicy,
     WorldSnapshotFreshnessError,

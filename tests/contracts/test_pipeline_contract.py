@@ -10,11 +10,11 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import bind_policy_result_to_trust, trusted_world_snapshot_result
 
-from aegis.contracts.audit import AuditedPlan
-from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
-from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
-from aegis.contracts.planning import CommandPlan
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_audit import AuditedPlan
+from aegis.contracts.aegis_gate import GateBlockReason, GateDecision, GateDecisionStatus
+from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.aegis_planning import CommandPlan
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -22,12 +22,12 @@ from aegis.contracts.policy import (
     PolicyEvaluationResult,
     PolicyRule,
 )
-from aegis.contracts.policy_admission import PolicyAdmissionMode, PolicyAdmissionRecord
-from aegis.contracts.validation import ValidationResult, Violation
-from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
-from aegis.governance.context_authority import ContextAuthority
-from aegis.pipeline.approval_receipt import build_approval_receipt, validate_approval_receipt
-from aegis.pipeline.decision_trace import build_decision_trace
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionMode, PolicyAdmissionRecord
+from aegis.contracts.aegis_validation import ValidationResult, Violation
+from aegis.contracts.aegis_world_snapshot_trust import WorldSnapshotTrustResult
+from aegis.governance.aegis_context_authority import ContextAuthority
+from aegis.pipeline.aegis_approval_receipt import build_approval_receipt, validate_approval_receipt
+from aegis.pipeline.aegis_decision_trace import build_decision_trace
 from aegis.policy import build_safety_case
 
 # ---------------------------------------------------------------------------
@@ -420,8 +420,8 @@ def test_pipeline_result_blocked_rejects_no_blocking_evidence(
 def test_pipeline_result_invalid_accepts_none_fields() -> None:
     from datetime import UTC, datetime
 
-    from aegis.contracts.context import ExecutionContext
-    from aegis.contracts.intent import RawIntent
+    from aegis.contracts.aegis_context import ExecutionContext
+    from aegis.contracts.aegis_intent import RawIntent
 
     ctx = ExecutionContext("test", datetime(2026, 1, 1, tzinfo=UTC), "policy-v1")
     intent = RawIntent(
@@ -632,8 +632,8 @@ def test_pipeline_result_is_frozen(
 def make_validation_result() -> ValidationResult:
     from datetime import UTC, datetime
 
-    from aegis.contracts.context import ExecutionContext
-    from aegis.contracts.intent import RawIntent
+    from aegis.contracts.aegis_context import ExecutionContext
+    from aegis.contracts.aegis_intent import RawIntent
 
     ctx = ExecutionContext("test-001", datetime(2026, 1, 1, tzinfo=UTC), "policy-v1")
     intent = RawIntent(

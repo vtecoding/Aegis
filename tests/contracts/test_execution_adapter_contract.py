@@ -9,7 +9,7 @@ from tests.execution_adapter_fixtures import (
     runtime_target,
 )
 
-from aegis.contracts.execution_adapter import (
+from aegis.contracts.aegis_execution_adapter import (
     ExecutionAdapterEnvelope,
     ExecutionAdapterEnvelopeStatus,
     ExecutionAdapterMapping,

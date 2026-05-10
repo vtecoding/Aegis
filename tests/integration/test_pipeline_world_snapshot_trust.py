@@ -18,12 +18,12 @@ from tests.policy_trust_fixtures import (
     trusted_world_snapshot_policy,
 )
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
-from aegis.contracts.world_snapshot_trust import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_world_snapshot_trust import (
     WorldSnapshotAttestation,
     WorldSnapshotTrustStatus,
 )
@@ -87,7 +87,7 @@ def test_enforce_fresh_missing_evidence_blocks_before_policy_evaluation() -> Non
     context = _context("pipeline-trust-missing-evidence")
     snapshot = fresh_world_snapshot()
 
-    with patch("aegis.pipeline.orchestrator.evaluate_policy") as evaluator:
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_policy") as evaluator:
         result = run_pipeline(
             _intent(context),
             context,
@@ -124,7 +124,7 @@ def test_enforce_fresh_untrusted_attestation_blocks_before_policy_evaluation() -
         signed_payload_checksum=attestation.signed_payload_checksum,
     )
 
-    with patch("aegis.pipeline.orchestrator.evaluate_policy") as evaluator:
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_policy") as evaluator:
         result = run_pipeline(
             _intent(context),
             context,
@@ -148,7 +148,7 @@ def test_enforce_trusted_snapshot_stale_still_blocks_before_trust_evaluation() -
     context = _context("pipeline-trust-stale")
     snapshot = fresh_world_snapshot(observed_at_ms=FRESH_EVALUATION_TIME_MS - 2_000)
 
-    with patch("aegis.pipeline.orchestrator.evaluate_world_snapshot_trust") as trust:
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_world_snapshot_trust") as trust:
         result = run_pipeline(
             _intent(context),
             context,

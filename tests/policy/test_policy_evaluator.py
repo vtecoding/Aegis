@@ -2,7 +2,7 @@
 
 import pytest
 
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -10,7 +10,7 @@ from aegis.contracts.policy import (
     PolicyDefaultDecision,
     PolicyRule,
 )
-from aegis.policy.evaluator import evaluate_policy
+from aegis.policy.aegis_evaluator import evaluate_policy
 
 
 def move_capability(velocity_mps: object = 0.2) -> Capability:

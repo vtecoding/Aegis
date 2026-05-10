@@ -12,17 +12,17 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.approval_receipt import (
+from aegis.contracts.aegis_approval_receipt import (
     ApprovalReceiptReason,
     ApprovalReceiptStatus,
     ApprovalReceiptValidationResult,
 )
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.decision_trace import ALLOW_REQUIRED_STAGE_CHAIN
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_decision_trace import ALLOW_REQUIRED_STAGE_CHAIN
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.pipeline import run_pipeline
 
 
@@ -143,7 +143,8 @@ def test_allowed_chain_with_invalid_receipt_validation_returns_error() -> None:
     )
 
     with patch(
-        "aegis.pipeline.orchestrator.validate_approval_receipt", return_value=forced_validation
+        "aegis.pipeline.aegis_orchestrator.validate_approval_receipt",
+        return_value=forced_validation,
     ):
         result = run_pipeline(
             _intent(context),

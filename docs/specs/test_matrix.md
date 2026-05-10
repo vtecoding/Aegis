@@ -260,8 +260,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | Module / Package | Target |
 |------------------|--------|
 | `src/aegis/contracts/` | 100% |
-| `src/aegis/errors.py` | 100% |
-| `src/aegis/config.py` | 100% |
-| `src/aegis/logging.py` | 100% |
+| `src/aegis/aegis_errors.py` | 100% |
+| `src/aegis/aegis_config.py` | 100% |
+| `src/aegis/aegis_logging.py` | 100% |
 | All other `src/aegis/` | ≥ 90% |
 | Overall | ≥ 90% |

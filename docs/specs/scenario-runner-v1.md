@@ -49,7 +49,7 @@ deterministic plans, and emitting audit receipts — without any hardware or net
 
 ## Contracts
 
-### `src/aegis/scenarios/models.py`
+### `src/aegis/scenarios/aegis_models.py`
 
 All models are frozen, slotted dataclasses.
 
@@ -142,7 +142,7 @@ constructed successfully but the validation layer found violations.
 
 ## API
 
-### `src/aegis/scenarios/runner.py`
+### `src/aegis/scenarios/aegis_runner.py`
 
 ```python
 def parse_scenario_fixture(data: object) -> ScenarioFixture:

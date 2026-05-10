@@ -8,9 +8,9 @@ from types import MappingProxyType
 
 import pytest
 
-from aegis.contracts.context import ExecutionContext
-from aegis.scenarios.models import ScenarioExpected, ScenarioFixture, ScenarioIntentFixture
-from aegis.scenarios.runner import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.scenarios.aegis_models import ScenarioExpected, ScenarioFixture, ScenarioIntentFixture
+from aegis.scenarios.aegis_runner import (
     _contains_metadata,
     _has_metadata_key,
     parse_scenario_fixture,

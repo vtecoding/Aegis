@@ -36,12 +36,12 @@ from tests.policy_trust_fixtures import (  # noqa: E402
     trusted_world_snapshot_policy,
 )
 
-from aegis.contracts.context import ExecutionContext  # noqa: E402
-from aegis.contracts.intent import RawIntent  # noqa: E402
-from aegis.contracts.pipeline import PipelineOutcome, PipelineResult  # noqa: E402
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule  # noqa: E402
-from aegis.contracts.policy import WorldSnapshotStub  # noqa: E402
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode  # noqa: E402
+from aegis.contracts.aegis_context import ExecutionContext  # noqa: E402
+from aegis.contracts.aegis_intent import RawIntent  # noqa: E402
+from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult  # noqa: E402
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule  # noqa: E402
+from aegis.contracts.aegis_policy import WorldSnapshotStub  # noqa: E402
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode  # noqa: E402
 from aegis.pipeline import run_pipeline  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -146,7 +146,9 @@ def _print_result(result: PipelineResult) -> None:
         print("  policy_result            : None  (not reached)")
     if pa.safety_case is not None:
         print(f"  safety_case.policy_result.decision : {pa.safety_case.policy_result.decision}")
-        print(f"  safety_case.trust_status           : {pa.safety_case.world_snapshot_trust_status}")
+        print(
+            f"  safety_case.trust_status           : {pa.safety_case.world_snapshot_trust_status}"
+        )
     else:
         print("  safety_case              : None  (not reached)")
     print(f"  integrity_status         : {pa.integrity_status}")
@@ -210,7 +212,7 @@ result_b = run_pipeline(
     ctx_b,
     policy_admission=_admission(snapshot_b),
     evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
-    world_snapshot_evidence=None,                          # <-- missing
+    world_snapshot_evidence=None,  # <-- missing
     world_snapshot_trust_policy=trusted_world_snapshot_policy(capability=CAPABILITY_NAME),
     attestation_verifier=PassingAttestationVerifier(),
 )
@@ -221,8 +223,7 @@ print(f"\n  policy layer not invoked : {policy_not_run_b}")
 ok_b = _verdict(
     result_b,
     PipelineOutcome.BLOCKED,
-    "Trust boundary blocked: missing evidence envelope. "
-    "Policy evaluation layer was never invoked.",
+    "Trust boundary blocked: missing evidence envelope. Policy evaluation layer was never invoked.",
 )
 
 # ===========================================================================
@@ -241,9 +242,9 @@ result_c = run_pipeline(
     ctx_c,
     policy_admission=_admission(snapshot_c),
     evaluation_time_ms=FRESH_EVALUATION_TIME_MS,
-    world_snapshot_evidence=trusted_evidence_envelope(snapshot_c),   # envelope present
+    world_snapshot_evidence=trusted_evidence_envelope(snapshot_c),  # envelope present
     world_snapshot_trust_policy=trusted_world_snapshot_policy(capability=CAPABILITY_NAME),
-    attestation_verifier=FailingAttestationVerifier(),               # <-- rejects sig
+    attestation_verifier=FailingAttestationVerifier(),  # <-- rejects sig
 )
 
 _print_result(result_c)

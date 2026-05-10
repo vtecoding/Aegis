@@ -96,10 +96,10 @@ src/aegis/
 ├── audit/        # Layer 4: Audit record construction
 ├── gate/         # Layer 5: Execution gate (only layer with side-effects)
 ├── execution/    # Phase 3: non-executing adapter, replay, and dispatch dry-run validation
-├── errors.py     # Typed exception hierarchy
-├── logging.py    # Structured logging
-├── constants.py  # All constants
-└── config.py     # Config injection
+├── aegis_errors.py     # Typed exception hierarchy
+├── aegis_logging.py    # Structured logging
+├── aegis_constants.py  # All constants
+└── aegis_config.py     # Config injection
 
 tests/
 ├── invariants/   # Hypothesis property tests

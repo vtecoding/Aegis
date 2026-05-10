@@ -10,7 +10,7 @@ from tests.execution_adapter_fixtures import (
     runtime_target,
 )
 
-from aegis.contracts.ros2_mapping import (
+from aegis.contracts.aegis_ros2_mapping import (
     DANGEROUS_RUNTIME_OVERRIDE_FIELDS,
     Ros2Durability,
     Ros2History,

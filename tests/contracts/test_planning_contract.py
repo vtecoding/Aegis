@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.planning import CommandPlan, CommandStep, CommandStepType
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_planning import CommandPlan, CommandStep, CommandStepType
 
 
 def make_context() -> ExecutionContext:

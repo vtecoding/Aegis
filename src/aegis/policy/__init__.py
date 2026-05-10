@@ -6,7 +6,7 @@ does not ingest live world state, integrate simulation or middleware, or prove
 robot safety.
 """
 
-from aegis.policy.contracts import (
+from aegis.policy.aegis_contracts import (
     Capability,
     Constraint,
     FrozenPolicyValue,
@@ -20,9 +20,9 @@ from aegis.policy.contracts import (
     WorldSnapshotStub,
     policy_evaluation_result_checksum,
 )
-from aegis.policy.evaluator import evaluate_policy, evaluate_policy_with_safety_case
-from aegis.policy.safety_case import build_safety_case, canonicalise_for_hash
-from aegis.policy.validation import validate_policy
+from aegis.policy.aegis_evaluator import evaluate_policy, evaluate_policy_with_safety_case
+from aegis.policy.aegis_safety_case import build_safety_case, canonicalise_for_hash
+from aegis.policy.aegis_validation import validate_policy
 
 __all__ = [
     "Capability",

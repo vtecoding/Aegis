@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from aegis.contracts.context import ExecutionContext
+from aegis.contracts.aegis_context import ExecutionContext
 
 
 def test_execution_context_accepts_valid_explicit_utc_datetime() -> None:

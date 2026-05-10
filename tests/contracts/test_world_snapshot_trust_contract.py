@@ -17,11 +17,11 @@ from tests.policy_trust_fixtures import (
     trusted_world_snapshot_result,
 )
 
-from aegis.contracts.world_snapshot_freshness import (
+from aegis.contracts.aegis_world_snapshot_freshness import (
     DEFAULT_FRESHNESS_POLICY,
     validate_world_snapshot_freshness,
 )
-from aegis.contracts.world_snapshot_trust import (
+from aegis.contracts.aegis_world_snapshot_trust import (
     TrustDomain,
     WorldSnapshotEvidenceEnvelope,
     WorldSnapshotSourceType,

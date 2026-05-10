@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.backend_replay import BackendReplayRequest
-from aegis.contracts.runtime_backend import BackendCertificationResult, BackendDryRunReceipt
-from aegis.contracts.runtime_dispatch import DispatchFirewallDecision, RuntimeDispatchPlan
+from aegis.contracts.aegis_backend_replay import BackendReplayRequest
+from aegis.contracts.aegis_runtime_backend import BackendCertificationResult, BackendDryRunReceipt
+from aegis.contracts.aegis_runtime_dispatch import DispatchFirewallDecision, RuntimeDispatchPlan
 from aegis.execution import (
     build_backend_dry_run_receipt,
     build_null_runtime_backend,
@@ -15,7 +15,7 @@ from aegis.execution import (
     evaluate_dispatch_firewall,
     prove_adapter_replay,
 )
-from aegis.execution.null_runtime_backend import NullRuntimeBackend
+from aegis.execution.aegis_null_runtime_backend import NullRuntimeBackend
 
 
 def backend_replay_parts(

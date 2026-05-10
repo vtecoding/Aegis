@@ -6,14 +6,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.audit.audit_builder import build_audited_plan
-from aegis.contracts.audit import AuditedPlan
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.gate import GateBlockReason, GateDecisionStatus
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.planning import CommandPlan, CommandStep, CommandStepType
-from aegis.gate.decision_gate import gate_audited_plan
-from aegis.planning.plan_hasher import stable_plan_id
+from aegis.audit.aegis_audit_builder import build_audited_plan
+from aegis.contracts.aegis_audit import AuditedPlan
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_gate import GateBlockReason, GateDecisionStatus
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_planning import CommandPlan, CommandStep, CommandStepType
+from aegis.gate.aegis_decision_gate import gate_audited_plan
+from aegis.planning.aegis_plan_hasher import stable_plan_id
 
 
 def _make_context(request_id: str = "req-1") -> ExecutionContext:

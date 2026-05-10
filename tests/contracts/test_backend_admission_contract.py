@@ -7,8 +7,8 @@ from dataclasses import FrozenInstanceError
 import pytest
 from tests.backend_authority_fixtures import backend_admission_request, backend_authority_parts
 
-from aegis.contracts.runtime_backend import RuntimeBackendKind
-from aegis.execution.backend_admission import (
+from aegis.contracts.aegis_runtime_backend import RuntimeBackendKind
+from aegis.execution.aegis_backend_admission import (
     BackendAdmissionDecision,
     BackendAdmissionRequest,
     admit_runtime_backend,

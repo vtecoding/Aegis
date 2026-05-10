@@ -4,11 +4,11 @@ import inspect
 import re
 from datetime import UTC, datetime
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.planning import CommandStep, CommandStepType
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_planning import CommandStep, CommandStepType
 from aegis.planning import plan_hasher
-from aegis.planning.plan_hasher import stable_plan_id
+from aegis.planning.aegis_plan_hasher import stable_plan_id
 
 
 def make_context(request_id: str = "request-123") -> ExecutionContext:

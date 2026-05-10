@@ -6,7 +6,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from tests.backend_replay_fixtures import backend_replay_request
 
-from aegis.contracts.backend_replay import BackendReplayProofResult
+from aegis.contracts.aegis_backend_replay import BackendReplayProofResult
 from aegis.execution import prove_backend_replay
 
 

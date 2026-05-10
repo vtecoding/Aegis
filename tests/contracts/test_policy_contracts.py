@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,

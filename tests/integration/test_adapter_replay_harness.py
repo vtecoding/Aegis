@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.adapter_replay import AdapterReplayRequest
+from aegis.contracts.aegis_adapter_replay import AdapterReplayRequest
 from aegis.execution import prove_adapter_replay, replay_execution_adapter
 
 

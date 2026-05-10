@@ -51,9 +51,9 @@ intent/ -> validation/ -> planning/ -> audit/ -> gate/
 
 The gate imports only upstream contracts and audit checksum functions:
 
-- `AuditedPlan` from `aegis.contracts.audit`
-- `GateDecision`, `GateDecisionStatus`, and `GateBlockReason` from `aegis.contracts.gate`
-- `plan_checksum` and `plan_audit_id` from `aegis.audit.checksum`
+- `AuditedPlan` from `aegis.contracts.aegis_audit`
+- `GateDecision`, `GateDecisionStatus`, and `GateBlockReason` from `aegis.contracts.aegis_gate`
+- `plan_checksum` and `plan_audit_id` from `aegis.audit.aegis_checksum`
 
 Verification is ordered and deterministic:
 
@@ -74,7 +74,7 @@ audit_id = SHA-256({ checksum, plan_id, context })
 
 ## API / Schema
 
-### `src/aegis/contracts/gate.py`
+### `src/aegis/contracts/aegis_gate.py`
 
 ```python
 class GateDecisionStatus(StrEnum):
@@ -108,7 +108,7 @@ Decision invariants:
 - `GateDecision` is immutable.
 - Reason ordering is deterministic.
 
-### `src/aegis/gate/decision_gate.py`
+### `src/aegis/gate/aegis_decision_gate.py`
 
 ```python
 def gate_audited_plan(audited_plan: AuditedPlan) -> GateDecision:
@@ -184,7 +184,7 @@ Reliability:
    Rejected because gate-v1 must not create a new audit receipt as a side effect or blur audit creation with verification.
 
 2. Duplicate audit canonicalization inside `gate/`.
-   Rejected because audit-v1 owns checksum and audit ID meaning. Gate-v1 must reuse `aegis.audit.checksum`.
+   Rejected because audit-v1 owns checksum and audit ID meaning. Gate-v1 must reuse `aegis.audit.aegis_checksum`.
 
 3. Raise typed `GateError` for malformed inputs.
    Rejected for this public boundary. Malformed audited-plan misuse is represented as a deterministic blocked decision when verification cannot be completed.

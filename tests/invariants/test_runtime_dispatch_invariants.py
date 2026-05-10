@@ -6,7 +6,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_dispatch import recompute_runtime_dispatch_plan_checksum
+from aegis.contracts.aegis_runtime_dispatch import recompute_runtime_dispatch_plan_checksum
 from aegis.execution import (
     build_runtime_dispatch_plan,
     evaluate_dispatch_firewall,

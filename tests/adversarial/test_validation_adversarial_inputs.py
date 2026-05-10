@@ -2,10 +2,10 @@
 
 from datetime import UTC, datetime
 
-from aegis.constants import MAX_PARAMETER_DEPTH, MAX_PARAMETER_KEYS, MAX_STRING_LENGTH
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.validation.semantic_validator import validate_intent
+from aegis.aegis_constants import MAX_PARAMETER_DEPTH, MAX_PARAMETER_KEYS, MAX_STRING_LENGTH
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.validation.aegis_semantic_validator import validate_intent
 
 
 def make_context() -> ExecutionContext:

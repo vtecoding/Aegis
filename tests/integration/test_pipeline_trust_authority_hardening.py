@@ -12,11 +12,11 @@ from tests.policy_trust_fixtures import (
     trusted_world_snapshot_policy,
 )
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.pipeline import run_pipeline
 
 
@@ -56,7 +56,7 @@ def test_pipeline_blocks_missing_verifier_before_trust_evaluation() -> None:
     context = _context("trust-authority-missing-verifier")
     snapshot = fresh_world_snapshot()
 
-    with patch("aegis.pipeline.orchestrator.evaluate_world_snapshot_trust") as trust:
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_world_snapshot_trust") as trust:
         result = run_pipeline(
             _intent(context),
             context,
@@ -77,7 +77,7 @@ def test_pipeline_blocks_invalid_trust_policy_config_before_trust_evaluation() -
     context = _context("trust-authority-invalid-config")
     snapshot = fresh_world_snapshot()
 
-    with patch("aegis.pipeline.orchestrator.evaluate_world_snapshot_trust") as trust:
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_world_snapshot_trust") as trust:
         result = run_pipeline(
             _intent(context),
             context,

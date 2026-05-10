@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_mapping, allowed_pipeline_result
 
-from aegis.contracts.execution_adapter import (
+from aegis.contracts.aegis_execution_adapter import (
     ExecutionAdapterEnvelope,
     ExecutionAdapterEnvelopeStatus,
     ExecutionAdapterReason,

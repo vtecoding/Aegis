@@ -72,7 +72,7 @@ bindings, resource bounds, and governance drift sentinels for approval authority
 
 ## Contracts
 
-### `src/aegis/contracts/pipeline.py`
+### `src/aegis/contracts/aegis_pipeline.py`
 
 All models are frozen, slotted dataclasses.
 

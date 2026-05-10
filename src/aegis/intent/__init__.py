@@ -2,7 +2,7 @@
 
 This package is intentionally implementation-empty in the current Phase 1
 pipeline. Raw boundary intent is currently represented by
-``aegis.contracts.intent.RawIntent`` and semantic checks live in
+``aegis.contracts.aegis_intent.RawIntent`` and semantic checks live in
 ``aegis.validation``.
 
 Do not add parsing, LLM, natural-language, or adapter behaviour here without a

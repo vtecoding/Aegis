@@ -7,8 +7,8 @@ from typing import cast
 
 import pytest
 
-from aegis.contracts.policy import WorldSnapshotStub
-from aegis.contracts.world_snapshot_admissibility import (
+from aegis.contracts.aegis_policy import WorldSnapshotStub
+from aegis.contracts.aegis_world_snapshot_admissibility import (
     SnapshotFactReadStatus,
     WorldSnapshotAdmissibilityError,
     WorldSnapshotAdmissibilityResult,

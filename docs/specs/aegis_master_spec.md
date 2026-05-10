@@ -460,11 +460,11 @@ evaluate_dispatch_firewall(plan, envelope, replay_proof)
 ```python
 from aegis.pipeline import run_pipeline
 from aegis.execution import build_execution_adapter_envelope
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.execution_adapter import ExecutionAdapterMapping
-from aegis.contracts.ros2_mapping import RuntimeTarget, Ros2MessageMapping
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_execution_adapter import ExecutionAdapterMapping
+from aegis.contracts.aegis_ros2_mapping import RuntimeTarget, Ros2MessageMapping
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.policy import build_safety_case, evaluate_policy, evaluate_policy_with_safety_case
 
 result = run_pipeline(raw_intent, context)
@@ -587,7 +587,7 @@ See `docs/specs/failure_modes.md`.
 | Adversarial | `tests/adversarial/` | Hostile inputs; required for a gateway |
 | Regression | `tests/regression/` | One file per bug, named by issue number |
 
-Coverage floor: 90% line coverage overall; 100% on `contracts/` and `errors.py`.
+Coverage floor: 90% line coverage overall; 100% on `contracts/` and `aegis_errors.py`.
 
 ---
 

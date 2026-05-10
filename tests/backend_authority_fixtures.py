@@ -4,16 +4,19 @@ from __future__ import annotations
 
 from tests.backend_replay_fixtures import backend_replay_request
 
-from aegis.contracts.backend_replay import BackendReplayProofResult
-from aegis.contracts.runtime_backend import BackendCertificationResult, RuntimeBackendDescriptor
+from aegis.contracts.aegis_backend_replay import BackendReplayProofResult
+from aegis.contracts.aegis_runtime_backend import (
+    BackendCertificationResult,
+    RuntimeBackendDescriptor,
+)
 from aegis.execution import (
     build_backend_authority_manifest,
     build_backend_authority_registry,
     prove_backend_replay,
 )
-from aegis.execution.backend_admission import BackendAdmissionRequest
-from aegis.execution.backend_authority import BackendAuthorityManifest
-from aegis.execution.backend_registry import BackendAuthorityRegistry
+from aegis.execution.aegis_backend_admission import BackendAdmissionRequest
+from aegis.execution.aegis_backend_authority import BackendAuthorityManifest
+from aegis.execution.aegis_backend_registry import BackendAuthorityRegistry
 
 
 def backend_authority_parts(

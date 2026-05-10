@@ -6,7 +6,7 @@ from dataclasses import replace
 
 import pytest
 
-from aegis.governance.resource_bounds import (
+from aegis.governance.aegis_resource_bounds import (
     DEFAULT_RESOURCE_BOUNDS,
     ResourceBounds,
     validate_resource_bounds,

@@ -8,20 +8,20 @@ from dataclasses import FrozenInstanceError
 import pytest
 from tests.backend_authority_fixtures import backend_authority_parts
 
-from aegis.constants import RUNTIME_BACKEND_CONTRACT_VERSION
-from aegis.contracts.backend_replay import BackendReplayProfile
-from aegis.contracts.runtime_backend import (
+from aegis.aegis_constants import RUNTIME_BACKEND_CONTRACT_VERSION
+from aegis.contracts.aegis_backend_replay import BackendReplayProfile
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationStatus,
     RuntimeBackendKind,
     RuntimeBackendMode,
 )
-from aegis.contracts.runtime_dispatch import RuntimeDispatchKind
-from aegis.execution.backend_authority import (
+from aegis.contracts.aegis_runtime_dispatch import RuntimeDispatchKind
+from aegis.execution.aegis_backend_authority import (
     BackendAuthorityAdmissionStatus,
     BackendAuthorityManifest,
     recompute_backend_authority_manifest_checksum,
 )
-from aegis.execution.backend_registry import (
+from aegis.execution.aegis_backend_registry import (
     BackendAuthorityRegistry,
     recompute_backend_authority_registry_checksum,
 )

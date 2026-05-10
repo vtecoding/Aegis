@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 
-from aegis.contracts.json_types import (
+from aegis.contracts.aegis_json_types import (
     JsonValue,
     freeze_json_mapping,
     freeze_json_value,

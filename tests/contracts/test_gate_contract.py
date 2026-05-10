@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
+from aegis.contracts.aegis_gate import GateBlockReason, GateDecision, GateDecisionStatus
 
 
 class TestGateEnums:

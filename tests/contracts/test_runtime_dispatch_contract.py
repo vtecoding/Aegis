@@ -7,8 +7,8 @@ from dataclasses import FrozenInstanceError
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.constants import MAX_RUNTIME_DISPATCH_PAYLOAD_BYTES
-from aegis.contracts.runtime_dispatch import (
+from aegis.aegis_constants import MAX_RUNTIME_DISPATCH_PAYLOAD_BYTES
+from aegis.contracts.aegis_runtime_dispatch import (
     RUNTIME_DISPATCH_RESOURCE_BOUNDS,
     DispatchFirewallReason,
     RuntimeDispatchItem,

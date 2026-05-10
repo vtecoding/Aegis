@@ -58,7 +58,7 @@ guarantee a canonical byte sequence regardless of Python dict insertion order.
 **Negative:**
 - SHA-256 produces 64-character hex strings; these are stored as plain strings in
   contracts. A future phase could encode them as bytes for compactness.
-- The canonical JSON encoding must be maintained in sync between `audit/checksum.py`
+- The canonical JSON encoding must be maintained in sync between `audit/aegis_checksum.py`
   and any external system that tries to recompute checksums independently.
 
 ## Alternatives Considered

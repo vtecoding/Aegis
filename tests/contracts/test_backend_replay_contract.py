@@ -7,7 +7,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 from tests.backend_replay_fixtures import backend_replay_parts, backend_replay_request
 
-from aegis.contracts.backend_replay import (
+from aegis.contracts.aegis_backend_replay import (
     BackendReplayMutationProfile,
     BackendReplayProfile,
     BackendReplayRequest,

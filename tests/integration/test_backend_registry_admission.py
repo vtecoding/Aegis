@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from tests.backend_authority_fixtures import backend_admission_request
 
-from aegis.execution.backend_admission import admit_runtime_backend
+from aegis.execution.aegis_backend_admission import admit_runtime_backend
 
 
 def test_valid_null_backend_admits() -> None:

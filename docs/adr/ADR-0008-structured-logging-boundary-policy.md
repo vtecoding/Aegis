@@ -33,7 +33,7 @@ The Aegis logging model separates **log event construction** from **log event em
 - `structlog` may be used at the adapter boundary.
 - Timestamps are added by the adapter at emission time.
 
-**`src/aegis/logging.py`** provides:
+**`src/aegis/aegis_logging.py`** provides:
 - The `AegisLogEvent` frozen dataclass.
 - `make_log_event(...)` — a pure constructor helper.
 - `serialise_log_event(...)` — converts an event to a JSON-compatible dict.
@@ -63,6 +63,6 @@ when different tests want different log levels.
 **Python stdlib `logging` module inside core functions:** Rejected. `logging.getLogger()`
 is a global registry lookup — a hidden side effect. Log handler state is environmental.
 
-**No logging at all in Phase 1:** Considered but rejected. The `aegis.logging` module
+**No logging at all in Phase 1:** Considered but rejected. The `aegis.aegis_logging` module
 is referenced as canonical in documentation. Leaving it absent creates repo-contract
 drift (the exact problem this ADR set is meant to resolve).

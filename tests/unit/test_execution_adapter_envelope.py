@@ -10,16 +10,16 @@ from tests.execution_adapter_fixtures import (
     runtime_target,
 )
 
-from aegis.contracts.approval_receipt import (
+from aegis.contracts.aegis_approval_receipt import (
     ApprovalReceiptReason,
     ApprovalReceiptStatus,
     ApprovalReceiptValidationResult,
 )
-from aegis.contracts.execution_adapter import (
+from aegis.contracts.aegis_execution_adapter import (
     ExecutionAdapterEnvelopeStatus,
     ExecutionAdapterReason,
 )
-from aegis.contracts.ros2_mapping import Ros2History
+from aegis.contracts.aegis_ros2_mapping import Ros2History
 from aegis.execution import build_execution_adapter_envelope
 
 

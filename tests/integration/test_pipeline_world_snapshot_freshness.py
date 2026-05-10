@@ -13,11 +13,11 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.pipeline import run_pipeline
 
 _DEFAULT_SNAPSHOT = object()
@@ -76,7 +76,7 @@ def test_stale_snapshot_blocks_before_final_gate() -> None:
     context = _context("pipeline-freshness-stale")
     stale_snapshot = fresh_world_snapshot(observed_at_ms=FRESH_OBSERVED_AT_MS - 2_000)
 
-    with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
+    with patch("aegis.pipeline.aegis_orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(
             _intent(context),
             context,
@@ -93,7 +93,7 @@ def test_stale_snapshot_blocks_before_final_gate() -> None:
 def test_missing_snapshot_blocks_before_final_gate() -> None:
     context = _context("pipeline-freshness-missing-snapshot")
 
-    with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
+    with patch("aegis.pipeline.aegis_orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(
             _intent(context),
             context,
@@ -109,7 +109,7 @@ def test_missing_snapshot_blocks_before_final_gate() -> None:
 def test_missing_evaluation_time_blocks_before_final_gate() -> None:
     context = _context("pipeline-freshness-missing-eval")
 
-    with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
+    with patch("aegis.pipeline.aegis_orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(_intent(context), context, policy_admission=_admission())
 
     gate.assert_not_called()
@@ -122,7 +122,7 @@ def test_malformed_timestamp_returns_invalid_without_gate() -> None:
     snapshot = fresh_world_snapshot()
     object.__setattr__(snapshot, "captured_at_ms", "bad")
 
-    with patch("aegis.pipeline.orchestrator.gate_audited_plan") as gate:
+    with patch("aegis.pipeline.aegis_orchestrator.gate_audited_plan") as gate:
         result = run_pipeline(
             _intent(context),
             context,
@@ -139,7 +139,9 @@ def test_evaluator_exception_after_freshness_pass_returns_error() -> None:
     context = _context("pipeline-freshness-evaluator-error")
     admission = _admission()
 
-    with patch("aegis.pipeline.orchestrator.evaluate_policy", side_effect=RuntimeError("boom")):
+    with patch(
+        "aegis.pipeline.aegis_orchestrator.evaluate_policy", side_effect=RuntimeError("boom")
+    ):
         result = run_pipeline(
             _intent(context),
             context,

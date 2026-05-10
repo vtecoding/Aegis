@@ -19,11 +19,12 @@ from tests.policy_trust_fixtures import (
     trusted_world_snapshot_result,
 )
 
+from aegis.aegis_errors import PolicyAdmissionIntegrityError
 from aegis.audit import build_audited_plan
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -32,17 +33,16 @@ from aegis.contracts.policy import (
     PolicyRule,
     WorldSnapshotStub,
 )
-from aegis.contracts.policy_admission import (
+from aegis.contracts.aegis_policy_admission import (
     PolicyAdmissionInput,
     PolicyAdmissionMode,
     PolicyAdmissionRecord,
     assert_policy_admission_integrity,
     is_policy_backed_approval,
 )
-from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
-from aegis.errors import PolicyAdmissionIntegrityError
+from aegis.contracts.aegis_world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.gate import gate_audited_plan
-from aegis.governance.context_authority import ContextAuthority
+from aegis.governance.aegis_context_authority import ContextAuthority
 from aegis.pipeline import run_pipeline
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case
@@ -409,7 +409,7 @@ def test_direct_gate_approval_is_not_policy_backed_approval() -> None:
 def test_monkeypatched_evaluator_returning_malformed_result_fails_closed() -> None:
     context = _context()
     snapshot = fresh_world_snapshot()
-    with patch("aegis.pipeline.orchestrator.evaluate_policy", return_value=object()):
+    with patch("aegis.pipeline.aegis_orchestrator.evaluate_policy", return_value=object()):
         result = run_pipeline(
             _intent(context),
             context,
@@ -431,7 +431,7 @@ def test_monkeypatched_evaluator_returning_malformed_result_fails_closed() -> No
 def test_monkeypatched_safety_case_builder_missing_case_fails_closed() -> None:
     context = _context()
     snapshot = fresh_world_snapshot()
-    with patch("aegis.pipeline.orchestrator.build_safety_case", return_value=None):
+    with patch("aegis.pipeline.aegis_orchestrator.build_safety_case", return_value=None):
         result = run_pipeline(
             _intent(context),
             context,
@@ -460,7 +460,7 @@ def test_monkeypatched_integrity_check_exception_fails_closed() -> None:
         {"reason": "test"},
     )
     with patch(
-        "aegis.pipeline.orchestrator.assert_policy_admission_integrity",
+        "aegis.pipeline.aegis_orchestrator.assert_policy_admission_integrity",
         side_effect=integrity_error,
     ):
         result = run_pipeline(

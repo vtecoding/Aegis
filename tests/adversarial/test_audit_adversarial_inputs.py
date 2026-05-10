@@ -6,12 +6,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.audit.audit_builder import build_audited_plan
-from aegis.contracts.audit import AuditedPlan
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.planning import CommandPlan, CommandStep, CommandStepType
-from aegis.planning.plan_hasher import stable_plan_id
+from aegis.audit.aegis_audit_builder import build_audited_plan
+from aegis.contracts.aegis_audit import AuditedPlan
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_planning import CommandPlan, CommandStep, CommandStepType
+from aegis.planning.aegis_plan_hasher import stable_plan_id
 
 
 def _make_stop_plan(
@@ -86,7 +86,7 @@ class TestAuditedPlanAdversarialConstruction:
         plan_min = CommandPlan(stable_plan_id(intent_min, (step,)), intent_min, (step,))
         plan_max = CommandPlan(stable_plan_id(intent_max, (step,)), intent_max, (step,))
 
-        from aegis.audit.checksum import plan_audit_id, plan_checksum
+        from aegis.audit.aegis_checksum import plan_audit_id, plan_checksum
 
         checksum_min = plan_checksum(plan_min)
         checksum_max = plan_checksum(plan_max)

@@ -96,7 +96,7 @@ These are hard stops. If you find yourself about to do any of the following, **s
 | 7 | Unproven safety/correctness claims: "this is safe", "this is correct" | Only tests prove claims |
 | 8 | Bypassing existing naming conventions or specs | Consistency is a safety property |
 | 9 | `TODO`, `FIXME`, or `HACK` comments without an associated GitHub issue number | Deferred work must be tracked |
-| 10 | `print()` statements for debugging in committed code | Use structured logging via `aegis.logging` |
+| 10 | `print()` statements for debugging in committed code | Use structured logging via `aegis.aegis_logging` |
 | 11 | Hardcoded secrets, credentials, or environment-specific paths | Use config injection |
 | 12 | `Any` in internal contracts — prohibited entirely. Allowed only at raw input boundaries with a justification comment, and must be narrowed before crossing into the deterministic core | Defeats the type contract system |
 
@@ -174,20 +174,20 @@ Aegis is a safety system. Testing here is not optional scaffolding — it is the
 | Pure function | `verb_noun` snake_case | `validate_intent`, `parse_command_spec` |
 | Predicate function | `is_` or `has_` prefix | `is_valid_intent`, `has_required_fields` |
 | Async functions | `async_` prefix OR explicit `await` context | `async_fetch_plan` |
-| Constants | `SCREAMING_SNAKE_CASE` in `constants.py` | `MAX_COMMAND_DEPTH = 8` |
+| Constants | `SCREAMING_SNAKE_CASE` in `aegis_constants.py` | `MAX_COMMAND_DEPTH = 8` |
 | Test file | `test_{module_name}.py` | `test_validation_schema.py` |
 | Test function | `test_{what}_{condition}_{expected}` | `test_validate_intent_null_input_raises_ValueError` |
 | Invariant test | `test_invariant_{property_name}` | `test_invariant_pipeline_output_is_deterministic` |
 
 ### Module Naming Decision
 
-Because the package namespace is already `aegis`, module files inside `src/aegis/` do not need an `aegis_` prefix.
+Source modules inside `src/aegis/` use the short `aegis_` prefix for deterministic ownership clarity while package directories keep their layer names.
 
 **Prefer:**
-- `src/aegis/validation/schema_validator.py`
-- `src/aegis/planning/command_planner.py`
-- `src/aegis/audit/audit_builder.py`
-- `src/aegis/gate/decision_gate.py`
+- `src/aegis/validation/aegis_schema_validator.py`
+- `src/aegis/planning/aegis_command_planner.py`
+- `src/aegis/audit/aegis_audit_builder.py`
+- `src/aegis/gate/aegis_decision_gate.py`
 
 **Avoid:**
 - `src/aegis/aegis_intent_schema.py`
@@ -195,7 +195,7 @@ Because the package namespace is already `aegis`, module files inside `src/aegis
 - `src/aegis/utils.py`
 - `src/aegis/helpers.py`
 
-Names must describe responsibility. The pipeline stage module convention `{layer}_{noun}.py` applies only when the layer prefix adds clarity; prefer noun-first `{noun}_{role}.py` when the layer is already implied by the package path.
+Names must describe responsibility. The `aegis_` prefix is mandatory for concrete source modules; after that prefix, prefer noun-first `{noun}_{role}.py` when the layer is already implied by the package path.
 
 ---
 
@@ -205,7 +205,7 @@ All errors in Aegis must be **explicit, typed, and propagated**:
 
 ```python
 # GOOD — typed, explicit, propagates with context
-from aegis.errors import ValidationError
+from aegis.aegis_errors import ValidationError
 
 def validate_intent(intent: IntentCommand) -> ValidationResult:
     if intent.command is None:
@@ -308,10 +308,10 @@ src/
     ├── planning/           # Layer 3: Safe command plan construction
     ├── audit/              # Layer 4: Immutable audit record construction
     ├── gate/               # Layer 5: Final execution gate; side-effects live here only
-    ├── errors.py           # Typed exception hierarchy
-    ├── logging.py          # Structured logging setup (aegis.logging)
-    ├── constants.py        # Constants only — no magic numbers elsewhere
-    └── config.py           # Explicit config models/injection
+    ├── aegis_errors.py     # Typed exception hierarchy
+    ├── aegis_logging.py    # Structured logging setup (aegis.aegis_logging)
+    ├── aegis_constants.py  # Constants only — no magic numbers elsewhere
+    └── aegis_config.py     # Explicit config models/injection
 
 tests/
 ├── invariants/         # Property-based tests — Hypothesis
@@ -342,7 +342,7 @@ The canonical package layout is `src/aegis/...`. No production package may exist
 - `aegis/` at repository root
 - Implementation files at repository root
 
-**New files:** always create in the correct layer directory under `src/aegis/`. Never create a file at the root of `src/aegis/` unless it is `errors.py`, `logging.py`, `constants.py`, or `config.py`.
+**New files:** always create in the correct layer directory under `src/aegis/`. Never create a file at the root of `src/aegis/` unless it is `aegis_errors.py`, `aegis_logging.py`, `aegis_constants.py`, or `aegis_config.py`.
 
 ---
 
@@ -410,7 +410,7 @@ Tests: added — test_invariant_null_command_rejected_at_validation
 - **Allowed dependencies:** Pure Python stdlib + Pydantic + Hypothesis + pytest + ruff + pyright
 - **Forbidden dependencies:** Any LLM SDK, ROS 2, hardware interfaces, network I/O in core
 - **Stability target:** 100% reproducible test runs. Flaky tests are treated as bugs.
-- **Coverage floor:** 90% line coverage. 100% coverage on `contracts/` and `errors.py`.
+- **Coverage floor:** 90% line coverage. 100% coverage on `contracts/` and `aegis_errors.py`.
 
 ---
 

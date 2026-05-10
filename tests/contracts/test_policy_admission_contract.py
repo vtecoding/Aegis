@@ -13,11 +13,12 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import bind_policy_result_to_trust, trusted_world_snapshot_result
 
+from aegis.aegis_errors import PolicyAdmissionIntegrityError
 from aegis.audit import build_audited_plan
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_gate import GateBlockReason, GateDecision, GateDecisionStatus
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -27,7 +28,7 @@ from aegis.contracts.policy import (
     WorldSnapshotStub,
     policy_evaluation_result_checksum,
 )
-from aegis.contracts.policy_admission import (
+from aegis.contracts.aegis_policy_admission import (
     PolicyAdmissionDecision,
     PolicyAdmissionInput,
     PolicyAdmissionIntegrityStatus,
@@ -37,10 +38,9 @@ from aegis.contracts.policy_admission import (
     disabled_policy_admission_record,
     is_policy_backed_approval,
 )
-from aegis.contracts.world_snapshot_trust import WorldSnapshotTrustResult
-from aegis.errors import PolicyAdmissionIntegrityError
+from aegis.contracts.aegis_world_snapshot_trust import WorldSnapshotTrustResult
 from aegis.gate import gate_audited_plan
-from aegis.governance.context_authority import ContextAuthority
+from aegis.governance.aegis_context_authority import ContextAuthority
 from aegis.planning import plan_validated_intent
 from aegis.policy import build_safety_case
 from aegis.validation import validate_intent

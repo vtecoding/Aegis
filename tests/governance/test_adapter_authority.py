@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from aegis.contracts.ros2_mapping import RuntimeTarget
-from aegis.governance.adapter_authority import (
+from aegis.contracts.aegis_ros2_mapping import RuntimeTarget
+from aegis.governance.aegis_adapter_authority import (
     assert_no_adapter_authority_drift,
     evaluate_adapter_authority_drift,
 )
-from aegis.governance.adapter_fields import (
+from aegis.governance.aegis_adapter_fields import (
     ADAPTER_AUTHORITY_FIELD_MANIFESTS,
     AdapterAuthorityContract,
     AdapterAuthorityFieldManifest,

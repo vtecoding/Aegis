@@ -5,20 +5,20 @@ from __future__ import annotations
 import pytest
 from tests.backend_authority_fixtures import backend_admission_request, backend_authority_parts
 
-from aegis.contracts.backend_replay import (
+from aegis.contracts.aegis_backend_replay import (
     BackendReplayProofResult,
     recompute_backend_replay_proof_checksum,
 )
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationResult,
     BackendCertificationStatus,
     recompute_backend_certification_checksum,
 )
-from aegis.contracts.runtime_dispatch import RuntimeDispatchKind
-from aegis.execution.backend_admission import admit_runtime_backend
-from aegis.execution.backend_authority import recompute_backend_authority_manifest_checksum
-from aegis.execution.backend_registry import backend_authority_registry_checksum
+from aegis.contracts.aegis_runtime_dispatch import RuntimeDispatchKind
+from aegis.execution.aegis_backend_admission import admit_runtime_backend
+from aegis.execution.aegis_backend_authority import recompute_backend_authority_manifest_checksum
+from aegis.execution.aegis_backend_registry import backend_authority_registry_checksum
 
 
 def test_scope_overclaim_blocks() -> None:

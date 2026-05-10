@@ -72,7 +72,7 @@ Rules:
 ## API
 
 ```python
-from aegis.planning.command_planner import plan_validated_intent
+from aegis.planning.aegis_command_planner import plan_validated_intent
 
 plan = plan_validated_intent(validation_result)
 ```

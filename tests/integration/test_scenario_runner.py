@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from aegis.contracts.context import ExecutionContext
-from aegis.scenarios.models import ScenarioExpected, ScenarioFixture, ScenarioIntentFixture
-from aegis.scenarios.runner import parse_scenario_fixture, run_scenario, run_scenarios
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.scenarios.aegis_models import ScenarioExpected, ScenarioFixture, ScenarioIntentFixture
+from aegis.scenarios.aegis_runner import parse_scenario_fixture, run_scenario, run_scenarios
 
 _FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "scenarios"
 

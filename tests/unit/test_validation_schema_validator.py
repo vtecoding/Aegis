@@ -3,11 +3,11 @@
 from datetime import UTC, datetime
 from types import MappingProxyType
 
-from aegis.constants import MAX_PARAMETER_DEPTH, MAX_PARAMETER_KEYS, MAX_STRING_LENGTH
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.json_types import FrozenJsonValue
-from aegis.validation.schema_validator import validate_schema
+from aegis.aegis_constants import MAX_PARAMETER_DEPTH, MAX_PARAMETER_KEYS, MAX_STRING_LENGTH
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_json_types import FrozenJsonValue
+from aegis.validation.aegis_schema_validator import validate_schema
 
 # NOTE: Line numbers below reference schema_validator.py in the installed package.
 # Lines guarded by RawIntent-constructor invariants are defensive only and are

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.scenarios.contracts import ScenarioCategory
-from aegis.scenarios.fixtures import canonical_scenario_definitions
-from aegis.scenarios.runner import run_pipeline_scenario
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.scenarios.aegis_contracts import ScenarioCategory
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
+from aegis.scenarios.aegis_runner import run_pipeline_scenario
 
 
 @pytest.mark.parametrize(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from tests.backend_replay_fixtures import backend_replay_request
 
-from aegis.contracts.backend_replay import (
+from aegis.contracts.aegis_backend_replay import (
     BackendReplayProofResult,
     backend_replay_proof_checksum,
     recompute_backend_replay_proof_checksum,

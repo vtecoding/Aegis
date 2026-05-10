@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from tests.backend_replay_fixtures import backend_replay_parts, backend_replay_request
 
-from aegis.contracts.backend_replay import BackendReplayMutationProfile, BackendReplayRequest
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_backend_replay import BackendReplayMutationProfile, BackendReplayRequest
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationResult,
     BackendCertificationStatus,
 )
-from aegis.contracts.runtime_dispatch import DispatchFirewallDecision, DispatchFirewallReason
+from aegis.contracts.aegis_runtime_dispatch import DispatchFirewallDecision, DispatchFirewallReason
 from aegis.execution import prove_backend_replay, replay_runtime_backend
-from aegis.execution.backend_replay_mutations import mutate_backend_replay_request_in_place
+from aegis.execution.aegis_backend_replay_mutations import mutate_backend_replay_request_in_place
 
 
 def test_valid_null_backend_certification_replays_to_passed() -> None:

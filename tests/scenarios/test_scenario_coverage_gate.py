@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from aegis.scenarios.contracts import REQUIRED_SCENARIO_CATEGORIES, ScenarioCategory
-from aegis.scenarios.coverage import evaluate_scenario_coverage
-from aegis.scenarios.fixtures import canonical_scenario_definitions
+from aegis.scenarios.aegis_contracts import REQUIRED_SCENARIO_CATEGORIES, ScenarioCategory
+from aegis.scenarios.aegis_coverage import evaluate_scenario_coverage
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
 
 
 def test_coverage_gate_passes_for_canonical_matrix() -> None:

@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationStatus,
     recompute_backend_certification_checksum,
     recompute_runtime_backend_descriptor_checksum,
 )
-from aegis.contracts.runtime_dispatch import recompute_dispatch_firewall_decision_checksum
+from aegis.contracts.aegis_runtime_dispatch import recompute_dispatch_firewall_decision_checksum
 from aegis.execution import (
     build_backend_dry_run_receipt,
     build_null_runtime_backend,

@@ -12,15 +12,15 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.adapter_receipt import build_adapter_receipt
-from aegis.contracts.adapter_replay import AdapterReplayRequest
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.execution_adapter import ExecutionAdapterMapping
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineResult
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
-from aegis.contracts.ros2_mapping import (
+from aegis.contracts.aegis_adapter_receipt import build_adapter_receipt
+from aegis.contracts.aegis_adapter_replay import AdapterReplayRequest
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_execution_adapter import ExecutionAdapterMapping
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineResult
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
+from aegis.contracts.aegis_ros2_mapping import (
     DANGEROUS_RUNTIME_OVERRIDE_FIELDS,
     Ros2CommunicationPrimitive,
     Ros2Durability,

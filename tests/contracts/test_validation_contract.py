@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.validation import ValidationResult, Violation
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_validation import ValidationResult, Violation
 
 
 def make_intent() -> RawIntent:

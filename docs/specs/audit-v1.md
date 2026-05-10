@@ -27,7 +27,7 @@
 
 ## Contracts
 
-### `src/aegis/contracts/audit.py`
+### `src/aegis/contracts/aegis_audit.py`
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -47,7 +47,7 @@ class AuditedPlan:
 
 ## API
 
-### `src/aegis/audit/audit_builder.py`
+### `src/aegis/audit/aegis_audit_builder.py`
 
 ```python
 def build_audited_plan(plan: CommandPlan) -> AuditedPlan:
@@ -60,7 +60,7 @@ def build_audited_plan(plan: CommandPlan) -> AuditedPlan:
 - **Raises:** Nothing (all inputs are already validated `CommandPlan` objects)
 - **Determinism:** `build_audited_plan(plan) == build_audited_plan(plan)` always
 
-### `src/aegis/audit/checksum.py`
+### `src/aegis/audit/aegis_checksum.py`
 
 ```python
 def plan_checksum(plan: CommandPlan) -> str:

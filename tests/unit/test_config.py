@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from aegis.config import AegisConfig
+from aegis.aegis_config import AegisConfig
 
 # ---------------------------------------------------------------------------
 # Default construction

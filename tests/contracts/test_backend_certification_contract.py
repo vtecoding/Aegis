@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationResult,
     BackendCertificationStatus,
     recompute_backend_certification_checksum,
     recompute_runtime_backend_descriptor_checksum,
 )
-from aegis.contracts.runtime_dispatch import DispatchFirewallDecision, DispatchFirewallReason
+from aegis.contracts.aegis_runtime_dispatch import DispatchFirewallDecision, DispatchFirewallReason
 from aegis.execution import (
     build_null_runtime_backend,
     build_runtime_dispatch_plan,

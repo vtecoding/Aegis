@@ -16,7 +16,7 @@
 | Linter/formatter | ruff |
 | Can I use ROS 2? | **No.** Not until a later middleware phase. |
 | Can I use LLM SDKs in core? | **No.** Never in deterministic core. |
-| Coverage floor | 90% line — 100% on contracts/ and errors.py |
+| Coverage floor | 90% line — 100% on contracts/ and aegis_errors.py |
 | Run all checks | `python scripts/verify.py verify` (`make verify` delegates to it) |
 | Who decides architecture? | Human (AI orchestrator). You propose; they confirm. |
 
@@ -542,10 +542,10 @@ Every transition from raw input to internal contract must narrow types. `Any` is
 # etc.
 
 # ALWAYS LEGAL (any layer):
-# aegis.errors
-# aegis.logging
-# aegis.constants
-# aegis.config
+# aegis.aegis_errors
+# aegis.aegis_logging
+# aegis.aegis_constants
+# aegis.aegis_config
 ```
 
 ### 4.4 Determinism Invariants
@@ -578,10 +578,10 @@ src/
     ├── planning/           # Layer 3: Safe command plan construction
     ├── audit/              # Layer 4: Immutable audit record construction
     ├── gate/               # Layer 5: Final execution gate; side-effects live here only
-    ├── errors.py           # Typed exception hierarchy
-    ├── logging.py          # Structured logging setup (aegis.logging)
-    ├── constants.py        # Constants only — no magic numbers elsewhere
-    └── config.py           # Explicit config models/injection
+    ├── aegis_errors.py     # Typed exception hierarchy
+    ├── aegis_logging.py    # Structured logging setup (aegis.aegis_logging)
+    ├── aegis_constants.py  # Constants only — no magic numbers elsewhere
+    └── aegis_config.py     # Explicit config models/injection
 
 tests/
 ├── invariants/
@@ -637,13 +637,13 @@ Use this table to decide which tool or workflow to use for a given task. This is
 ### 6.1 Standard Layer Entry Point
 
 ```python
-# validation/schema_validator.py
+# validation/aegis_schema_validator.py
 from __future__ import annotations
 
-from aegis.contracts.intent import IntentCommand
-from aegis.contracts.validation import ValidationResult, Violation
-from aegis.errors import ValidationError
-from aegis.logging import get_logger
+from aegis.contracts.aegis_intent import IntentCommand
+from aegis.contracts.aegis_validation import ValidationResult, Violation
+from aegis.aegis_errors import ValidationError
+from aegis.aegis_logging import get_logger
 
 log = get_logger(__name__)
 
@@ -695,8 +695,8 @@ def validate_intent(intent: IntentCommand) -> ValidationResult:
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from aegis.contracts.intent import IntentCommand
-from aegis.validation.schema_validator import validate_intent
+from aegis.contracts.aegis_intent import IntentCommand
+from aegis.validation.aegis_schema_validator import validate_intent
 from tests.factories import intent_command_strategy
 
 
@@ -723,9 +723,9 @@ Fix: ValidationError raised immediately in validate_intent.
 """
 import pytest
 
-from aegis.contracts.intent import IntentCommand
-from aegis.errors import ValidationError
-from aegis.validation.schema_validator import validate_intent
+from aegis.contracts.aegis_intent import IntentCommand
+from aegis.aegis_errors import ValidationError
+from aegis.validation.aegis_schema_validator import validate_intent
 from tests.factories import make_intent_command
 
 def test_issue_42_null_command_raises_validation_error() -> None:
@@ -770,7 +770,7 @@ def normalize(intent: IntentCommand) -> None:
 
 # ❌ Import from a downstream layer
 # In intent/parser.py:
-from aegis.validation.schema_validator import validate_intent  # BANNED — forward import
+from aegis.validation.aegis_schema_validator import validate_intent  # BANNED — forward import
 
 # ❌ Untracked deferred work
 # TODO: fix this later  # BANNED — must be: # TODO(#42): fix this later
@@ -783,14 +783,14 @@ print(f"DEBUG: {intent}")  # BANNED — use log.debug(...)
 
 ## 7.1 Module Naming Decision
 
-Because the package namespace is already `aegis`, module files inside `src/aegis/` do not need an `aegis_` prefix.
+Source modules inside `src/aegis/` use the short `aegis_` prefix for deterministic ownership clarity while package directories keep their layer names.
 
 **Prefer:**
-- `src/aegis/contracts/intent.py`
-- `src/aegis/validation/schema_validator.py`
-- `src/aegis/planning/command_planner.py`
-- `src/aegis/audit/audit_builder.py`
-- `src/aegis/gate/decision_gate.py`
+- `src/aegis/contracts/aegis_intent.py`
+- `src/aegis/validation/aegis_schema_validator.py`
+- `src/aegis/planning/aegis_command_planner.py`
+- `src/aegis/audit/aegis_audit_builder.py`
+- `src/aegis/gate/aegis_decision_gate.py`
 
 **Avoid:**
 - `src/aegis/aegis_intent_schema.py`
@@ -896,7 +896,7 @@ Do not implement against stale docs. Do not silently choose one conflicting sour
 [ ] pytest tests/ passes — zero failures, zero unexpected skips
 [ ] pytest tests/invariants/ passes — all property tests green
 [ ] python scripts/verify.py verify passes as the canonical gate
-[ ] Coverage >= 90% overall, 100% on contracts/ and errors.py
+[ ] Coverage >= 90% overall, 100% on contracts/ and aegis_errors.py
 [ ] No forbidden patterns from §7
 [ ] All new public functions have docstrings
 [ ] CHANGELOG.md updated if this is a bug fix

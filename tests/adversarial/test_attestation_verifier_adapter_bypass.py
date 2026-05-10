@@ -11,13 +11,13 @@ from tests.policy_trust_fixtures import (
     PassingAttestationVerifier,
 )
 
-from aegis.contracts.attestation_verifier import (
+from aegis.contracts.aegis_attestation_verifier import (
     AttestationVerifierAdapter,
     AttestationVerifierAdapterMetadata,
     VerifierCertificationStatus,
     certify_attestation_verifier_adapter,
 )
-from aegis.contracts.world_snapshot_trust import (
+from aegis.contracts.aegis_world_snapshot_trust import (
     AttestationVerificationResult,
     TrustDomain,
     WorldSnapshotAttestation,

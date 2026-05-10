@@ -6,7 +6,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationResult,
     BackendCertificationStatus,

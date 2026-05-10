@@ -5,7 +5,7 @@ from copy import deepcopy
 from hypothesis import given
 from hypothesis import strategies as st
 
-from aegis.contracts.policy import (
+from aegis.contracts.aegis_policy import (
     Capability,
     Constraint,
     Policy,
@@ -13,7 +13,7 @@ from aegis.contracts.policy import (
     PolicyRule,
     WorldSnapshotStub,
 )
-from aegis.policy.evaluator import evaluate_policy
+from aegis.policy.aegis_evaluator import evaluate_policy
 
 
 def policy_for(constraints: tuple[Constraint, ...]) -> Policy:

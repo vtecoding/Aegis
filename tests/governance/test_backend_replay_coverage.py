@@ -6,17 +6,17 @@ import ast
 from dataclasses import fields
 from pathlib import Path
 
-from aegis.contracts.backend_replay import BackendReplayProofResult, BackendReplayRequest
-from aegis.execution.backend_replay_fields import (
+from aegis.contracts.aegis_backend_replay import BackendReplayProofResult, BackendReplayRequest
+from aegis.execution.aegis_backend_replay_fields import (
     BACKEND_REPLAY_PROOF_CHECKSUM_FIELDS,
     BACKEND_REPLAY_REQUEST_FIELDS,
     BACKEND_REPLAY_SCENARIO_CATEGORY_NAMES,
     STRICT_BACKEND_REPLAY_V1_PROPERTIES,
 )
-from aegis.governance.adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
-from aegis.scenarios.contracts import ScenarioCategory
-from aegis.scenarios.coverage import evaluate_scenario_coverage
-from aegis.scenarios.fixtures import canonical_scenario_definitions
+from aegis.governance.aegis_adapter_fields import ADAPTER_AUTHORITY_FIELD_MANIFESTS
+from aegis.scenarios.aegis_contracts import ScenarioCategory
+from aegis.scenarios.aegis_coverage import evaluate_scenario_coverage
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
 
 
 def test_backend_replay_categories_are_registered_and_covered() -> None:

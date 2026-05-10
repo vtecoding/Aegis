@@ -5,7 +5,13 @@ from copy import deepcopy
 from hypothesis import given
 from hypothesis import strategies as st
 
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule, WorldSnapshotStub
+from aegis.contracts.aegis_policy import (
+    Capability,
+    Constraint,
+    Policy,
+    PolicyRule,
+    WorldSnapshotStub,
+)
 
 TEXT = st.text(
     alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters="\x00"),

@@ -7,7 +7,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.contracts.runtime_backend import (
+from aegis.contracts.aegis_runtime_backend import (
     BackendCertificationReason,
     BackendCertificationResult,
     BackendCertificationStatus,
@@ -18,7 +18,7 @@ from aegis.contracts.runtime_backend import (
     backend_dry_run_receipt_id,
     recompute_runtime_backend_descriptor_checksum,
 )
-from aegis.contracts.runtime_dispatch import RuntimeDispatchKind
+from aegis.contracts.aegis_runtime_dispatch import RuntimeDispatchKind
 from aegis.execution import (
     build_null_runtime_backend,
     build_runtime_dispatch_plan,

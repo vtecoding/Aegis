@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-from aegis.contracts.policy import PolicyEvaluationResult, WorldSnapshotStub
-from aegis.contracts.world_snapshot_admissibility import validate_world_snapshot_admissibility
-from aegis.contracts.world_snapshot_freshness import (
+from aegis.contracts.aegis_policy import PolicyEvaluationResult, WorldSnapshotStub
+from aegis.contracts.aegis_world_snapshot_admissibility import validate_world_snapshot_admissibility
+from aegis.contracts.aegis_world_snapshot_freshness import (
     DEFAULT_FRESHNESS_POLICY,
     WorldSnapshotFreshnessResult,
     validate_world_snapshot_freshness,

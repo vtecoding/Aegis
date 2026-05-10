@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 import pytest
 
 from aegis.audit import build_audited_plan
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult
 from aegis.gate import gate_audited_plan
 from aegis.planning import plan_validated_intent
 from aegis.validation import validate_intent

@@ -13,12 +13,12 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.pipeline import PipelineOutcome, PipelineResult
-from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule
-from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
-from aegis.errors import PlanningError
+from aegis.aegis_errors import PlanningError
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult
+from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule
+from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.pipeline import run_pipeline
 
 
@@ -174,7 +174,7 @@ def test_run_pipeline_planning_error_propagates() -> None:
     context = make_context()
     intent = make_valid_intent(context)
 
-    with patch("aegis.pipeline.orchestrator.plan_validated_intent") as mock_plan:
+    with patch("aegis.pipeline.aegis_orchestrator.plan_validated_intent") as mock_plan:
         mock_plan.side_effect = PlanningError(
             message="forced planning failure",
             layer="planning",
@@ -193,7 +193,7 @@ def test_run_pipeline_unexpected_exception_in_validate_returns_error() -> None:
     context = make_context()
     intent = make_valid_intent(context)
 
-    with patch("aegis.pipeline.orchestrator.validate_intent") as mock_validate:
+    with patch("aegis.pipeline.aegis_orchestrator.validate_intent") as mock_validate:
         mock_validate.side_effect = RuntimeError("simulated framework failure")
         result = run_pipeline(intent, context)
 
@@ -208,7 +208,7 @@ def test_run_pipeline_unexpected_exception_in_plan_returns_error() -> None:
     context = make_context()
     intent = make_valid_intent(context)
 
-    with patch("aegis.pipeline.orchestrator.plan_validated_intent") as mock_plan:
+    with patch("aegis.pipeline.aegis_orchestrator.plan_validated_intent") as mock_plan:
         mock_plan.side_effect = RuntimeError("simulated planning framework failure")
         result = run_pipeline(intent, context)
 
@@ -223,7 +223,7 @@ def test_run_pipeline_unexpected_exception_in_audit_returns_error() -> None:
     context = make_context()
     intent = make_valid_intent(context)
 
-    with patch("aegis.pipeline.orchestrator.build_audited_plan") as mock_audit:
+    with patch("aegis.pipeline.aegis_orchestrator.build_audited_plan") as mock_audit:
         mock_audit.side_effect = RuntimeError("simulated audit framework failure")
         result = run_pipeline(intent, context)
 
@@ -238,7 +238,7 @@ def test_run_pipeline_unexpected_exception_in_gate_returns_error() -> None:
     context = make_context()
     intent = make_valid_intent(context)
 
-    with patch("aegis.pipeline.orchestrator.gate_audited_plan") as mock_gate:
+    with patch("aegis.pipeline.aegis_orchestrator.gate_audited_plan") as mock_gate:
         mock_gate.side_effect = RuntimeError("simulated gate framework failure")
         admission = make_allowing_admission()
         result = run_pipeline(

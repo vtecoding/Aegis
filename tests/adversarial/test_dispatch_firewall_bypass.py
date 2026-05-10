@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 from tests.execution_adapter_fixtures import adapter_replay_request
 
-from aegis.constants import MAX_RUNTIME_DISPATCH_PAYLOAD_BYTES
-from aegis.contracts.adapter_replay import AdapterReplayProofResult
-from aegis.contracts.execution_adapter import ExecutionAdapterEnvelope
-from aegis.contracts.runtime_dispatch import (
+from aegis.aegis_constants import MAX_RUNTIME_DISPATCH_PAYLOAD_BYTES
+from aegis.contracts.aegis_adapter_replay import AdapterReplayProofResult
+from aegis.contracts.aegis_execution_adapter import ExecutionAdapterEnvelope
+from aegis.contracts.aegis_runtime_dispatch import (
     DispatchFirewallReason,
     RuntimeDispatchItem,
     RuntimeDispatchPlan,

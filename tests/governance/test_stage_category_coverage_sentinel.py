@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from aegis.contracts.decision_trace import DECISION_TRACE_STAGE_ORDER
-from aegis.governance.coverage_sentinel import (
+from aegis.contracts.aegis_decision_trace import DECISION_TRACE_STAGE_ORDER
+from aegis.governance.aegis_coverage_sentinel import (
     assert_coverage_sentinel,
     evaluate_coverage_sentinel,
 )

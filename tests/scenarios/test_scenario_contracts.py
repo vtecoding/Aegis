@@ -8,12 +8,12 @@ from typing import cast
 
 import pytest
 
-from aegis.contracts.decision_trace import DECISION_TRACE_STAGE_ORDER
-from aegis.contracts.json_types import FrozenJsonValue
-from aegis.contracts.pipeline import PipelineOutcome
-from aegis.scenarios.contracts import ScenarioExpectation
-from aegis.scenarios.fixtures import canonical_scenario_definitions
-from aegis.scenarios.runner import run_scenario_suite
+from aegis.contracts.aegis_decision_trace import DECISION_TRACE_STAGE_ORDER
+from aegis.contracts.aegis_json_types import FrozenJsonValue
+from aegis.contracts.aegis_pipeline import PipelineOutcome
+from aegis.scenarios.aegis_contracts import ScenarioExpectation
+from aegis.scenarios.aegis_fixtures import canonical_scenario_definitions
+from aegis.scenarios.aegis_runner import run_scenario_suite
 
 
 def test_scenario_definition_freezes_metadata_deeply() -> None:

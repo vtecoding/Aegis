@@ -4,14 +4,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from aegis.constants import MAX_STRING_LENGTH
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.planning import CommandStepType
-from aegis.contracts.validation import ValidationResult, Violation
-from aegis.errors import PlanningError
-from aegis.planning.command_planner import plan_validated_intent
-from aegis.validation.semantic_validator import validate_intent
+from aegis.aegis_constants import MAX_STRING_LENGTH
+from aegis.aegis_errors import PlanningError
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_planning import CommandStepType
+from aegis.contracts.aegis_validation import ValidationResult, Violation
+from aegis.planning.aegis_command_planner import plan_validated_intent
+from aegis.validation.aegis_semantic_validator import validate_intent
 
 
 def make_context() -> ExecutionContext:

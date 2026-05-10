@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from hypothesis import given
 from hypothesis import strategies as st
 
-from aegis.contracts.context import ExecutionContext
-from aegis.contracts.intent import RawIntent
-from aegis.contracts.validation import ValidationResult
-from aegis.planning.command_planner import plan_validated_intent
-from aegis.validation.semantic_validator import validate_intent
+from aegis.contracts.aegis_context import ExecutionContext
+from aegis.contracts.aegis_intent import RawIntent
+from aegis.contracts.aegis_validation import ValidationResult
+from aegis.planning.aegis_command_planner import plan_validated_intent
+from aegis.validation.aegis_semantic_validator import validate_intent
 
 TARGET_TEXT = st.text(
     alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters="\x00"),

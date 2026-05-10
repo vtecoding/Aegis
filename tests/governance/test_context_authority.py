@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from aegis.governance.context_authority import ContextAuthority, context_authority_checksum
+from aegis.governance.aegis_context_authority import ContextAuthority, context_authority_checksum
 
 
 def test_context_authority_checksum_binds_context_identity() -> None:
