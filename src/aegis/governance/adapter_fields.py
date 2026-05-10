@@ -8,6 +8,11 @@ from aegis.contracts.adapter_receipt import AdapterReceipt
 from aegis.contracts.adapter_replay import AdapterReplayProofResult, AdapterReplayRequest
 from aegis.contracts.execution_adapter import ExecutionAdapterEnvelope, ExecutionAdapterMapping
 from aegis.contracts.ros2_mapping import Ros2MessageMapping, Ros2QoSProfileSpec, RuntimeTarget
+from aegis.contracts.runtime_backend import (
+    BackendCertificationResult,
+    BackendDryRunReceipt,
+    RuntimeBackendDescriptor,
+)
 from aegis.contracts.runtime_dispatch import (
     DispatchFirewallDecision,
     RuntimeDispatchItem,
@@ -264,6 +269,56 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="runtime_dispatch_receipt_checksum",
         reason="dry-run receipts bind runtime dispatch plans to firewall decisions",
+    ),
+    adapter_manifest_for(
+        contract_type=RuntimeBackendDescriptor,
+        authoritative_fields=(
+            "backend_id",
+            "backend_kind",
+            "backend_mode",
+            "supported_runtime_kinds",
+            "supported_capabilities",
+            "allows_execution",
+            "allows_io",
+            "allows_async",
+            "descriptor_checksum",
+        ),
+        checksum_function="runtime_backend_descriptor_checksum",
+        reason="backend descriptors declare the only non-executing ADR-0018 backend shape",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendCertificationResult,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "dispatch_plan_checksum",
+            "firewall_decision_checksum",
+            "backend_descriptor_checksum",
+            "no_execution_guarantee",
+            "no_io_guarantee",
+            "no_async_guarantee",
+            "capability_scope_match",
+            "runtime_kind_scope_match",
+            "certification_checksum",
+        ),
+        checksum_function="backend_certification_result_checksum",
+        reason="backend certification binds dispatch intent to a null non-execution guarantee",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendDryRunReceipt,
+        authoritative_fields=(
+            "receipt_id",
+            "dispatch_plan_checksum",
+            "firewall_decision_checksum",
+            "backend_certification_checksum",
+            "backend_descriptor_checksum",
+            "observed_dispatch_items",
+            "executed_count",
+            "blocked_execution_count",
+            "receipt_checksum",
+        ),
+        checksum_function="backend_dry_run_receipt_checksum",
+        reason="backend dry-run receipts prove observed intent with zero execution",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

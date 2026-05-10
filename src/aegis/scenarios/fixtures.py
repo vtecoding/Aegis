@@ -214,6 +214,25 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_adapter_boundary_scenarios(),
         *_adapter_replay_scenarios(),
         *_runtime_dispatch_scenarios(),
+        *_backend_certification_scenarios(),
+    )
+
+
+def _backend_certification_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.BACKEND_NULL_POSITIVE,
+            ScenarioCategory.BACKEND_REQUIRES_FIREWALL_ALLOWED_PLAN,
+            ScenarioCategory.BACKEND_REJECTS_NON_NULL_KIND,
+            ScenarioCategory.BACKEND_REJECTS_EXECUTION_CAPABILITY,
+            ScenarioCategory.BACKEND_REJECTS_IO_CAPABILITY,
+            ScenarioCategory.BACKEND_REJECTS_ASYNC_CAPABILITY,
+            ScenarioCategory.BACKEND_REJECTS_RUNTIME_OBJECT_INJECTION,
+            ScenarioCategory.BACKEND_REJECTS_SCOPE_DRIFT,
+            ScenarioCategory.BACKEND_RECEIPT_ZERO_EXECUTION,
+            ScenarioCategory.BACKEND_CERTIFICATION_CHECKSUM_DRIFT,
+        )
     )
 
 
