@@ -30,8 +30,11 @@ from aegis.execution.aegis_backend_admission import (
 from aegis.execution.aegis_backend_authority import BackendAuthorityManifest
 from aegis.execution.aegis_backend_registry import BackendAuthorityRegistry
 from aegis.execution.aegis_capability_lease import RuntimeCapabilityLease
+from aegis.execution.aegis_command_quarantine import CommandQuarantineEnvelope
 from aegis.execution.aegis_lease_revocation import LeaseRevocationDecision
 from aegis.execution.aegis_lease_validation import LeaseValidationResult
+from aegis.execution.aegis_operator_approval import OperatorApprovalReceipt
+from aegis.execution.aegis_quarantine_release import QuarantineReleaseDecision
 
 
 @dataclass(frozen=True, slots=True)
@@ -480,6 +483,59 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="lease_revocation_decision_checksum",
         reason="lease revocation decisions record deterministic reason-coded revocation evidence",
+    ),
+    adapter_manifest_for(
+        contract_type=CommandQuarantineEnvelope,
+        authoritative_fields=(
+            "quarantine_id",
+            "dispatch_plan_checksum",
+            "backend_admission_checksum",
+            "capability_lease_checksum",
+            "backend_descriptor_checksum",
+            "authority_manifest_checksum",
+            "registry_checksum",
+            "certification_checksum",
+            "backend_replay_proof_checksum",
+            "context_authority_checksum",
+            "quarantined_items",
+            "quarantine_status",
+            "quarantine_epoch",
+            "quarantine_checksum",
+        ),
+        checksum_function="command_quarantine_envelope_checksum",
+        reason="command quarantine envelopes bind every lease-valid dispatch item before approval",
+    ),
+    adapter_manifest_for(
+        contract_type=OperatorApprovalReceipt,
+        authoritative_fields=(
+            "approval_id",
+            "operator_id",
+            "approval_status",
+            "quarantine_checksum",
+            "approved_scope",
+            "approval_epoch",
+            "approval_reason",
+            "approval_checksum",
+        ),
+        checksum_function="operator_approval_receipt_checksum",
+        reason="operator approval receipts bind explicit scope to one quarantine checksum",
+    ),
+    adapter_manifest_for(
+        contract_type=QuarantineReleaseDecision,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "quarantine_checksum",
+            "approval_checksum",
+            "lease_checksum",
+            "dispatch_plan_checksum",
+            "released_item_count",
+            "decision_checksum",
+        ),
+        checksum_function="quarantine_release_decision_checksum",
+        reason=(
+            "quarantine release decisions prove only approved dry-run intent may leave quarantine"
+        ),
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

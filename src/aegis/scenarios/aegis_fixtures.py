@@ -224,6 +224,7 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_backend_replay_scenarios(),
         *_backend_admission_scenarios(),
         *_capability_lease_scenarios(),
+        *_command_quarantine_scenarios(),
     )
 
 
@@ -259,6 +260,24 @@ def _capability_lease_scenarios() -> tuple[ScenarioDefinition, ...]:
             ScenarioCategory.CAPABILITY_LEASE_CONTEXT_AUTHORITY_DRIFT,
             ScenarioCategory.CAPABILITY_LEASE_WILDCARD_SCOPE,
             ScenarioCategory.CAPABILITY_LEASE_REVOCATION,
+        )
+    )
+
+
+def _command_quarantine_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.COMMAND_QUARANTINE_POSITIVE,
+            ScenarioCategory.COMMAND_QUARANTINE_REQUIRES_VALID_LEASE,
+            ScenarioCategory.COMMAND_QUARANTINE_MISSING_APPROVAL,
+            ScenarioCategory.COMMAND_QUARANTINE_REJECTED_APPROVAL,
+            ScenarioCategory.COMMAND_QUARANTINE_SCOPE_OVERCLAIM,
+            ScenarioCategory.COMMAND_QUARANTINE_EVIDENCE_DRIFT,
+            ScenarioCategory.COMMAND_QUARANTINE_STALE_APPROVAL,
+            ScenarioCategory.COMMAND_QUARANTINE_PARTIAL_OMISSION,
+            ScenarioCategory.COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION,
+            ScenarioCategory.COMMAND_QUARANTINE_RELEASE_DRY_RUN_ONLY,
         )
     )
 

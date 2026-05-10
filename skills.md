@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2: RELEASE-COMPLETE after ADR-0014 seal** -> **Phase 3 Part 3: ADR-0017 runtime dispatch dry-run** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2: RELEASE-COMPLETE after ADR-0014 seal** -> **Phase 3: runtime evidence chain through ADR-0022 command quarantine** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 3 Part 3 - ADR-0017 Runtime Dispatch Dry-Run
+## 2. Current Phase: Phase 3 - Runtime Evidence Chain Through ADR-0022 Command Quarantine
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python

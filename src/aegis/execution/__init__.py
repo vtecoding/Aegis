@@ -16,6 +16,7 @@ from aegis.execution.aegis_backend_replay import BackendReplayOutput, replay_run
 from aegis.execution.aegis_backend_replay_mutations import mutate_backend_replay_request_in_place
 from aegis.execution.aegis_backend_replay_proof import prove_backend_replay
 from aegis.execution.aegis_capability_lease import issue_runtime_capability_lease
+from aegis.execution.aegis_command_quarantine import quarantine_runtime_command
 from aegis.execution.aegis_dispatch_firewall import evaluate_dispatch_firewall
 from aegis.execution.aegis_dispatch_receipt import build_runtime_dispatch_receipt
 from aegis.execution.aegis_lease_revocation import evaluate_runtime_lease_revocation
@@ -25,6 +26,8 @@ from aegis.execution.aegis_null_runtime_backend import (
     NullRuntimeBackend,
     build_null_runtime_backend,
 )
+from aegis.execution.aegis_operator_approval import build_operator_approval_receipt
+from aegis.execution.aegis_quarantine_release import evaluate_quarantine_release
 from aegis.execution.aegis_ros2_mapping_validator import validate_ros2_message_mapping
 from aegis.execution.aegis_runtime_dispatch import build_runtime_dispatch_plan
 
@@ -40,8 +43,10 @@ __all__ = [
     "build_backend_authority_registry",
     "build_backend_dry_run_receipt",
     "build_null_runtime_backend",
+    "build_operator_approval_receipt",
     "certify_runtime_backend",
     "evaluate_dispatch_firewall",
+    "evaluate_quarantine_release",
     "evaluate_runtime_lease_revocation",
     "issue_runtime_capability_lease",
     "is_backend_dry_run_receipt_valid",
@@ -49,6 +54,7 @@ __all__ = [
     "mutate_adapter_replay_request_in_place",
     "prove_backend_replay",
     "prove_adapter_replay",
+    "quarantine_runtime_command",
     "replay_runtime_backend",
     "replay_execution_adapter",
     "validate_execution_adapter_mapping",

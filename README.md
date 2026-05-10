@@ -1,6 +1,6 @@
 # Aegis — Deterministic Intent Gateway (DIG)
 
-> **Phase 3 Part 3: Runtime Dispatch Dry-Run.** No robot execution. No ROS imports. No runtime backend. No production safety claims.
+> **Phase 3: Runtime evidence chain through ADR-0022 command quarantine.** No robot execution. No ROS imports. No executable runtime backend. No production safety claims.
 
 ## What Is Aegis?
 
@@ -12,13 +12,13 @@ The pipeline is deterministic: given the same input and the same explicit eviden
 
 | Property | Status |
 |----------|--------|
-| Phase | Phase 2 release-complete; Phase 3 Part 3 runtime dispatch dry-run contract in progress |
-| Contracts | v1 implemented through approval receipts, policy/context authority, scenario coverage, and execution adapter/ROS 2 mapping contracts |
+| Phase | Phase 2 release-complete; Phase 3 runtime evidence chain implemented through ADR-0022 command quarantine/operator approval |
+| Contracts | v1 implemented through approval receipts, policy/context authority, scenario coverage, execution adapter/ROS 2 mapping, runtime dispatch, backend admission, capability leases, and command quarantine contracts |
 | Validation | v1 implemented — schema limits, allowed abstract commands, semantic violations |
 | Planning | v1 implemented — deterministic one-step command plans and stable SHA-256 plan IDs |
 | Audit | v1 implemented — deterministic `AuditedPlan` receipts with SHA-256 checksum and audit_id |
 | Policy admission | Enforced approval requires policy, freshness, verifier/config, trust, SafetyCase, decision trace, and valid approval receipt evidence |
-| Execution adapter | Phase 3 data-only adapter envelope, deterministic replay proof, and dry-run dispatch firewall; no publishing or runtime execution |
+| Execution adapter | Phase 3 data-only adapter envelope, deterministic replay proof, dry-run dispatch firewall, null-backend admission, capability lease, and command quarantine; no publishing or runtime execution |
 | Robotics (ROS 2) | Modelled as inert mapping data only — no ROS imports or node execution |
 | LLM SDK in core | Forbidden — all phases |
 | Production safety claims | None — not yet proven |
@@ -41,9 +41,18 @@ build_execution_adapter_envelope(pipeline_result, adapter_mapping, target_runtim
 prove_adapter_replay(adapter_replay_request)
 build_runtime_dispatch_plan(envelope, replay_proof)
 evaluate_dispatch_firewall(plan, envelope, replay_proof)
+admit_runtime_backend(admission_request)
+issue_runtime_capability_lease(...)
+quarantine_runtime_command(...)
+build_operator_approval_receipt(...)
+evaluate_quarantine_release(...)
 ```
 
-It returns checksum-bound adapter and dry-run dispatch evidence. It does not publish ROS messages, call services, execute actions, move robots, open sockets, attach a runtime backend, or claim physical safety.
+It returns checksum-bound adapter, dry-run dispatch, backend admission, lease, quarantine, and approval/release evidence. It does not publish ROS messages, call services, execute actions, move robots, open sockets, contact an executable runtime backend, queue work, or claim physical safety.
+
+Supported imports for external callers are package-level exports such as `aegis.execution` and
+`aegis.contracts`. Direct `aegis_*` implementation-module imports are private compatibility
+details and may intentionally break outside the supported API.
 
 ## Development
 
