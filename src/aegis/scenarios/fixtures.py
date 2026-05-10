@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from aegis.contracts.attestation_verifier import AttestationVerifierAdapterMetadata
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.decision_trace import DECISION_TRACE_STAGE_ORDER
 from aegis.contracts.intent import RawIntent
+from aegis.contracts.json_types import JsonValue
 from aegis.contracts.pipeline import PipelineOutcome
 from aegis.contracts.policy import Capability, Constraint, Policy, PolicyRule, WorldSnapshotStub
 from aegis.contracts.world_snapshot_trust import (
@@ -188,7 +190,7 @@ class ScenarioFixtureFactory:
 
 
 def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
-    """Return every required ADR-0013 scenario category."""
+    """Return every required ADR-0013 and ADR-0015 scenario category."""
     return (
         _positive_allowed(),
         _missing_world_snapshot(),
@@ -209,6 +211,7 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         _evil_twin(ScenarioCategory.CHECKSUM_MISMATCH, EvilTwinMutation.TRACE_CHECKSUM_MISMATCH),
         _evil_twin(ScenarioCategory.CONFUSABLE_STAGE_NAME, EvilTwinMutation.CONFUSABLE_STAGE_NAME),
         _partial_receipt_overclaim(),
+        *_adapter_boundary_scenarios(),
     )
 
 
@@ -232,11 +235,13 @@ def make_scenario_context_authority(
     )
 
 
-def _base_intent(scenario_id: str, *, target_x: int = 1) -> RawIntent:
+def _base_intent(scenario_id: str, *, target_x: int = 1, command: str = "move") -> RawIntent:
     context = make_scenario_context(scenario_id)
+    target_parameters: dict[str, JsonValue] = {"x": target_x, "y": 2}
+    parameters: Mapping[str, JsonValue] = {} if command == "stop" else {"target": target_parameters}
     return RawIntent(
-        "move",
-        {"target": {"x": target_x, "y": 2}},
+        command,
+        parameters,
         "scenario-runner",
         5,
         context,
@@ -388,12 +393,13 @@ def _definition(
     verifier: PassingScenarioAttestationVerifier | None = None,
     evaluation_time_ms: int | None = SCENARIO_EVALUATION_TIME_MS,
     mutation: EvilTwinMutation = EvilTwinMutation.NONE,
+    intent_command: str = "move",
 ) -> ScenarioDefinition:
     return ScenarioDefinition(
         scenario_id=scenario_id,
         name=name,
         category=category,
-        intent=_base_intent(scenario_id),
+        intent=_base_intent(scenario_id, command=intent_command),
         policy=policy or _policy(),
         world_snapshot=snapshot,
         evaluation_time_ms=evaluation_time_ms,
@@ -707,6 +713,80 @@ def _partial_receipt_overclaim() -> ScenarioDefinition:
         trust_policy=_trust_policy(),
         verifier=PassingScenarioAttestationVerifier(),
         mutation=EvilTwinMutation.PARTIAL_RECEIPT_OVERCLAIM,
+    )
+
+
+def _adapter_boundary_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_category_scenario(category)
+        for category in (
+            ScenarioCategory.ADAPTER_VALID_ROS2_MOVE_MAPPING,
+            ScenarioCategory.ADAPTER_VALID_ROS2_STOP_MAPPING,
+            ScenarioCategory.ADAPTER_BLOCKED_PIPELINE_RESULT,
+            ScenarioCategory.ADAPTER_INVALID_RECEIPT,
+            ScenarioCategory.ADAPTER_CAPABILITY_MISMATCH,
+            ScenarioCategory.ADAPTER_COMMAND_MISMATCH,
+            ScenarioCategory.ADAPTER_NAMESPACE_MISMATCH,
+            ScenarioCategory.ADAPTER_QOS_INVALID,
+            ScenarioCategory.ADAPTER_REQUIRED_FIELD_MISSING,
+            ScenarioCategory.ADAPTER_FORBIDDEN_FIELD,
+            ScenarioCategory.ADAPTER_CHECKSUM_FORGED,
+            ScenarioCategory.ADAPTER_DIRECT_BYPASS,
+            ScenarioCategory.ADAPTER_CONFUSABLE_RUNTIME_NAME,
+            ScenarioCategory.ADAPTER_PAYLOAD_RESOURCE_EXCEEDED,
+        )
+    )
+
+
+def _adapter_category_scenario(category: ScenarioCategory) -> ScenarioDefinition:
+    if category is ScenarioCategory.ADAPTER_BLOCKED_PIPELINE_RESULT:
+        return _adapter_blocked_pipeline_category()
+    snapshot = _snapshot(
+        snapshot_id=f"scenario-snapshot-{category.value.lower().replace('_', '-')}"
+    )
+    command = "stop" if category is ScenarioCategory.ADAPTER_VALID_ROS2_STOP_MAPPING else "move"
+    return _definition(
+        scenario_id=f"scenario.{category.value.lower()}",
+        name=category.value.replace("_", " ").title(),
+        category=category,
+        expected=_expect(
+            outcome=PipelineOutcome.ALLOWED,
+            reason="GATE_ALLOWED",
+            terminal_stage="gate_decision",
+            required=_FULL_CHAIN,
+            forbidden=(),
+            allow_late=True,
+        ),
+        snapshot=snapshot,
+        evidence=_evidence(snapshot),
+        trust_policy=_trust_policy(),
+        verifier=PassingScenarioAttestationVerifier(),
+        intent_command=command,
+    )
+
+
+def _adapter_blocked_pipeline_category() -> ScenarioDefinition:
+    snapshot = _snapshot(snapshot_id="scenario-snapshot-adapter-blocked-pipeline")
+    return ScenarioDefinition(
+        scenario_id="scenario.adapter_blocked_pipeline_result",
+        name="Adapter Blocked Pipeline Result",
+        category=ScenarioCategory.ADAPTER_BLOCKED_PIPELINE_RESULT,
+        intent=_base_intent("scenario.adapter_blocked_pipeline_result"),
+        policy=None,
+        world_snapshot=snapshot,
+        evaluation_time_ms=None,
+        trust_policy_config=None,
+        verifier=None,
+        expected=_expect(
+            outcome=PipelineOutcome.BLOCKED,
+            reason="POLICY_ADMISSION_DISABLED",
+            terminal_stage="policy_admission",
+            required=_DISABLED_PATH,
+            forbidden=("gate_decision",),
+            receipt_valid=True,
+        ),
+        metadata={"category": ScenarioCategory.ADAPTER_BLOCKED_PIPELINE_RESULT.value},
+        capability=None,
     )
 
 

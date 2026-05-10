@@ -1,5 +1,11 @@
 """Shared typed contracts between Aegis pipeline layers."""
 
+from aegis.contracts.adapter_receipt import (
+    AdapterReceipt,
+    adapter_receipt_checksum_value,
+    build_adapter_receipt,
+    recompute_adapter_receipt_checksum,
+)
 from aegis.contracts.approval_receipt import (
     ApprovalReceipt,
     ApprovalReceiptReason,
@@ -19,6 +25,17 @@ from aegis.contracts.attestation_verifier import (
 from aegis.contracts.audit import AuditedPlan
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.decision_trace import DecisionTrace, DecisionTraceStep
+from aegis.contracts.execution_adapter import (
+    ExecutionAdapterEnvelope,
+    ExecutionAdapterEnvelopeStatus,
+    ExecutionAdapterMapping,
+    ExecutionAdapterReason,
+    ExecutionAdapterValidationResult,
+    execution_adapter_envelope_checksum,
+    execution_adapter_mapping_checksum,
+    recompute_execution_adapter_envelope_checksum,
+    recompute_execution_adapter_mapping_checksum,
+)
 from aegis.contracts.gate import GateBlockReason, GateDecision, GateDecisionStatus
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.json_types import (
@@ -55,6 +72,24 @@ from aegis.contracts.policy_admission import (
     assert_policy_admission_integrity,
     disabled_policy_admission_record,
     is_policy_backed_approval,
+)
+from aegis.contracts.ros2_mapping import (
+    DANGEROUS_RUNTIME_OVERRIDE_FIELDS,
+    Ros2CommunicationPrimitive,
+    Ros2Durability,
+    Ros2History,
+    Ros2Liveliness,
+    Ros2MessageMapping,
+    Ros2QoSProfileSpec,
+    Ros2Reliability,
+    RuntimeKind,
+    RuntimeTarget,
+    recompute_ros2_message_mapping_checksum,
+    recompute_ros2_qos_profile_checksum,
+    recompute_runtime_target_checksum,
+    ros2_message_mapping_checksum,
+    ros2_qos_profile_checksum,
+    runtime_target_checksum_value,
 )
 from aegis.contracts.trust_policy_config import (
     TrustPolicyConfigStatus,
@@ -143,4 +178,33 @@ __all__ = [
     "validate_approval_receipt",
     "DecisionTrace",
     "DecisionTraceStep",
+    "AdapterReceipt",
+    "ExecutionAdapterEnvelope",
+    "ExecutionAdapterEnvelopeStatus",
+    "ExecutionAdapterMapping",
+    "ExecutionAdapterReason",
+    "ExecutionAdapterValidationResult",
+    "DANGEROUS_RUNTIME_OVERRIDE_FIELDS",
+    "Ros2CommunicationPrimitive",
+    "Ros2Durability",
+    "Ros2History",
+    "Ros2Liveliness",
+    "Ros2MessageMapping",
+    "Ros2QoSProfileSpec",
+    "Ros2Reliability",
+    "RuntimeKind",
+    "RuntimeTarget",
+    "adapter_receipt_checksum_value",
+    "build_adapter_receipt",
+    "execution_adapter_envelope_checksum",
+    "execution_adapter_mapping_checksum",
+    "recompute_adapter_receipt_checksum",
+    "recompute_execution_adapter_envelope_checksum",
+    "recompute_execution_adapter_mapping_checksum",
+    "recompute_ros2_message_mapping_checksum",
+    "recompute_ros2_qos_profile_checksum",
+    "recompute_runtime_target_checksum",
+    "ros2_message_mapping_checksum",
+    "ros2_qos_profile_checksum",
+    "runtime_target_checksum_value",
 ]

@@ -9,7 +9,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2: RELEASE-COMPLETE after ADR-0014 seal** |
+| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2: RELEASE-COMPLETE after ADR-0014 seal** -> **Phase 3 Part 1: ADR-0015 adapter boundary** |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +78,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 2 Release Seal - ADR-0014 Authority Drift Gate
+## 2. Current Phase: Phase 3 Part 1 - ADR-0015 Execution Adapter Boundary
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -727,7 +727,6 @@ from aegis.contracts.intent import IntentCommand
 from aegis.errors import ValidationError
 from aegis.validation.schema_validator import validate_intent
 from tests.factories import make_intent_command
-
 
 def test_issue_42_null_command_raises_validation_error() -> None:
     """Null command must raise ValidationError, not propagate silently."""

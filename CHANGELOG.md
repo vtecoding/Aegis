@@ -10,6 +10,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Execution Adapter Boundary and ROS 2 Message Mapping Contract for Phase 3 Part 1 / ADR-0015: immutable checksum-bound `RuntimeTarget`, `Ros2QoSProfileSpec`, `Ros2MessageMapping`, `ExecutionAdapterMapping`, `ExecutionAdapterEnvelope`, and `AdapterReceipt` contracts, pure adapter mapping validators, and `build_execution_adapter_envelope()` for converting only an allowed receipt-valid `PipelineResult` into a non-executing adapter envelope
+- Contract, unit, integration, adversarial, governance, and invariant tests proving adapter envelopes bind policy/context/receipt evidence, reject non-allowed or receipt-invalid pipeline results, fail closed on command/capability/namespace/QoS/field-map/checksum/resource mismatches, forbid dangerous runtime override fields, reject direct READY construction from fragments, and keep ROS 2 concepts as inert data with zero ROS imports
 - Authority drift, policy versioning, context authority, resource bounds, and contract coverage gates for Phase 2 Part 11 / ADR-0014: versioned policy checksums, explicit `ContextAuthority`, direct approval receipt policy/context bindings, governance manifests, contract drift sentinel, stage/category/checksum coverage sentinel, and deterministic resource-bound validation
 - Governance, adversarial, and invariant tests proving authority manifests stay aligned with dataclass fields, policy identity is checksum-bound, missing or mismatched context authority cannot approve, forged receipts cannot omit context bindings, and the release stage/category coverage registries fail closed on drift
 - Deterministic Scenario Runner and Evil-Twin Coverage Gate for Phase 2 Part 10 / ADR-0013: immutable scenario contracts, canonical scenario fixtures, real `run_pipeline` scenario execution, expectation validation against both pipeline outcome and receipt-proven decision path, required category coverage, stable scenario/suite checksums, and evil-twin rejection for forged, mismatched, replayed, overclaimed, confusable, checksum-corrupted, and direct-gate-only evidence
@@ -46,6 +48,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bootstrap import test and invariant test
 
 ### Changed
+- README project status now reflects Phase 2 release completion and Phase 3 Part 1 adapter-boundary work instead of the stale Phase 1-only status
+- Scenario category coverage now includes ADR-0015 adapter-boundary categories while keeping adapter envelope construction as a separate post-pipeline API
 - ENFORCE-mode approval paths now require explicit versioned policy identity and matching context authority before an ALLOW decision can reach the gate; blocked and invalid paths preserve their upstream failure evidence without requiring context authority
 - Approval receipts now directly bind policy checksum and context authority checksum in addition to decision-trace stage outputs
 - Scenario runner exports now include the ADR-0013 pipeline scenario APIs while preserving the legacy JSON fixture runner used by Phase 1 demo tests

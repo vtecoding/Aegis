@@ -1,4 +1,4 @@
-# Aegis Master Specification - Phase 1 + Phase 2 Part 10
+# Aegis Master Specification - Phase 1 + Phase 2 + Phase 3 Part 1
 
 ## Purpose
 
@@ -22,12 +22,15 @@ policies cannot become approval authority unless they pass deterministic verifie
 certification and trust-policy configuration validation. Phase 2 Part 8 adds world snapshot
 admissibility before freshness and trust. Phase 2 Part 9 adds decision traces and approval
 receipts to every orchestrated pipeline result. Phase 2 Part 10 adds a deterministic
-scenario runner and evil-twin coverage gate above the sealed pipeline.
+scenario runner and evil-twin coverage gate above the sealed pipeline. Phase 2 Part 11
+seals authority drift, policy versioning, context authority, resource bounds, and contract
+coverage. Phase 3 Part 1 adds a deterministic non-executing adapter boundary and ROS 2
+message mapping contract after allowed, receipt-valid pipeline results.
 
-Aegis does not execute robot commands. Phase 1 produces a typed decision (`ALLOWED` or
-`BLOCKED`) and an immutable audit receipt. Policy-v1 contracts, the pure evaluator, and
-pipeline admission wiring provide deterministic policy admission over supplied evidence
-without claiming real-world physical safety.
+Aegis does not execute robot commands. The sealed pipeline produces receipt-bound decisions.
+The Phase 3 Part 1 adapter boundary produces a checksum-bound `ExecutionAdapterEnvelope`
+from an already allowed `PipelineResult`; it models ROS 2 mapping as data only and does not
+claim real-world physical safety.
 
 ---
 
@@ -213,6 +216,33 @@ Honest status after Part 10: Aegis can deterministically execute a closed scenar
 through the real pure pipeline and prove each scenario by both pipeline outcome and
 receipt-bound decision path.
 
+## Phase 2 Part 11 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Versioned policy checksums and context authority bindings | External policy registries or signing infrastructure |
+| Contract drift and scenario coverage sentinels | Replacing contract, unit, adversarial, or invariant tests |
+| Deterministic resource-bound validation | Runtime execution resource scheduling |
+| Approval receipt policy/context bindings | Physical safety or certification claims |
+
+Honest status after Part 11: Aegis can fail closed on approval-authority drift,
+policy-version drift, missing context authority, resource-bound violations, and missing
+coverage for required scenario categories.
+
+## Phase 3 Part 1 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Immutable execution adapter and ROS 2 mapping contracts | ROS imports or runtime middleware dependencies |
+| Pure `build_execution_adapter_envelope()` API after allowed pipeline result | Publishing topics, calling services, executing actions, or starting nodes |
+| Explicit QoS, namespace, primitive, message type, field map, required fields, and forbidden fields as data | Motion planning, collision checking, simulation, teleoperation, visualization, fleet management |
+| Adapter mapping checksums and adapter receipts | Physical safety, actuator safety, certification, or signed external authorization |
+| Scenario category coverage for ADR-0015 adapter cases | Adding adapter execution into `run_pipeline()` |
+
+Honest status after Part 1: Aegis can deterministically convert an allowed, receipt-valid
+pipeline result into a non-executing adapter evidence envelope with explicit ROS 2 mapping
+evidence.
+
 ---
 
 ## Non-Goals
@@ -225,6 +255,8 @@ receipt-bound decision path.
 - No claim that freshness proves real-world truth, source attestation, live sensing correctness, simulation safety, middleware safety, or actuator safety.
 - No claim that trust attestation proves physical-world truth, sensor correctness,
   middleware safety, simulation safety, collision safety, actuator safety, or certification.
+- No claim that a READY adapter envelope is execution permission, robot safety, simulation
+    safety, or ROS middleware safety.
 - No LLM SDK dependencies anywhere in the deterministic core.
 - No ROS 2, hardware, or network I/O inside `src/aegis/`.
 
@@ -264,6 +296,17 @@ not create approvals. It executes `ScenarioDefinition` values through `run_pipel
 validates expectations with `ScenarioRunResult`, aggregates with `ScenarioSuiteResult`, and
 uses `CoverageGateResult` to prove the required scenario categories are represented.
 
+Phase 3 Part 1 adds a separate adapter boundary after the pipeline return value. It does not
+modify `run_pipeline()` and does not execute runtime actions:
+
+```text
+PipelineResult(ALLOWED, receipt VALID)
+    → ExecutionAdapterMapping
+    → RuntimeTarget
+    → Ros2MessageMapping
+    → ExecutionAdapterEnvelope
+```
+
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
 communication uses typed contracts in `contracts/`.
 
@@ -275,6 +318,7 @@ communication uses typed contracts in `contracts/`.
 | Audit | `aegis.audit` | None | Implemented |
 | Gate | `aegis.gate` | Phase 2+ only | Implemented |
 | Policy | `aegis.policy` | None | Pure evaluator implemented and wired through pipeline admission |
+| Execution adapter | `aegis.execution` | None | Phase 3 Part 1 non-executing adapter-boundary validation |
 
 ---
 
@@ -309,6 +353,10 @@ else:
 gate_audited_plan(audited_plan) → GateDecision
     ↓
 run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
+    ↓  [separate Phase 3 Part 1 API only]
+build_execution_adapter_envelope(pipeline_result, adapter_mapping, target_runtime)
+    ↓
+ExecutionAdapterEnvelope(status=READY | BLOCKED | INVALID | ERROR)
 ```
 
 ---
@@ -358,6 +406,13 @@ run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
 39. Verifier certification checksum, verifier ID, verifier metadata checksum, and trust-policy config validation checksum match across `WorldSnapshotTrustResult`, `PolicyEvaluationResult`, `SafetyCase`, and `PolicyAdmissionRecord`.
 40. Missing, malformed, unsafe, non-deterministic, or uncertified verifier adapters fail closed before trust evaluation can approve.
 41. Empty, wildcard, mismatched, disabled-attestation, or runtime-incompatible trust-policy configurations fail closed before trust evaluation can approve.
+42. `ExecutionAdapterEnvelopeStatus.READY` requires an allowed, receipt-valid `PipelineResult`.
+43. Non-allowed, receipt-invalid, checksum-mutated, or adapter-invalid inputs never produce a READY adapter envelope.
+44. READY adapter envelopes bind policy checksum, context authority checksum, SafetyCase ID, audited plan ID, plan checksum, adapter mapping checksum, runtime target checksum, ROS 2 mapping checksum, QoS checksum, and adapter authority.
+45. Non-ready adapter envelopes never carry a command payload.
+46. ROS 2 mapping contracts are inert data and never import ROS packages, open middleware handles, publish topics, call services, execute actions, or start nodes.
+47. Adapter field maps are explicit; no implicit runtime message fields, reflection, fuzzy matching, or middleware defaults are allowed.
+48. Forbidden runtime override fields never produce a READY adapter envelope.
 
 ---
 
@@ -365,8 +420,11 @@ run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
 
 ```python
 from aegis.pipeline import run_pipeline
+from aegis.execution import build_execution_adapter_envelope
 from aegis.contracts.intent import RawIntent
 from aegis.contracts.context import ExecutionContext
+from aegis.contracts.execution_adapter import ExecutionAdapterMapping
+from aegis.contracts.ros2_mapping import RuntimeTarget, Ros2MessageMapping
 from aegis.contracts.policy_admission import PolicyAdmissionInput, PolicyAdmissionMode
 from aegis.policy import build_safety_case, evaluate_policy, evaluate_policy_with_safety_case
 
@@ -391,6 +449,13 @@ enforced = run_pipeline(
     attestation_verifier=verifier,
     runtime_trust_domain=runtime_domain,
 )
+
+adapter_envelope = build_execution_adapter_envelope(
+    enforced,
+    adapter_mapping,
+    target_runtime,
+)
+# adapter_envelope.status: READY | BLOCKED | INVALID | ERROR
 ```
 
 ---
@@ -457,6 +522,13 @@ Verifier certification and trust-policy config validation do **not** protect aga
 - Key management, cryptographic library defects, or external trust registry compromise.
 - Physical-world truth, sensor correctness, middleware safety, collision hazards, actuator faults, or certification requirements.
 
+Execution adapter envelopes and ROS 2 message mappings do **not** protect against:
+
+- Physical collision, dynamics, actuator, middleware, simulator, or deployment hazards.
+- A future runtime adapter ignoring the envelope contract.
+- External signing, cryptographic identity, or authorization outside the deterministic evidence packet.
+- ROS 2 package correctness, DDS behavior, node lifecycle behavior, or QoS behavior at runtime.
+
 ---
 
 ## Failure Model
@@ -482,6 +554,6 @@ Coverage floor: 90% line coverage overall; 100% on `contracts/` and `errors.py`.
 
 ## Future Phases
 
-**Phase 2 next candidates:** deterministic capability extraction, richer policy evidence stubs, or policy review workflow contracts.
-**Phase 3+:** Adapter integration, simulation, formal verification, middleware, and
-hardware work after the deterministic policy core is proven independently.
+**Phase 3 next candidates:** runtime adapter test doubles, dry-run adapter receipts, and deterministic simulator boundary contracts.
+**Later phases:** Adapter integration, simulation, formal verification, middleware, and
+hardware work after the deterministic adapter authority boundary is proven independently.
