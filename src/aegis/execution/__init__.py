@@ -4,11 +4,14 @@ from aegis.execution.adapter_envelope import build_execution_adapter_envelope
 from aegis.execution.adapter_replay import AdapterReplayOutput, replay_execution_adapter
 from aegis.execution.adapter_replay_mutations import mutate_adapter_replay_request_in_place
 from aegis.execution.adapter_replay_proof import prove_adapter_replay
+from aegis.execution.backend_admission import admit_runtime_backend
+from aegis.execution.backend_authority import build_backend_authority_manifest
 from aegis.execution.backend_certification import certify_runtime_backend
 from aegis.execution.backend_receipt import (
     build_backend_dry_run_receipt,
     is_backend_dry_run_receipt_valid,
 )
+from aegis.execution.backend_registry import build_backend_authority_registry
 from aegis.execution.backend_replay import BackendReplayOutput, replay_runtime_backend
 from aegis.execution.backend_replay_mutations import mutate_backend_replay_request_in_place
 from aegis.execution.backend_replay_proof import prove_backend_replay
@@ -26,6 +29,9 @@ __all__ = [
     "AdapterReplayOutput",
     "BackendReplayOutput",
     "NullRuntimeBackend",
+    "admit_runtime_backend",
+    "build_backend_authority_manifest",
+    "build_backend_authority_registry",
     "build_backend_dry_run_receipt",
     "build_null_runtime_backend",
     "certify_runtime_backend",

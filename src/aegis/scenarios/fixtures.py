@@ -216,6 +216,25 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_runtime_dispatch_scenarios(),
         *_backend_certification_scenarios(),
         *_backend_replay_scenarios(),
+        *_backend_admission_scenarios(),
+    )
+
+
+def _backend_admission_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.BACKEND_ADMISSION_NULL_POSITIVE,
+            ScenarioCategory.BACKEND_ADMISSION_UNKNOWN_KIND,
+            ScenarioCategory.BACKEND_ADMISSION_NON_NULL_KIND,
+            ScenarioCategory.BACKEND_ADMISSION_MANIFEST_DRIFT,
+            ScenarioCategory.BACKEND_ADMISSION_REGISTRY_DRIFT,
+            ScenarioCategory.BACKEND_ADMISSION_MISSING_CERTIFICATION,
+            ScenarioCategory.BACKEND_ADMISSION_MISSING_REPLAY,
+            ScenarioCategory.BACKEND_ADMISSION_SCOPE_OVERCLAIM,
+            ScenarioCategory.BACKEND_ADMISSION_WILDCARD_AUTHORITY,
+            ScenarioCategory.BACKEND_ADMISSION_RUNTIME_OBJECT_INJECTION,
+        )
     )
 
 

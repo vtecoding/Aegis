@@ -20,6 +20,9 @@ from aegis.contracts.runtime_dispatch import (
     RuntimeDispatchPlan,
     RuntimeDispatchReceipt,
 )
+from aegis.execution.backend_admission import BackendAdmissionDecision, BackendAdmissionRequest
+from aegis.execution.backend_authority import BackendAuthorityManifest
+from aegis.execution.backend_registry import BackendAuthorityRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -360,6 +363,62 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="backend_replay_proof_checksum",
         reason="backend replay proofs bind certification and receipt reconstruction comparisons",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendAuthorityManifest,
+        authoritative_fields=(
+            "backend_kind",
+            "backend_version",
+            "allowed_modes",
+            "allowed_runtime_kinds",
+            "allowed_capabilities",
+            "required_certification_profile",
+            "required_replay_profile",
+            "allows_execution",
+            "allows_io",
+            "allows_async",
+            "admission_status",
+            "manifest_checksum",
+        ),
+        checksum_function="backend_authority_manifest_checksum",
+        reason="backend authority manifests are the closed ADR-0020 admission scope",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendAuthorityRegistry,
+        authoritative_fields=(
+            "manifests",
+            "registry_checksum",
+        ),
+        checksum_function="backend_authority_registry_checksum",
+        reason="backend authority registries bind the complete admitted manifest set",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendAdmissionRequest,
+        authoritative_fields=(
+            "backend_descriptor",
+            "backend_certification",
+            "backend_replay_proof",
+            "authority_manifest",
+            "registry_checksum",
+        ),
+        checksum_function="backend_admission_request",
+        reason="backend admission requests bind descriptor, certification, replay, and registry",
+    ),
+    adapter_manifest_for(
+        contract_type=BackendAdmissionDecision,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "backend_kind",
+            "backend_descriptor_checksum",
+            "certification_checksum",
+            "replay_proof_checksum",
+            "authority_manifest_checksum",
+            "registry_checksum",
+            "decision_checksum",
+        ),
+        checksum_function="backend_admission_decision_checksum",
+        reason="backend admission decisions bind every ADR-0020 authority input checksum",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""
