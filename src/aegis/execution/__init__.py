@@ -4,12 +4,18 @@ from aegis.execution.adapter_envelope import build_execution_adapter_envelope
 from aegis.execution.adapter_replay import AdapterReplayOutput, replay_execution_adapter
 from aegis.execution.adapter_replay_mutations import mutate_adapter_replay_request_in_place
 from aegis.execution.adapter_replay_proof import prove_adapter_replay
+from aegis.execution.dispatch_firewall import evaluate_dispatch_firewall
+from aegis.execution.dispatch_receipt import build_runtime_dispatch_receipt
 from aegis.execution.mapping_validator import validate_execution_adapter_mapping
 from aegis.execution.ros2_mapping_validator import validate_ros2_message_mapping
+from aegis.execution.runtime_dispatch import build_runtime_dispatch_plan
 
 __all__ = [
     "build_execution_adapter_envelope",
+    "build_runtime_dispatch_plan",
+    "build_runtime_dispatch_receipt",
     "AdapterReplayOutput",
+    "evaluate_dispatch_firewall",
     "mutate_adapter_replay_request_in_place",
     "prove_adapter_replay",
     "replay_execution_adapter",

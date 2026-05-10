@@ -1,6 +1,6 @@
 # Aegis — Deterministic Intent Gateway (DIG)
 
-> **Phase 3 Part 1: Execution Adapter Boundary.** No robot execution. No ROS imports. No LLM integration. No production safety claims.
+> **Phase 3 Part 3: Runtime Dispatch Dry-Run.** No robot execution. No ROS imports. No runtime backend. No production safety claims.
 
 ## What Is Aegis?
 
@@ -12,13 +12,13 @@ The pipeline is deterministic: given the same input and the same explicit eviden
 
 | Property | Status |
 |----------|--------|
-| Phase | Phase 2 release-complete; Phase 3 Part 1 adapter-boundary contract in progress |
+| Phase | Phase 2 release-complete; Phase 3 Part 3 runtime dispatch dry-run contract in progress |
 | Contracts | v1 implemented through approval receipts, policy/context authority, scenario coverage, and execution adapter/ROS 2 mapping contracts |
 | Validation | v1 implemented — schema limits, allowed abstract commands, semantic violations |
 | Planning | v1 implemented — deterministic one-step command plans and stable SHA-256 plan IDs |
 | Audit | v1 implemented — deterministic `AuditedPlan` receipts with SHA-256 checksum and audit_id |
 | Policy admission | Enforced approval requires policy, freshness, verifier/config, trust, SafetyCase, decision trace, and valid approval receipt evidence |
-| Execution adapter | Phase 3 Part 1 data-only adapter envelope and explicit ROS 2 message mapping contract; no publishing or runtime execution |
+| Execution adapter | Phase 3 data-only adapter envelope, deterministic replay proof, and dry-run dispatch firewall; no publishing or runtime execution |
 | Robotics (ROS 2) | Modelled as inert mapping data only — no ROS imports or node execution |
 | LLM SDK in core | Forbidden — all phases |
 | Production safety claims | None — not yet proven |
@@ -34,13 +34,16 @@ Intent → Validation → Planning → Audit → Policy Admission → Execution 
 
 Each layer is a separate Python package under `src/aegis/`. Data flows forward only. No layer imports from a layer ahead of it. Cross-layer data uses typed contracts defined in `src/aegis/contracts/`.
 
-The Phase 3 Part 1 adapter boundary is a separate pure API after `PipelineResult(ALLOWED)`:
+The Phase 3 adapter path is a separate pure API after `PipelineResult(ALLOWED)`:
 
 ```python
 build_execution_adapter_envelope(pipeline_result, adapter_mapping, target_runtime)
+prove_adapter_replay(adapter_replay_request)
+build_runtime_dispatch_plan(envelope, replay_proof)
+evaluate_dispatch_firewall(plan, envelope, replay_proof)
 ```
 
-It returns a checksum-bound `ExecutionAdapterEnvelope` and can be paired with an `AdapterReceipt`. It does not publish ROS messages, call services, execute actions, move robots, open sockets, or claim physical safety.
+It returns checksum-bound adapter and dry-run dispatch evidence. It does not publish ROS messages, call services, execute actions, move robots, open sockets, attach a runtime backend, or claim physical safety.
 
 ## Development
 
@@ -92,7 +95,7 @@ src/aegis/
 ├── planning/     # Layer 3: Command plan construction
 ├── audit/        # Layer 4: Audit record construction
 ├── gate/         # Layer 5: Execution gate (only layer with side-effects)
-├── execution/    # Phase 3 Part 1: non-executing adapter-boundary validation
+├── execution/    # Phase 3: non-executing adapter, replay, and dispatch dry-run validation
 ├── errors.py     # Typed exception hierarchy
 ├── logging.py    # Structured logging
 ├── constants.py  # All constants

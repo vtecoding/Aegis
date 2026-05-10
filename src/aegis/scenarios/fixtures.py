@@ -213,6 +213,23 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         _partial_receipt_overclaim(),
         *_adapter_boundary_scenarios(),
         *_adapter_replay_scenarios(),
+        *_runtime_dispatch_scenarios(),
+    )
+
+
+def _runtime_dispatch_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.RUNTIME_DISPATCH_DRY_RUN_POSITIVE,
+            ScenarioCategory.RUNTIME_DISPATCH_REPLAY_PROOF_REQUIRED,
+            ScenarioCategory.RUNTIME_DISPATCH_CROSS_ENVELOPE_SWAP,
+            ScenarioCategory.RUNTIME_DISPATCH_MAPPING_DRIFT,
+            ScenarioCategory.RUNTIME_DISPATCH_PAYLOAD_BOUNDS,
+            ScenarioCategory.RUNTIME_DISPATCH_SEQUENCE_INTEGRITY,
+            ScenarioCategory.RUNTIME_DISPATCH_MODE_FIREWALL,
+            ScenarioCategory.RUNTIME_DISPATCH_RUNTIME_OBJECT_INJECTION,
+        )
     )
 
 

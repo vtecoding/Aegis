@@ -8,6 +8,12 @@ from aegis.contracts.adapter_receipt import AdapterReceipt
 from aegis.contracts.adapter_replay import AdapterReplayProofResult, AdapterReplayRequest
 from aegis.contracts.execution_adapter import ExecutionAdapterEnvelope, ExecutionAdapterMapping
 from aegis.contracts.ros2_mapping import Ros2MessageMapping, Ros2QoSProfileSpec, RuntimeTarget
+from aegis.contracts.runtime_dispatch import (
+    DispatchFirewallDecision,
+    RuntimeDispatchItem,
+    RuntimeDispatchPlan,
+    RuntimeDispatchReceipt,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +203,67 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="adapter_replay_proof_checksum",
         reason="adapter replay proofs bind every replay-critical comparison result",
+    ),
+    adapter_manifest_for(
+        contract_type=RuntimeDispatchItem,
+        authoritative_fields=(
+            "sequence",
+            "capability",
+            "runtime_kind",
+            "runtime_name",
+            "namespace",
+            "message_type",
+            "qos_profile_checksum",
+            "payload_checksum",
+            "payload_size_bytes",
+            "field_map_checksum",
+        ),
+        checksum_function="runtime_dispatch_plan_checksum",
+        reason="dispatch items describe inert runtime intent without backend handles",
+    ),
+    adapter_manifest_for(
+        contract_type=RuntimeDispatchPlan,
+        authoritative_fields=(
+            "plan_id",
+            "source_envelope_checksum",
+            "source_replay_proof_checksum",
+            "runtime_target_checksum",
+            "mapping_checksum",
+            "dispatch_mode",
+            "dispatch_items",
+            "resource_bounds",
+            "plan_checksum",
+        ),
+        checksum_function="runtime_dispatch_plan_checksum",
+        reason="runtime dispatch plans bind replay proof to dry-run-only dispatch intent",
+    ),
+    adapter_manifest_for(
+        contract_type=DispatchFirewallDecision,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "plan_checksum",
+            "source_replay_proof_checksum",
+            "blocked_stage",
+            "decision_checksum",
+        ),
+        checksum_function="dispatch_firewall_decision_checksum",
+        reason="dispatch firewall decisions prove DRY_RUN_ONLY admission or fail closed",
+    ),
+    adapter_manifest_for(
+        contract_type=RuntimeDispatchReceipt,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "plan_checksum",
+            "source_envelope_checksum",
+            "source_replay_proof_checksum",
+            "decision_checksum",
+            "dispatch_mode",
+            "dry_run_receipt_checksum",
+        ),
+        checksum_function="runtime_dispatch_receipt_checksum",
+        reason="dry-run receipts bind runtime dispatch plans to firewall decisions",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

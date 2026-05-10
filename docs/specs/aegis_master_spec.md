@@ -1,4 +1,4 @@
-# Aegis Master Specification - Phase 1 + Phase 2 + Phase 3 Part 1
+# Aegis Master Specification - Phase 1 + Phase 2 + Phase 3 Part 3
 
 ## Purpose
 
@@ -25,12 +25,14 @@ receipts to every orchestrated pipeline result. Phase 2 Part 10 adds a determini
 scenario runner and evil-twin coverage gate above the sealed pipeline. Phase 2 Part 11
 seals authority drift, policy versioning, context authority, resource bounds, and contract
 coverage. Phase 3 Part 1 adds a deterministic non-executing adapter boundary and ROS 2
-message mapping contract after allowed, receipt-valid pipeline results.
+message mapping contract after allowed, receipt-valid pipeline results. Phase 3 Part 2
+adds deterministic adapter replay proof. Phase 3 Part 3 adds runtime dispatch dry-run
+planning and a dispatch firewall without a runtime backend.
 
 Aegis does not execute robot commands. The sealed pipeline produces receipt-bound decisions.
-The Phase 3 Part 1 adapter boundary produces a checksum-bound `ExecutionAdapterEnvelope`
-from an already allowed `PipelineResult`; it models ROS 2 mapping as data only and does not
-claim real-world physical safety.
+The Phase 3 adapter path produces checksum-bound `ExecutionAdapterEnvelope`, replay proof,
+and `RuntimeDispatchPlan` evidence from an already allowed `PipelineResult`; it models ROS 2
+and dispatch as data only and does not claim real-world physical safety.
 
 ---
 
@@ -243,6 +245,30 @@ Honest status after Part 1: Aegis can deterministically convert an allowed, rece
 pipeline result into a non-executing adapter evidence envelope with explicit ROS 2 mapping
 evidence.
 
+## Phase 3 Part 2 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| Deterministic replay of ADR-0015 adapter envelope and receipt evidence | Runtime execution, ROS nodes, publishers, services, actions, DDS, or hardware |
+| `AdapterReplayProofResult` with checksum-bound sub-checks | Treating adapter receipts as trusted merely because they exist |
+| Evil-twin rejection for mutated pipeline, mapping, QoS, namespace, runtime target, receipt, and resource-bound evidence | Robot, collision, middleware, or certification safety claims |
+
+Honest status after Part 2: Aegis can deterministically reconstruct adapter evidence and
+reject checksum-inequivalent mutations before runtime integration exists.
+
+## Phase 3 Part 3 Scope
+
+| In Scope | Out of Scope |
+|----------|--------------|
+| `RuntimeDispatchPlan`, `RuntimeDispatchItem`, `DispatchFirewallDecision`, and dry-run receipt contracts | ROS nodes, publishers, subscribers, service clients, action clients, DDS, simulator bridges, network, filesystem, or hardware |
+| Pure `build_runtime_dispatch_plan()` API after PASSED adapter replay proof | Backend interfaces, null backend certification, or real runtime adapters |
+| `DRY_RUN_ONLY` dispatch mode and fail-closed dispatch firewall | Actuation, simulation, collision checking, motion planning, or robot safety |
+| Scenario category coverage and forbidden runtime import governance for ADR-0017 | Claiming middleware safety or certification readiness |
+
+Honest status after Part 3: Aegis can derive inert runtime dispatch intent from replay-
+verified adapter evidence and prove that non-dry-run, malformed, swapped, mutated,
+oversized, or runtime-object-injected plans fail closed.
+
 ---
 
 ## Non-Goals
@@ -257,6 +283,8 @@ evidence.
   middleware safety, simulation safety, collision safety, actuator safety, or certification.
 - No claim that a READY adapter envelope is execution permission, robot safety, simulation
     safety, or ROS middleware safety.
+- No claim that an ALLOWED_DRY_RUN dispatch decision is runtime execution permission,
+    robot safety, simulation safety, collision safety, middleware safety, or certification.
 - No LLM SDK dependencies anywhere in the deterministic core.
 - No ROS 2, hardware, or network I/O inside `src/aegis/`.
 
@@ -296,8 +324,8 @@ not create approvals. It executes `ScenarioDefinition` values through `run_pipel
 validates expectations with `ScenarioRunResult`, aggregates with `ScenarioSuiteResult`, and
 uses `CoverageGateResult` to prove the required scenario categories are represented.
 
-Phase 3 Part 1 adds a separate adapter boundary after the pipeline return value. It does not
-modify `run_pipeline()` and does not execute runtime actions:
+Phase 3 adds a separate adapter/replay/dry-run dispatch path after the pipeline return value.
+It does not modify `run_pipeline()` and does not execute runtime actions:
 
 ```text
 PipelineResult(ALLOWED, receipt VALID)
@@ -305,6 +333,9 @@ PipelineResult(ALLOWED, receipt VALID)
     → RuntimeTarget
     → Ros2MessageMapping
     → ExecutionAdapterEnvelope
+    → AdapterReplayProofResult(PASSED)
+    → RuntimeDispatchPlan(DRY_RUN_ONLY)
+    → DispatchFirewallDecision
 ```
 
 Data flows forward only. No layer imports from a layer ahead of it. Cross-layer
@@ -318,7 +349,7 @@ communication uses typed contracts in `contracts/`.
 | Audit | `aegis.audit` | None | Implemented |
 | Gate | `aegis.gate` | Phase 2+ only | Implemented |
 | Policy | `aegis.policy` | None | Pure evaluator implemented and wired through pipeline admission |
-| Execution adapter | `aegis.execution` | None | Phase 3 Part 1 non-executing adapter-boundary validation |
+| Execution adapter | `aegis.execution` | None | Phase 3 adapter, replay, and runtime dispatch dry-run validation |
 
 ---
 
@@ -353,10 +384,18 @@ else:
 gate_audited_plan(audited_plan) → GateDecision
     ↓
 run_pipeline returns PipelineResult(..., gate_decision, policy_admission)
-    ↓  [separate Phase 3 Part 1 API only]
+    ↓  [separate Phase 3 API only]
 build_execution_adapter_envelope(pipeline_result, adapter_mapping, target_runtime)
     ↓
 ExecutionAdapterEnvelope(status=READY | BLOCKED | INVALID | ERROR)
+    ↓
+prove_adapter_replay(adapter_replay_request)
+    ↓
+AdapterReplayProofResult(status=PASSED | FAILED | BLOCKED)
+    ↓
+build_runtime_dispatch_plan(envelope, replay_proof)
+    ↓
+evaluate_dispatch_firewall(plan, envelope, replay_proof)
 ```
 
 ---
