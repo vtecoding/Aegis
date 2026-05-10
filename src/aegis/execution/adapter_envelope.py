@@ -86,6 +86,8 @@ def build_execution_adapter_envelope(
         forbidden_field_detected=False,
         qos_profile_checksum=adapter_mapping.ros2_mapping.qos.qos_checksum,
         adapter_authority=adapter_mapping.adapter_authority,
+        adapter_mapping=adapter_mapping,
+        target_runtime=target_runtime,
         authorization=make_ready_envelope_authorization(
             pipeline_result=pipeline_result,
             adapter_mapping=adapter_mapping,
@@ -177,6 +179,8 @@ def _envelope_from_failure(
         forbidden_field_detected=forbidden_field_detected,
         qos_profile_checksum=adapter_mapping.ros2_mapping.qos.qos_checksum,
         adapter_authority=adapter_mapping.adapter_authority,
+        adapter_mapping=adapter_mapping,
+        target_runtime=target_runtime,
     )
 
 

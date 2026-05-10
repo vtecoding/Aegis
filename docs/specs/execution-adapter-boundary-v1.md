@@ -14,7 +14,8 @@ import ROS/MoveIt/Isaac/Viam/DDS packages.
   accepted gate version, accepted policy schema version, adapter authority, effective time,
   superseded checksum, and mapping checksum.
 - `ExecutionAdapterEnvelope` is the non-executing packet produced from one allowed pipeline
-  result and one valid adapter mapping.
+  result and one valid adapter mapping. READY envelopes carry the mapping and runtime target
+  evidence needed by ADR-0016 replay proof.
 - `AdapterReceipt` binds the envelope checksum to adapter and pipeline evidence for later
   observability export.
 
@@ -75,3 +76,4 @@ deterministic reason codes in `blocked_reasons` and a terminal adapter stage.
 - Non-allowed pipeline outcomes never produce `READY`.
 - Checksum mutation prevents `READY`.
 - Adapter envelope construction does not mutate the source `PipelineResult`.
+- Every READY envelope emitted by the builder can be replayed by Adapter Replay Proof Harness v1.

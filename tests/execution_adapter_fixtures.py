@@ -12,6 +12,8 @@ from tests.policy_freshness_fixtures import (
 )
 from tests.policy_trust_fixtures import trusted_pipeline_kwargs
 
+from aegis.contracts.adapter_receipt import build_adapter_receipt
+from aegis.contracts.adapter_replay import AdapterReplayRequest
 from aegis.contracts.context import ExecutionContext
 from aegis.contracts.execution_adapter import ExecutionAdapterMapping
 from aegis.contracts.intent import RawIntent
@@ -30,6 +32,7 @@ from aegis.contracts.ros2_mapping import (
     RuntimeKind,
     RuntimeTarget,
 )
+from aegis.execution import build_execution_adapter_envelope
 from aegis.pipeline import run_pipeline
 
 ADAPTER_CAPABILITY = "locomotion.translation"
@@ -205,12 +208,31 @@ def adapter_mapping(
     )
 
 
+def adapter_replay_request(
+    *,
+    command: str = "move",
+    request_id: str = "adapter-replay",
+) -> AdapterReplayRequest:
+    """Return a deterministic positive adapter replay request."""
+    mapping = adapter_mapping(
+        ros2_mapping=ros2_stop_mapping() if command == "stop" else None,
+    )
+    result = allowed_pipeline_result(command=command, request_id=request_id)
+    envelope = build_execution_adapter_envelope(result, mapping, mapping.runtime_target)
+    return AdapterReplayRequest(
+        pipeline_result=result,
+        expected_envelope=envelope,
+        expected_adapter_receipt=build_adapter_receipt(envelope),
+    )
+
+
 __all__ = [
     "ADAPTER_CAPABILITY",
     "ADAPTER_FORBIDDEN_FIELDS",
     "ADAPTER_NAMESPACE",
     "allowed_pipeline_result",
     "adapter_mapping",
+    "adapter_replay_request",
     "blocked_pipeline_result",
     "qos_profile",
     "ros2_move_mapping",

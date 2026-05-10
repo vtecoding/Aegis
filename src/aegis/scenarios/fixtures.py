@@ -212,6 +212,46 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         _evil_twin(ScenarioCategory.CONFUSABLE_STAGE_NAME, EvilTwinMutation.CONFUSABLE_STAGE_NAME),
         _partial_receipt_overclaim(),
         *_adapter_boundary_scenarios(),
+        *_adapter_replay_scenarios(),
+    )
+
+
+def _adapter_replay_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.ADAPTER_REPLAY_POSITIVE,
+            ScenarioCategory.ADAPTER_REPLAY_RECEIPT_DRIFT,
+            ScenarioCategory.ADAPTER_REPLAY_MAPPING_DRIFT,
+            ScenarioCategory.ADAPTER_REPLAY_RUNTIME_TARGET_DRIFT,
+            ScenarioCategory.ADAPTER_REPLAY_CROSS_PIPELINE_SWAP,
+            ScenarioCategory.ADAPTER_REPLAY_AUTHORITY_MISMATCH,
+            ScenarioCategory.ADAPTER_REPLAY_QOS_NAMESPACE_MUTATION,
+            ScenarioCategory.ADAPTER_REPLAY_RESOURCE_BOUNDS,
+        )
+    )
+
+
+def _adapter_replay_category_scenario(category: ScenarioCategory) -> ScenarioDefinition:
+    snapshot = _snapshot(
+        snapshot_id=f"scenario-snapshot-{category.value.lower().replace('_', '-')}"
+    )
+    return _definition(
+        scenario_id=f"scenario.{category.value.lower()}",
+        name=category.value.replace("_", " ").title(),
+        category=category,
+        expected=_expect(
+            outcome=PipelineOutcome.ALLOWED,
+            reason="GATE_ALLOWED",
+            terminal_stage="gate_decision",
+            required=_FULL_CHAIN,
+            forbidden=(),
+            allow_late=True,
+        ),
+        snapshot=snapshot,
+        evidence=_evidence(snapshot),
+        trust_policy=_trust_policy(),
+        verifier=PassingScenarioAttestationVerifier(),
     )
 
 

@@ -14,6 +14,9 @@ Phase 2 Part 11 / ADR-0014 adds optional `ContextAuthority` to scenario definiti
 ENFORCE scenarios provide deterministic context authority so positive approval scenarios bind
 policy identity, context checksum, admission record, decision trace, and approval receipt.
 
+Phase 3 Part 2 / ADR-0016 adds adapter replay category sentinels. These categories prove coverage
+of replay evidence classes only; they are not runtime execution, ROS, simulator, or hardware categories.
+
 It is not a production execution path. Its purpose is to prove that the Aegis pipeline correctly
 handles untrusted LLM-like intent: blocking invalid commands, dropping hostile metadata, producing
 deterministic plans, and emitting audit receipts — without any hardware or network dependencies.

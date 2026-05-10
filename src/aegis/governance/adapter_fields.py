@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aegis.contracts.adapter_receipt import AdapterReceipt
+from aegis.contracts.adapter_replay import AdapterReplayProofResult, AdapterReplayRequest
 from aegis.contracts.execution_adapter import ExecutionAdapterEnvelope, ExecutionAdapterMapping
 from aegis.contracts.ros2_mapping import Ros2MessageMapping, Ros2QoSProfileSpec, RuntimeTarget
 
@@ -140,6 +141,8 @@ ADAPTER_AUTHORITY_CONTRACTS = (
             "forbidden_field_detected",
             "qos_profile_checksum",
             "adapter_authority",
+            "adapter_mapping",
+            "target_runtime",
             "envelope_checksum",
         ),
         checksum_function="execution_adapter_envelope_checksum",
@@ -160,6 +163,40 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="adapter_receipt_checksum_value",
         reason="adapter receipts bind envelope evidence for later observability export",
+    ),
+    adapter_manifest_for(
+        contract_type=AdapterReplayRequest,
+        authoritative_fields=(
+            "pipeline_result",
+            "expected_envelope",
+            "expected_adapter_receipt",
+            "replay_profile",
+            "mutation_profile",
+        ),
+        checksum_function="adapter_replay_source_pipeline_checksum",
+        reason="adapter replay requests bind source, expected envelope, receipt, and profile",
+    ),
+    adapter_manifest_for(
+        contract_type=AdapterReplayProofResult,
+        authoritative_fields=(
+            "status",
+            "reason",
+            "source_pipeline_checksum",
+            "expected_envelope_checksum",
+            "replayed_envelope_checksum",
+            "expected_receipt_checksum",
+            "replayed_receipt_checksum",
+            "mapping_checksum_match",
+            "runtime_target_checksum_match",
+            "qos_checksum_match",
+            "namespace_match",
+            "receipt_chain_match",
+            "mutation_detected",
+            "failure_stage",
+            "proof_checksum",
+        ),
+        checksum_function="adapter_replay_proof_checksum",
+        reason="adapter replay proofs bind every replay-critical comparison result",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

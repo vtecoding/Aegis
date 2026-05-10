@@ -236,6 +236,8 @@ class ExecutionAdapterEnvelope:
     forbidden_field_detected: bool
     qos_profile_checksum: str
     adapter_authority: str
+    adapter_mapping: ExecutionAdapterMapping | None
+    target_runtime: RuntimeTarget | None
     envelope_checksum: str
 
     def __init__(
@@ -259,6 +261,8 @@ class ExecutionAdapterEnvelope:
         forbidden_field_detected: object,
         qos_profile_checksum: str,
         adapter_authority: str,
+        adapter_mapping: object = None,
+        target_runtime: object = None,
         envelope_checksum: str | None = None,
         authorization: object = None,
     ) -> None:
@@ -304,8 +308,15 @@ class ExecutionAdapterEnvelope:
             qos_profile_checksum, "qos_profile_checksum"
         )
         normalized_authority = _normalize_identifier(adapter_authority, "adapter_authority")
+        resolved_adapter_mapping = _normalize_optional_adapter_mapping(adapter_mapping)
+        resolved_target_runtime = _normalize_optional_runtime_target(target_runtime)
 
         if normalized_status is ExecutionAdapterEnvelopeStatus.READY:
+            if isinstance(authorization, _ReadyEnvelopeAuthorization):
+                if resolved_adapter_mapping is None:
+                    resolved_adapter_mapping = authorization.adapter_mapping
+                if resolved_target_runtime is None:
+                    resolved_target_runtime = authorization.target_runtime
             _validate_ready_envelope_authorization(
                 authorization=authorization,
                 pipeline_receipt_checksum=normalized_fields["pipeline_receipt_checksum"],
@@ -325,11 +336,23 @@ class ExecutionAdapterEnvelope:
                 raise ValueError("READY adapter envelopes must not include blocked_reasons")
             if forbidden_field_detected:
                 raise ValueError("READY adapter envelopes must not include forbidden fields")
+            if resolved_adapter_mapping is None or resolved_target_runtime is None:
+                raise ValueError("READY adapter envelopes require replay evidence")
         else:
             if frozen_payload:
                 raise ValueError("non-ready adapter envelopes must not carry command_payload")
             if not normalized_reasons:
                 raise ValueError("non-ready adapter envelopes must include blocked_reasons")
+
+        _validate_replay_evidence_bindings(
+            adapter_mapping=resolved_adapter_mapping,
+            target_runtime=resolved_target_runtime,
+            adapter_mapping_checksum=normalized_adapter_mapping_checksum,
+            runtime_target_checksum=normalized_runtime_target_checksum,
+            ros2_mapping_checksum=normalized_ros2_mapping_checksum,
+            qos_profile_checksum=normalized_qos_checksum,
+            adapter_authority=normalized_authority,
+        )
 
         computed_checksum = execution_adapter_envelope_checksum(
             status=normalized_status,
@@ -368,6 +391,8 @@ class ExecutionAdapterEnvelope:
         object.__setattr__(self, "forbidden_field_detected", forbidden_field_detected)
         object.__setattr__(self, "qos_profile_checksum", normalized_qos_checksum)
         object.__setattr__(self, "adapter_authority", normalized_authority)
+        object.__setattr__(self, "adapter_mapping", resolved_adapter_mapping)
+        object.__setattr__(self, "target_runtime", resolved_target_runtime)
         object.__setattr__(self, "envelope_checksum", normalized_checksum)
 
 
@@ -612,6 +637,48 @@ def _normalize_identifier(value: object, field_name: str) -> str:
     if fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]*", normalized) is None:
         raise ValueError(f"{field_name} must be a canonical adapter identifier")
     return normalized
+
+
+def _normalize_optional_adapter_mapping(value: object) -> ExecutionAdapterMapping | None:
+    if value is None:
+        return None
+    if not isinstance(value, ExecutionAdapterMapping):
+        raise ValueError("adapter_mapping must be an ExecutionAdapterMapping")
+    return value
+
+
+def _normalize_optional_runtime_target(value: object) -> RuntimeTarget | None:
+    if value is None:
+        return None
+    if not isinstance(value, RuntimeTarget):
+        raise ValueError("target_runtime must be a RuntimeTarget")
+    return value
+
+
+def _validate_replay_evidence_bindings(
+    *,
+    adapter_mapping: ExecutionAdapterMapping | None,
+    target_runtime: RuntimeTarget | None,
+    adapter_mapping_checksum: str,
+    runtime_target_checksum: str,
+    ros2_mapping_checksum: str,
+    qos_profile_checksum: str,
+    adapter_authority: str,
+) -> None:
+    if adapter_mapping is not None:
+        if adapter_mapping.adapter_mapping_checksum != adapter_mapping_checksum:
+            raise ValueError("adapter_mapping must match adapter_mapping_checksum")
+        if adapter_mapping.ros2_mapping.mapping_checksum != ros2_mapping_checksum:
+            raise ValueError("adapter_mapping must match ros2_mapping_checksum")
+        if adapter_mapping.ros2_mapping.qos.qos_checksum != qos_profile_checksum:
+            raise ValueError("adapter_mapping must match qos_profile_checksum")
+        if adapter_mapping.adapter_authority != adapter_authority:
+            raise ValueError("adapter_mapping must match adapter_authority")
+    if (
+        target_runtime is not None
+        and target_runtime.runtime_target_checksum != runtime_target_checksum
+    ):
+        raise ValueError("target_runtime must match runtime_target_checksum")
 
 
 def _normalize_stage_name(value: object, field_name: str) -> str:

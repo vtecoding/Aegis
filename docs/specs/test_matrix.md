@@ -69,6 +69,9 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | INV-SCENARIO-002: Required scenario categories are covered | — | ✓ | — | — | ✓ |
 | INV-SCENARIO-003: Scenario result checksums deterministic | — | — | ✓ | — | ✓ |
 | INV-SCENARIO-004: Evil twins fail closed | — | — | ✓ | ✓ | ✓ |
+| INV-ADAPTER-REPLAY-001: READY envelope replay is deterministic | — | ✓ | ✓ | — | ✓ |
+| INV-ADAPTER-REPLAY-002: Mutated adapter evidence fails closed | — | — | ✓ | ✓ | ✓ |
+| INV-ADAPTER-REPLAY-003: Replay proof checksum binds all sub-checks | — | ✓ | ✓ | — | — |
 
 ---
 
@@ -114,6 +117,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-36: Scenario category missing from coverage gate | — | ✓ | — | ✓ |
 | FM-37: Scenario outcome matches but receipt path does not | — | ✓ | ✓ | ✓ |
 | FM-38: Evil-twin receipt or trace overclaim | — | — | ✓ | ✓ |
+| FM-39: Adapter replay mutation or cross-pipeline swap | — | ✓ | ✓ | ✓ |
+| FM-40: Adapter replay missing mapping evidence | — | ✓ | — | ✓ |
 
 ---
 
@@ -137,6 +142,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_world_snapshot_trust_invariants.py` | INV-POLICY-TRUST-001, INV-POLICY-TRUST-003, INV-POLICY-TRUST-004 |
 | `test_attestation_verifier_hardening_invariants.py` | INV-POLICY-TRUST-006, INV-POLICY-TRUST-007, INV-POLICY-TRUST-008 |
 | `test_scenario_invariants.py` | INV-SCENARIO-001, INV-SCENARIO-003, INV-SCENARIO-004 |
+| `test_adapter_replay_invariants.py` | INV-ADAPTER-REPLAY-001 through INV-ADAPTER-REPLAY-003 |
 | `test_invariant_bootstrap.py` | Package imports resolve cleanly |
 
 ### `tests/scenarios/`
@@ -166,6 +172,8 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_world_snapshot_trust_contract.py` | WorldSnapshotEvidenceEnvelope, WorldSnapshotTrustPolicy, attestation, verifier result, trust result, deterministic trust validation, checksum binding, FM-32 through FM-33, INV-POLICY-TRUST-001 through INV-POLICY-TRUST-004 |
 | `test_attestation_verifier_contract.py` | AttestationVerifierAdapterMetadata, verifier certification vectors, malformed verifier rejection, FM-34, INV-POLICY-TRUST-006, INV-POLICY-TRUST-008 |
 | `test_trust_policy_config_contract.py` | TrustPolicyConfigValidationResult, runtime-domain policy hardening, verifier metadata matching, FM-35, INV-POLICY-TRUST-007, INV-POLICY-TRUST-008 |
+| `test_adapter_replay_contract.py` | ADR-0016 AdapterReplayRequest authority carrier |
+| `test_adapter_replay_proof_contract.py` | ADR-0016 AdapterReplayProofResult checksum binding |
 
 ### `tests/policy/`
 
@@ -214,6 +222,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_world_snapshot_trust_bypass.py` | FM-32, FM-33, INV-POLICY-TRUST-001 through INV-POLICY-TRUST-004 |
 | `test_attestation_verifier_adapter_bypass.py` | FM-34, INV-POLICY-TRUST-006, INV-POLICY-TRUST-008 |
 | `test_evil_twin_scenarios.py` | FM-38, INV-SCENARIO-004 |
+| `test_adapter_replay_evil_twins.py` | FM-39, INV-ADAPTER-REPLAY-002 |
 
 ### `tests/integration/`
 
@@ -225,6 +234,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | `test_pipeline_world_snapshot_trust.py` | ENFORCE mode trust allow, missing evidence, disallowed domain, invalid attestation, and malformed evidence handling |
 | `test_pipeline_trust_authority_hardening.py` | ENFORCE mode missing verifier and invalid trust-policy config block before trust evaluation |
 | `test_pipeline_scenario_receipts.py` | Scenario receipt-path validation, blocked path artifact absence, checksum stability |
+| `test_adapter_replay_harness.py` | ADR-0016 positive replay, missing evidence block, forged envelope, source swap |
 
 ### `tests/regression/`
 
