@@ -4,6 +4,15 @@ from aegis.execution.aegis_adapter_envelope import build_execution_adapter_envel
 from aegis.execution.aegis_adapter_replay import AdapterReplayOutput, replay_execution_adapter
 from aegis.execution.aegis_adapter_replay_mutations import mutate_adapter_replay_request_in_place
 from aegis.execution.aegis_adapter_replay_proof import prove_adapter_replay
+from aegis.execution.aegis_approval_ledger import (
+    ApprovalLedgerChainValidationResult,
+    ApprovalLedgerEntry,
+    append_approval_ledger_entry,
+    approval_ledger_genesis_head_checksum,
+    approval_ledger_prior_chain_block_reason,
+    approval_ledger_prior_chain_quarantine_block_reason,
+    validate_approval_ledger_chain,
+)
 from aegis.execution.aegis_approval_replay import (
     build_authority_bound_approval_receipt,
     validate_approval_replay,
@@ -41,6 +50,13 @@ from aegis.execution.aegis_ros2_mapping_validator import validate_ros2_message_m
 from aegis.execution.aegis_runtime_dispatch import build_runtime_dispatch_plan
 
 __all__ = [
+    "ApprovalLedgerChainValidationResult",
+    "ApprovalLedgerEntry",
+    "append_approval_ledger_entry",
+    "approval_ledger_genesis_head_checksum",
+    "approval_ledger_prior_chain_block_reason",
+    "approval_ledger_prior_chain_quarantine_block_reason",
+    "validate_approval_ledger_chain",
     "build_execution_adapter_envelope",
     "build_runtime_dispatch_plan",
     "build_runtime_dispatch_receipt",

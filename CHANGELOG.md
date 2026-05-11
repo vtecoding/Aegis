@@ -10,6 +10,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Deterministic tamper-evident approval ledger for Phase 3 / ADR-0024: canonical genesis head,
+  hash-linked `ApprovalLedgerEntry` rows binding each `QuarantineReleaseDecision` checksum to the
+  prior tip, `append_approval_ledger_entry()` construction gate, `validate_approval_ledger_chain()`
+  checksum-bound chain validation, optional `approval_ledger_prior_entries` enforcement on
+  `evaluate_quarantine_release()`, and `COMMAND_QUARANTINE_APPROVAL_LEDGER_CHAIN_INVALID` for
+  ledger failures mapped from closed `ApprovalLedgerReason` codes
+- Contract, integration, adversarial, invariant, and governance tests proving genesis and entry
+  checksum determinism, append-only linkage, quarantine release blocking on tampered prefixes,
+  runtime object injection rejection, adapter field manifest registration, and scenario category
+  coverage for ledger positives, tamper, and injection paths
 - Runtime Command Quarantine and Operator Approval Receipt for Phase 3 / ADR-0022: immutable checksum-bound `CommandQuarantineEnvelope`, `OperatorApprovalReceipt`, and `QuarantineReleaseDecision` contracts, `quarantine_runtime_command()` for placing every lease-valid dispatch item into quarantine by default, `build_operator_approval_receipt()` for explicit operator approval/rejection evidence, and `evaluate_quarantine_release()` for fail-closed dry-run-only release decisions
 - Contract, integration, adversarial, governance, and invariant tests proving missing/rejected/stale/overbroad/drifted/malformed approvals block release, evidence drift across dispatch, backend admission, descriptor, registry, manifest, certification, replay proof, lease, and context authority fails closed, runtime object/callable injection is rejected, direct released-decision construction is blocked, scenario sentinels cover ADR-0022 categories, and forbidden runtime import scans remain clean
 - Runtime Backend Interface Contract and Null Backend Certification for Phase 3 Part 4 / ADR-0018: immutable checksum-bound `RuntimeBackendDescriptor`, `BackendCertificationResult`, and `BackendDryRunReceipt` contracts, descriptor-only `RuntimeBackendContract`, `NullRuntimeBackend`, `certify_runtime_backend()`, and `build_backend_dry_run_receipt()` for binding firewall-allowed `DRY_RUN_ONLY` dispatch plans to a non-executing null backend

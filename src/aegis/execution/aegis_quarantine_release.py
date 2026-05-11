@@ -16,6 +16,9 @@ from aegis.contracts.aegis_runtime_backend import (
     RuntimeBackendDescriptor,
 )
 from aegis.contracts.aegis_runtime_dispatch import DispatchFirewallDecision, RuntimeDispatchPlan
+from aegis.execution.aegis_approval_ledger import (
+    approval_ledger_prior_chain_quarantine_block_reason,
+)
 from aegis.execution.aegis_approval_replay import (
     ApprovalReplayValidationResult,
     AuthorityBoundApprovalReceipt,
@@ -167,6 +170,7 @@ def evaluate_quarantine_release(
     firewall_decision: object,
     context_authority_checksum: object,
     current_lease_epoch: object,
+    approval_ledger_prior_entries: object | None = None,
 ) -> QuarantineReleaseDecision:
     """Return a deterministic fail-closed release decision for quarantined intent.
 
@@ -188,6 +192,7 @@ def evaluate_quarantine_release(
         firewall_decision=firewall_decision,
         context_authority_checksum=context_authority_checksum,
         current_lease_epoch=current_lease_epoch,
+        approval_ledger_prior_entries=approval_ledger_prior_entries,
     )
     if reason is not None:
         return _blocked_decision(
@@ -237,6 +242,7 @@ def quarantine_release_block_reason(
     firewall_decision: object,
     context_authority_checksum: object,
     current_lease_epoch: object,
+    approval_ledger_prior_entries: object | None = None,
 ) -> CommandQuarantineReason | None:
     """Return the first deterministic reason a quarantine cannot be released."""
     source_reason = _source_shape_reason(
@@ -350,6 +356,12 @@ def quarantine_release_block_reason(
         != current_quarantine.context_authority_checksum
     ):
         return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH
+    if approval_ledger_prior_entries is not None:
+        ledger_reason = approval_ledger_prior_chain_quarantine_block_reason(
+            approval_ledger_prior_entries
+        )
+        if ledger_reason is not None:
+            return ledger_reason
     return None
 
 

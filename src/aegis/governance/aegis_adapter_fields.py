@@ -23,6 +23,10 @@ from aegis.contracts.aegis_runtime_dispatch import (
     RuntimeDispatchPlan,
     RuntimeDispatchReceipt,
 )
+from aegis.execution.aegis_approval_ledger import (
+    ApprovalLedgerChainValidationResult,
+    ApprovalLedgerEntry,
+)
 from aegis.execution.aegis_approval_replay import (
     ApprovalReplayValidationResult,
     AuthorityBoundApprovalReceipt,
@@ -615,6 +619,29 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="approval_replay_validation_checksum",
         reason="approval replay validation binds the release proof to one evidence chain",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerEntry,
+        authoritative_fields=(
+            "sequence_index",
+            "prior_entry_checksum",
+            "release_decision_checksum",
+            "entry_checksum",
+        ),
+        checksum_function="approval_ledger_entry_checksum",
+        reason="approval ledger entries hash-link one release decision checksum to the prior tip",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerChainValidationResult,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "chain_depth",
+            "chain_tip_checksum",
+            "ledger_validation_checksum",
+        ),
+        checksum_function="approval_ledger_chain_validation_checksum",
+        reason="approval ledger chain validation binds tamper-evidence for a ledger prefix",
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

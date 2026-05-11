@@ -226,6 +226,7 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_capability_lease_scenarios(),
         *_command_quarantine_scenarios(),
         *_operator_authority_scenarios(),
+        *_approval_ledger_scenarios(),
     )
 
 
@@ -297,6 +298,17 @@ def _operator_authority_scenarios() -> tuple[ScenarioDefinition, ...]:
             ScenarioCategory.OPERATOR_AUTHORITY_CROSS_OPERATOR_REPLAY,
             ScenarioCategory.OPERATOR_AUTHORITY_EPOCH_REPLAY,
             ScenarioCategory.OPERATOR_AUTHORITY_OBJECT_INJECTION,
+        )
+    )
+
+
+def _approval_ledger_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.APPROVAL_LEDGER_POSITIVE,
+            ScenarioCategory.APPROVAL_LEDGER_CHAIN_TAMPER,
+            ScenarioCategory.APPROVAL_LEDGER_RUNTIME_OBJECT_INJECTION,
         )
     )
 

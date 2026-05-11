@@ -22,6 +22,9 @@ sign receipts, or make physical safety claims.
 - `QuarantineReleaseDecision` records `RELEASED_DRY_RUN` or `BLOCKED`, reason code, quarantine
   checksum, approval checksum, lease checksum, dispatch plan checksum, released item count,
   and decision checksum.
+- `ApprovalLedgerEntry` and `ApprovalLedgerChainValidationResult` (ADR-0024) record an optional
+  hash-linked history of release decision checksums for tamper-evident ordering evidence carried
+  by the caller as immutable tuples.
 
 ## Release Requirements
 
@@ -44,6 +47,10 @@ sign receipts, or make physical safety claims.
 - operator id is structurally well formed
 - approval scope is explicit, non-empty, non-wildcard, subset-bounded, and matches every
   quarantined item checksum
+- when `approval_ledger_prior_entries` is supplied to `evaluate_quarantine_release()`, the tuple
+  contains only `ApprovalLedgerEntry` values, monotonic `sequence_index` values starting at zero,
+  each `prior_entry_checksum` equals the genesis head or the previous entry checksum, and every
+  `entry_checksum` recomputes from its authoritative fields
 
 ## Failure Reasons
 
@@ -76,6 +83,7 @@ sign receipts, or make physical safety claims.
 - `COMMAND_QUARANTINE_STALE_APPROVAL_EPOCH`
 - `COMMAND_QUARANTINE_OPERATOR_ID_MALFORMED`
 - `COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_CHAIN_INVALID`
 - `DIRECT_QUARANTINE_RELEASE_CONSTRUCTION`
 
 ## Scenario Categories
