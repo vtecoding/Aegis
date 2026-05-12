@@ -29,10 +29,9 @@ The **only** exception is `gate/`: the gate layer is architecturally permitted t
 side effects in future phases (e.g. triggering an actuator after an ALLOWED decision).
 In Phase 1, even the gate layer is pure.
 
-Side effects live exclusively in adapter layers outside `src/aegis/`:
-- A future CLI adapter emits output.
-- A future ROS 2 adapter publishes to a topic.
-- An outer harness flushes log events to a sink.
+Side effects live exclusively in outer adapters. The current `src/aegis/execution/` modules
+model checksum-bound dry-run evidence only; they do not execute runtime commands, publish ROS
+messages, perform network/filesystem I/O, or control hardware.
 
 Log events are value objects created inside the core (see ADR-0008) but emitted only
 by outer adapters.

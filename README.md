@@ -10,9 +10,11 @@ The pipeline is deterministic: given the same input and the same explicit eviden
 
 ## Current Status
 
+Release seal status: **NOT SEALED** until `python scripts/verify.py verify` passes with no required-gate failures.
+
 | Property | Status |
 |----------|--------|
-| Phase | Phase 2 release-complete; Phase 3 runtime evidence chain implemented through ADR-0022 command quarantine/operator approval |
+| Phase | Phase 3 runtime evidence chain in progress through ADR-0027 repository authority boundary |
 | Contracts | v1 implemented through approval receipts, policy/context authority, scenario coverage, execution adapter/ROS 2 mapping, runtime dispatch, backend admission, capability leases, and command quarantine contracts |
 | Validation | v1 implemented — schema limits, allowed abstract commands, semantic violations |
 | Planning | v1 implemented — deterministic one-step command plans and stable SHA-256 plan IDs |
@@ -24,7 +26,7 @@ The pipeline is deterministic: given the same input and the same explicit eviden
 | Production safety claims | None — not yet proven |
 | Validation command | `python scripts/verify.py verify` (`make verify` delegates to it) |
 
-Correctness claims are bounded by: typed contracts, deterministic replay, property-based invariant tests, unit/adversarial tests, scenario coverage, receipt validation, and quality gates passing cleanly.
+Correctness claims are bounded by: typed contracts, deterministic replay, property-based invariant tests, unit/adversarial tests, scenario coverage, receipt validation, and quality gates passing cleanly. Aegis currently proves deterministic structural authority only; it does not claim human/user authentication, PKI signatures, legal non-repudiation, durable persistence, or real robot/runtime safety.
 
 ## Pipeline
 

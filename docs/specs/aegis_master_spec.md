@@ -22,14 +22,14 @@ policies cannot become approval authority unless they pass deterministic verifie
 certification and trust-policy configuration validation. Phase 2 Part 8 adds world snapshot
 admissibility before freshness and trust. Phase 2 Part 9 adds decision traces and approval
 receipts to every orchestrated pipeline result. Phase 2 Part 10 adds a deterministic
-scenario runner and evil-twin coverage gate above the sealed pipeline. Phase 2 Part 11
-seals authority drift, policy versioning, context authority, resource bounds, and contract
+scenario runner and evil-twin coverage gate above the deterministic pipeline. Phase 2 Part 11
+adds authority drift, policy versioning, context authority, resource bounds, and contract
 coverage. Phase 3 Part 1 adds a deterministic non-executing adapter boundary and ROS 2
 message mapping contract after allowed, receipt-valid pipeline results. Phase 3 Part 2
 adds deterministic adapter replay proof. Phase 3 Part 3 adds runtime dispatch dry-run
 planning and a dispatch firewall without a runtime backend.
 
-Aegis does not execute robot commands. The sealed pipeline produces receipt-bound decisions.
+Aegis does not execute robot commands. The deterministic pipeline produces receipt-bound decisions.
 The Phase 3 adapter path produces checksum-bound `ExecutionAdapterEnvelope`, replay proof,
 and `RuntimeDispatchPlan` evidence from an already allowed `PipelineResult`; it models ROS 2
 and dispatch as data only and does not claim real-world physical safety.

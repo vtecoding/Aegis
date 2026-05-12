@@ -62,8 +62,8 @@ Invalid authority or input returns `BLOCKED`. Replay-comparable evidence drift r
 - No ROS node, publisher, subscriber, service/action client, DDS, simulator bridge,
   hardware, filesystem, network, environment, wall-clock, randomness, async runtime,
   queue, command execution, or actuation.
-- No real backend admission registry. ADR-0020 is expected to introduce a closed runtime
-  backend authority registry and adapter admission gate before any real backend exists.
+- ADR-0020 now defines the closed runtime backend authority registry and adapter admission
+  gate. ADR-0019 remains limited to deterministic replay proof for the null backend path.
 
 ## Verification
 

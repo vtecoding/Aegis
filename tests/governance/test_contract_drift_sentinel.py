@@ -35,3 +35,31 @@ def test_contract_drift_sentinel_rejects_unclassified_authority_field() -> None:
 
     assert not result.passed
     assert any("context_schema_version" in error for error in result.errors)
+
+
+def test_contract_drift_sentinel_rejects_manifest_shape_and_duplicate_contracts() -> None:
+    duplicate_one = manifest_for(
+        contract_type=ContextAuthority,
+        authoritative_fields=("context_id",),
+        non_authoritative_fields=("context_id", "not_real_field"),
+        checksum_function="",
+        reason="",
+    )
+    duplicate_two = manifest_for(
+        contract_type=ContextAuthority,
+        authoritative_fields=("request_id",),
+        non_authoritative_fields=(),
+        checksum_function="context_authority_checksum",
+        reason="duplicate entry",
+    )
+    object.__setattr__(duplicate_one.manifest, "contract_name", "WrongName")
+
+    result = evaluate_contract_drift((duplicate_one, duplicate_two))
+
+    assert not result.passed
+    assert any("manifest contract_name mismatch" in error for error in result.errors)
+    assert any("duplicate authority manifest" in error for error in result.errors)
+    assert any("fields classified twice" in error for error in result.errors)
+    assert any("manifest names unknown fields" in error for error in result.errors)
+    assert any("checksum_function missing" in error for error in result.errors)
+    assert any("manifest reason missing" in error for error in result.errors)

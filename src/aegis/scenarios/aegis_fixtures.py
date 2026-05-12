@@ -227,6 +227,9 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_command_quarantine_scenarios(),
         *_operator_authority_scenarios(),
         *_approval_ledger_scenarios(),
+        *_approval_ledger_head_scenarios(),
+        *_approval_ledger_state_scenarios(),
+        *_approval_ledger_repository_scenarios(),
     )
 
 
@@ -309,6 +312,50 @@ def _approval_ledger_scenarios() -> tuple[ScenarioDefinition, ...]:
             ScenarioCategory.APPROVAL_LEDGER_POSITIVE,
             ScenarioCategory.APPROVAL_LEDGER_CHAIN_TAMPER,
             ScenarioCategory.APPROVAL_LEDGER_RUNTIME_OBJECT_INJECTION,
+        )
+    )
+
+
+def _approval_ledger_head_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.APPROVAL_LEDGER_HEAD_POSITIVE,
+            ScenarioCategory.APPROVAL_LEDGER_HEAD_STALE_EPOCH,
+            ScenarioCategory.APPROVAL_LEDGER_HEAD_CONTEXT_DRIFT,
+            ScenarioCategory.APPROVAL_LEDGER_HEAD_TIP_MISMATCH,
+            ScenarioCategory.APPROVAL_LEDGER_HEAD_ENFORCED_MODE_BYPASS,
+        )
+    )
+
+
+def _approval_ledger_state_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.APPROVAL_LEDGER_STATE_VALID,
+            ScenarioCategory.APPROVAL_LEDGER_STATE_STALE_HEAD,
+            ScenarioCategory.APPROVAL_LEDGER_STATE_FORKED_HEAD,
+            ScenarioCategory.APPROVAL_LEDGER_STATE_SEQUENCE_ROLLBACK,
+            ScenarioCategory.APPROVAL_LEDGER_STATE_SEQUENCE_SKIP,
+            ScenarioCategory.APPROVAL_LEDGER_STATE_CROSS_EPOCH_GRAFT,
+            ScenarioCategory.APPROVAL_LEDGER_STATE_SOURCE_DRIFT,
+        )
+    )
+
+
+def _approval_ledger_repository_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_POSITIVE,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_STALE_READ,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_LOST_UPDATE,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_FORK_ATTEMPT,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_ROLLBACK_ATTEMPT,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_CROSS_EPOCH_COMMIT,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_FORGED_TRANSITION,
+            ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_UNAVAILABLE,
         )
     )
 

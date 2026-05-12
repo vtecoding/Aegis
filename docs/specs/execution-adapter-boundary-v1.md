@@ -3,7 +3,7 @@
 ## Scope
 
 Execution Adapter Boundary v1 creates deterministic, immutable adapter evidence after the
-sealed Phase 2 pipeline. It does not execute commands, publish messages, open sockets, read
+deterministic Phase 2 pipeline. It does not execute commands, publish messages, open sockets, read
 files, read environment variables, call hardware, start nodes, run launch files, use async, or
 import ROS/MoveIt/Isaac/Viam/DDS packages.
 

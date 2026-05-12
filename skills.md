@@ -2,6 +2,10 @@
 > **This is the canonical authority for all AI agents, Copilot sessions, and human contributors working on the Aegis codebase.**
 > Read this file first. Always. Every session. Every Line.
 
+> **Release seal guard:** Aegis must be treated as **NOT SEALED** whenever any required gate fails,
+> when `scripts/verify.py verify` prints failure markers, or when coverage evidence is malformed/missing.
+> Agents must not describe the system as release-sealed unless all required gates pass fail-closed.
+
 ---
 
 ## 0. Quick-Reference Card
@@ -9,7 +13,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 1: RELEASE-COMPLETE** -> **Phase 2: RELEASE-COMPLETE after ADR-0014 seal** -> **Phase 3: runtime evidence chain through ADR-0022 command quarantine and ADR-0024 approval ledger** |
+| Current phase | **Phase 3 runtime evidence chain through ADR-0027** (audit remediation in progress; do not claim release seal unless required gates pass fail-closed) |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |
@@ -78,7 +82,7 @@ The layered pipeline (Intent → Validation → Planning → Audit → Gate) enf
 
 ---
 
-## 2. Current Phase: Phase 3 - Runtime Evidence Chain Through ADR-0022 Command Quarantine and ADR-0024 Approval Ledger
+## 2. Current Phase: Phase 3 - Runtime Evidence Chain Through ADR-0022 Command Quarantine, ADR-0024 Approval Ledger, ADR-0025 Ledger Head Epoch Authority Enforced Release, and ADR-0026 Canonical Approval-Ledger State Boundary
 
 ### Phase 1 Goals
 - [x] Implement the full DIG pipeline in pure Python
@@ -110,7 +114,7 @@ FORBIDDEN (until Phase 2):
 
 ### Phase 1 — Release Statement
 
-Phase 1 is **RELEASE-COMPLETE**. This release completes the deterministic Aegis kernel.
+Phase 1 implemented the deterministic Aegis kernel baseline.
 It does not include physical safety policy evaluation, environment awareness, simulation,
 ROS integration, or runtime actuation guards.
 
@@ -322,7 +326,7 @@ readiness, or signed external receipt authenticity.
 
 ### Phase 2 Part 10: Deterministic Scenario Runner & Evil-Twin Coverage Gate
 
-Phase 2 Part 10 adds a deterministic scenario validation layer above the sealed pipeline.
+Phase 2 Part 10 adds a deterministic scenario validation layer above the deterministic pipeline.
 Scenario definitions execute through the real `run_pipeline` path, then validate the final
 `PipelineOutcome`, final reason, semantic terminal stage, decision trace path, approval
 receipt validity, forbidden late approval artifacts, required artifacts, and stable

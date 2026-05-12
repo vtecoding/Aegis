@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from tests.policy_trust_fixtures import (
     TRUST_ALGORITHM,
     TRUST_CAPABILITY,
@@ -92,3 +93,129 @@ def test_verifier_metadata_must_cover_policy_algorithm_and_key() -> None:
 
     assert result.status is TrustPolicyConfigStatus.POLICY_VERIFIER_KEY_MISMATCH
     assert TRUST_KEY_ID not in metadata.supported_key_ids
+
+
+@pytest.mark.parametrize(
+    ("verifier_metadata", "expected_status"),
+    [
+        (None, TrustPolicyConfigStatus.MALFORMED_POLICY),
+        (object(), TrustPolicyConfigStatus.MALFORMED_POLICY),
+        (
+            type(
+                "BadMetadata",
+                (),
+                {
+                    "checksum": 123,
+                    "supported_algorithms": frozenset({TRUST_ALGORITHM}),
+                    "supported_key_ids": frozenset({TRUST_KEY_ID}),
+                },
+            )(),
+            TrustPolicyConfigStatus.MALFORMED_POLICY,
+        ),
+        (
+            type(
+                "BadMetadata",
+                (),
+                {
+                    "checksum": "c" * 64,
+                    "supported_algorithms": {"not-frozenset"},
+                    "supported_key_ids": frozenset({TRUST_KEY_ID}),
+                },
+            )(),
+            TrustPolicyConfigStatus.MALFORMED_POLICY,
+        ),
+    ],
+)
+def test_malformed_verifier_metadata_is_rejected(
+    verifier_metadata: object,
+    expected_status,
+) -> None:
+    result = validate_trust_policy_config(
+        trusted_world_snapshot_policy(),
+        verifier_metadata=verifier_metadata,
+        runtime_domain=TrustDomain.SIMULATION,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    assert result.status is expected_status
+
+
+def test_physical_runtime_rejects_policy_disabling_test_source_rejection() -> None:
+    policy = trusted_world_snapshot_policy(
+        source_type=WorldSnapshotSourceType.SENSOR_BRIDGE,
+        trust_domain=TrustDomain.PHYSICAL_RUNTIME,
+    )
+    object.__setattr__(policy, "reject_test_sources_for_physical_runtime", False)
+    result = validate_trust_policy_config(
+        policy,
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.PHYSICAL_RUNTIME,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    assert result.status is TrustPolicyConfigStatus.CONFLICTING_POLICY_FIELDS
+    assert result.reason_code == "TRUST_POLICY_TEST_REJECTION_DISABLED"
+
+
+def test_missing_and_malformed_policy_fail_closed() -> None:
+    missing = validate_trust_policy_config(
+        None,
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.SIMULATION,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    malformed = validate_trust_policy_config(
+        object(),
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.SIMULATION,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    assert missing.status is TrustPolicyConfigStatus.MISSING_POLICY
+    assert malformed.status is TrustPolicyConfigStatus.MALFORMED_POLICY
+
+
+def test_wildcard_source_and_capability_are_rejected() -> None:
+    wildcard_source_policy = trusted_world_snapshot_policy(source_id="*")
+    wildcard_source = validate_trust_policy_config(
+        wildcard_source_policy,
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.SIMULATION,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    wildcard_capability_policy = trusted_world_snapshot_policy()
+    object.__setattr__(wildcard_capability_policy, "allowed_capabilities", frozenset({"*"}))
+    wildcard_capability = validate_trust_policy_config(
+        wildcard_capability_policy,
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.SIMULATION,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    assert wildcard_source.status is TrustPolicyConfigStatus.WILDCARD_SOURCE_NOT_ALLOWED
+    assert wildcard_capability.status is TrustPolicyConfigStatus.WILDCARD_CAPABILITY_NOT_ALLOWED
+
+
+def test_runtime_domain_and_capability_context_mismatch_are_rejected() -> None:
+    policy = trusted_world_snapshot_policy(
+        capability="locomotion.rotation",
+        trust_domain=TrustDomain.SIMULATION,
+    )
+    capability_mismatch = validate_trust_policy_config(
+        policy,
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.SIMULATION,
+        capability=TRUST_CAPABILITY,
+        enforce_mode=True,
+    )
+    runtime_domain_mismatch = validate_trust_policy_config(
+        policy,
+        verifier_metadata=TRUST_VERIFIER_METADATA,
+        runtime_domain=TrustDomain.DEVELOPMENT,
+        capability="locomotion.rotation",
+        enforce_mode=True,
+    )
+    assert capability_mismatch.status is TrustPolicyConfigStatus.POLICY_CAPABILITY_CONTEXT_MISMATCH
+    assert runtime_domain_mismatch.status is TrustPolicyConfigStatus.CONFLICTING_POLICY_FIELDS

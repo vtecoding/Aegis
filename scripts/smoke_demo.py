@@ -39,9 +39,17 @@ from tests.policy_trust_fixtures import (  # noqa: E402
 from aegis.contracts.aegis_context import ExecutionContext  # noqa: E402
 from aegis.contracts.aegis_intent import RawIntent  # noqa: E402
 from aegis.contracts.aegis_pipeline import PipelineOutcome, PipelineResult  # noqa: E402
-from aegis.contracts.aegis_policy import Capability, Constraint, Policy, PolicyRule  # noqa: E402
-from aegis.contracts.aegis_policy import WorldSnapshotStub  # noqa: E402
-from aegis.contracts.aegis_policy_admission import PolicyAdmissionInput, PolicyAdmissionMode  # noqa: E402
+from aegis.contracts.aegis_policy import (  # noqa: E402
+    Capability,
+    Constraint,
+    Policy,
+    PolicyRule,
+    WorldSnapshotStub,  # noqa: E402
+)
+from aegis.contracts.aegis_policy_admission import (  # noqa: E402
+    PolicyAdmissionInput,
+    PolicyAdmissionMode,
+)
 from aegis.pipeline import run_pipeline  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -273,7 +281,7 @@ rows = [
 
 all_pass = all(ok for _, _, _, ok in rows)
 
-for label, res, expected, ok in rows:
+for label, res, _expected, ok in rows:
     pa = res.policy_admission
     trust = pa.world_snapshot_trust_status or "N/A"
     policy = str(pa.policy_result.decision) if pa.policy_result else "NOT_RUN"

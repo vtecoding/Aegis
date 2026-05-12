@@ -6,7 +6,11 @@ Accepted
 
 ## Context
 
-ADR-0009 prevents bad world snapshot evidence from reaching policy, ADR-0010 prevents bad verifier/config authority from manufacturing trusted evidence, and ADR-0011 closes the admissibility gap before freshness and trust. Aegis can now block or allow through a deterministic admission chain, but an external consumer still needs a tamper-evident proof of exactly why a final pipeline decision happened.
+ADR-0009 prevents bad world snapshot evidence from reaching policy, and ADR-0010 prevents
+bad verifier/config authority from manufacturing trusted evidence. The admissibility boundary
+is implemented in contracts and tests; there is no ADR-0011 file in this series. Aegis can
+now block or allow through a deterministic admission chain, but an external consumer still
+needs a tamper-evident proof of exactly why a final pipeline decision happened.
 
 A plain final enum is not enough. A future integration must not be able to claim that the pipeline allowed a plan without proving that validation, planning, audit, admissibility, freshness, verifier certification, trust-policy configuration, world snapshot trust, policy evaluation, SafetyCase, policy admission, and gate decision all bound to the same canonical evidence chain.
 
