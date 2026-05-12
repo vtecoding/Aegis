@@ -13,7 +13,7 @@
 | Question | Answer |
 |----------|--------|
 | What is this project? | Aegis — Deterministic Intent Gateway (DIG) |
-| Current phase | **Phase 3 runtime evidence chain through ADR-0028** (audit remediation in progress; do not claim release seal unless required gates pass fail-closed) |
+| Current phase | **Phase 3 runtime evidence chain through ADR-0028** (persistence **boundary** semantics only; production durability not proven; audit remediation in progress; do not claim release seal unless required gates pass fail-closed) |
 | Primary language | Python 3.12+ |
 | Test framework | pytest + Hypothesis (property-based) |
 | Type checker | pyright --strict |

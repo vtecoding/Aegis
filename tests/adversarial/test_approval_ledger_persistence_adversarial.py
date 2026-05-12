@@ -92,3 +92,33 @@ def test_adapter_unavailable_fails_closed() -> None:
     )
     assert recovered.status is ApprovalLedgerPersistenceStatus.NOT_RECOVERED
     assert "UNAVAILABLE" in recovered.reason
+
+
+def test_persistence_recovery_rejects_head_fork_at_same_sequence() -> None:
+    record = _record()
+    adapter = InMemoryApprovalLedgerPersistenceAdapter(repository_id=_REPOSITORY_ID)
+    adapter.persist_transition(persistence_record=record)
+    recovered = load_and_recover_approval_ledger_state(
+        adapter=adapter,
+        expected_repository_id=_REPOSITORY_ID,
+        expected_ledger_epoch=1,
+        minimum_sequence=record.sequence,
+        expected_head_checksum="c" * 64,
+        expected_state_checksum=record.state_checksum,
+    )
+    assert recovered.status is ApprovalLedgerPersistenceStatus.NOT_RECOVERED
+    assert "HEAD_FORK" in recovered.reason
+
+
+def test_load_and_recover_rejects_non_adapter_runtime_object() -> None:
+    record = _record()
+    recovered = load_and_recover_approval_ledger_state(
+        adapter=object(),
+        expected_repository_id=_REPOSITORY_ID,
+        expected_ledger_epoch=1,
+        minimum_sequence=record.sequence,
+        expected_head_checksum=record.head_checksum,
+        expected_state_checksum=record.state_checksum,
+    )
+    assert recovered.status is ApprovalLedgerPersistenceStatus.INVALID
+    assert "RUNTIME_OBJECT_INJECTION" in recovered.reason

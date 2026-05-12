@@ -1,4 +1,9 @@
-# ADR-0028: Durable Approval Ledger Persistence Boundary
+# ADR-0028: Approval Ledger Persistence Boundary (Non-Authoritative)
+
+**Persistence boundary semantics are proven in this repository; production durability is not proven.**
+
+The reference persistence adapter is in-memory only. No database, network, filesystem, or wall-clock
+I/O participates in the contract proofs in this slice.
 
 ## Status
 
@@ -52,7 +57,8 @@ Recovery is fail-closed:
 
 ## Consequences
 
-- Aegis can prove deterministic persistence-boundary semantics for approval-ledger state.
+- Aegis can prove deterministic persistence-boundary semantics for approval-ledger state
+  (**persistence boundary semantics proven; production durability not proven**).
 - Read-after-write consistency is testable via load + recover over canonical persisted payloads.
 - Failed persistence writes do not mutate repository authority.
 - Adapter unavailability and malformed payloads fail closed with deterministic reason codes.
@@ -62,7 +68,7 @@ Recovery is fail-closed:
 
 ADR-0028 does **not** prove:
 
-- production durability guarantees,
+- production durability guarantees (**persistence boundary semantics proven; production durability not proven**),
 - database availability or replication guarantees,
 - cryptographic non-repudiation or PKI signatures,
 - authenticated storage or external storage security.

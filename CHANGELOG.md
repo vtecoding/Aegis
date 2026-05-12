@@ -21,6 +21,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cross-repository replay rejection, cross-epoch replay rejection, rollback/fork detection,
   partial-write detection, read-after-write recovery consistency, persistence field sentinels,
   scenario category coverage, and adapter authority manifest registration
+- Integration and contract tests proving a **recovered** persistence snapshot bootstraps a new
+  `InMemoryApprovalLedgerRepository` that still enforces detached reads, CAS monotonic append, and
+  lost-update (stale) rejection; adversarial coverage for persistence-layer head-fork rejection
 - Audit remediation hardening for release-gate and repository authority integrity:
   `scripts/verify.py` now fails closed on required-gate failure markers and malformed/missing
   structured coverage evidence, CI adds an independent coverage sanity step, and
