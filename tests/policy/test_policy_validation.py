@@ -34,6 +34,10 @@ def unchecked_policy(
     version: str,
     rules: tuple[PolicyRule, ...],
     default_decision: object,
+    *,
+    policy_schema_version: str = "policy-v1",
+    policy_authority: str = "safety-board",
+    policy_checksum: str = "a" * 64,
 ) -> Policy:
     """Build an invalid policy object to exercise validate_policy fail-closed checks."""
     policy = object.__new__(Policy)
@@ -41,6 +45,9 @@ def unchecked_policy(
     object.__setattr__(policy, "version", version)
     object.__setattr__(policy, "rules", rules)
     object.__setattr__(policy, "default_decision", default_decision)
+    object.__setattr__(policy, "policy_schema_version", policy_schema_version)
+    object.__setattr__(policy, "policy_authority", policy_authority)
+    object.__setattr__(policy, "policy_checksum", policy_checksum)
     return policy
 
 
@@ -91,6 +98,40 @@ def test_validate_policy_rejects_invalid_default_decision() -> None:
         validate_policy(policy)
 
 
+def test_validate_policy_rejects_empty_schema_authority_and_checksum() -> None:
+    """validate_policy fails closed when identity-bound fields are empty."""
+    with pytest.raises(ValueError, match="policy_schema_version"):
+        validate_policy(
+            unchecked_policy(
+                "policy-1",
+                "v1",
+                (make_rule(),),
+                PolicyDefaultDecision.BLOCK,
+                policy_schema_version="",
+            )
+        )
+    with pytest.raises(ValueError, match="policy_authority"):
+        validate_policy(
+            unchecked_policy(
+                "policy-1",
+                "v1",
+                (make_rule(),),
+                PolicyDefaultDecision.BLOCK,
+                policy_authority="",
+            )
+        )
+    with pytest.raises(ValueError, match="policy_checksum"):
+        validate_policy(
+            unchecked_policy(
+                "policy-1",
+                "v1",
+                (make_rule(),),
+                PolicyDefaultDecision.BLOCK,
+                policy_checksum="",
+            )
+        )
+
+
 def test_validate_policy_rejects_duplicate_rule_ids() -> None:
     """validate_policy rejects duplicate rule IDs in unchecked policy objects."""
     rule = make_rule("rule-1")
@@ -126,6 +167,14 @@ def test_validate_policy_rejects_unchecked_rule_with_non_bool_enabled() -> None:
     policy = unchecked_policy("policy-1", "v1", (rule,), PolicyDefaultDecision.BLOCK)
 
     with pytest.raises(ValueError, match="enabled"):
+        validate_policy(policy)
+
+
+def test_validate_policy_rejects_unchecked_rule_with_empty_rule_id() -> None:
+    """validate_policy rejects unchecked rules missing deterministic IDs."""
+    rule = unchecked_rule("", True, (make_constraint(),))
+    policy = unchecked_policy("policy-1", "v1", (rule,), PolicyDefaultDecision.BLOCK)
+    with pytest.raises(ValueError, match="rule_id"):
         validate_policy(policy)
 
 

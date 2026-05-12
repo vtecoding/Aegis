@@ -8,9 +8,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from re import fullmatch
-from typing import cast
+from typing import Protocol, TypeGuard, cast
 
-from aegis.contracts.aegis_attestation_verifier import AttestationVerifierAdapterMetadata
 from aegis.contracts.aegis_world_snapshot_trust import (
     TrustDomain,
     WorldSnapshotSourceType,
@@ -26,6 +25,14 @@ type CanonicalPolicyConfigValue = (
     | list[CanonicalPolicyConfigValue]
     | dict[str, CanonicalPolicyConfigValue]
 )
+
+
+class VerifierMetadataView(Protocol):
+    """Structural view for verifier metadata required by policy config validation."""
+
+    checksum: str
+    supported_algorithms: frozenset[str]
+    supported_key_ids: frozenset[str]
 
 
 class TrustPolicyConfigStatus(StrEnum):
@@ -148,9 +155,7 @@ def validate_trust_policy_config(
             capability=normalized_capability,
             enforce_mode=enforce_mode,
         )
-    if verifier_metadata is None or not isinstance(
-        verifier_metadata, AttestationVerifierAdapterMetadata
-    ):
+    if not _is_verifier_metadata_view(verifier_metadata):
         return _config_result(
             status=TrustPolicyConfigStatus.MALFORMED_POLICY,
             reason_code="TRUST_POLICY_VERIFIER_METADATA_MISSING",
@@ -219,7 +224,7 @@ def trust_policy_config_validation_result_checksum(
 def _trust_policy_config_failure(
     *,
     trust_policy: WorldSnapshotTrustPolicy,
-    verifier_metadata: AttestationVerifierAdapterMetadata,
+    verifier_metadata: VerifierMetadataView,
     runtime_domain: TrustDomain,
     capability: str,
     enforce_mode: bool,
@@ -332,6 +337,25 @@ def _config_result(
 def _contains_wildcard(values: Iterable[str]) -> bool:
     wildcard_values = {"*", "all", "ALL", "any", "ANY"}
     return any(value in wildcard_values or "*" in value for value in values)
+
+
+def _is_verifier_metadata_view(value: object) -> TypeGuard[VerifierMetadataView]:
+    if value is None:
+        return False
+    checksum = getattr(value, "checksum", None)
+    supported_algorithms = getattr(value, "supported_algorithms", None)
+    supported_key_ids = getattr(value, "supported_key_ids", None)
+    if not isinstance(checksum, str):
+        return False
+    if not isinstance(supported_algorithms, frozenset):
+        return False
+    if not isinstance(supported_key_ids, frozenset):
+        return False
+    normalized_algorithms = cast(frozenset[object], supported_algorithms)
+    normalized_key_ids = cast(frozenset[object], supported_key_ids)
+    if not all(isinstance(item, str) for item in normalized_algorithms):
+        return False
+    return all(isinstance(item, str) for item in normalized_key_ids)
 
 
 def _validate_valid_config_fields(

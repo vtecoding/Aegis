@@ -767,3 +767,35 @@ gate output as a full pipeline approval, or trusting replayed receipt fields.
 
 **Required test coverage:** `tests/adversarial/test_evil_twin_scenarios.py`,
 `tests/integration/test_pipeline_scenario_receipts.py`.
+
+---
+
+## FM-39: Release Gate False-Pass
+
+**Trigger:** `scripts/verify.py verify` prints a required-gate failure marker (for example
+coverage below threshold) but exits with code `0`, allowing CI to green-light a broken release.
+
+**Expected outcome:** Verify fails closed. Any required stage non-zero exit, explicit failure marker,
+or missing/malformed structured coverage evidence must produce non-zero process exit and a FAILURE
+summary.
+
+**Forbidden behaviour:** Printing `FAIL` while returning `0`; reporting success when any required gate
+failed; silently accepting malformed coverage evidence.
+
+**Required test coverage:** `tests/unit/test_verify_script.py`, CI workflow `Coverage sanity gate`.
+
+---
+
+## FM-40: Repository Read-Reference Mutation
+
+**Trigger:** External caller receives repository read objects, mutates them with `object.__setattr__`,
+and attempts to alter repository-owned canonical state through leaked references.
+
+**Expected outcome:** Read APIs return detached objects. Mutating returned objects does not mutate
+repository canonical state, and forged/mutated read objects fail validation in propose/commit paths.
+
+**Forbidden behaviour:** Returning live canonical references from `read_current_state`,
+`current_snapshot`, or `current_head`.
+
+**Required test coverage:** `tests/integration/test_approval_ledger_repository_integration.py`,
+`tests/adversarial/test_approval_ledger_repository_tamper.py`.

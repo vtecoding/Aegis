@@ -24,3 +24,6 @@ jobs:
 
       - name: Run quality gates
         run: python scripts/verify.py verify
+
+      - name: Coverage sanity gate
+        run: python -m pytest tests --cov=src --cov-report=term-missing --cov-fail-under=90

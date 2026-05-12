@@ -16,6 +16,16 @@ from aegis.contracts.aegis_runtime_backend import (
     RuntimeBackendDescriptor,
 )
 from aegis.contracts.aegis_runtime_dispatch import DispatchFirewallDecision, RuntimeDispatchPlan
+from aegis.execution.aegis_approval_ledger import (
+    approval_ledger_prior_chain_quarantine_block_reason,
+)
+from aegis.execution.aegis_approval_ledger_head import (
+    approval_ledger_prior_chain_quarantine_head_block_reason,
+    build_ledger_epoch_manifest,
+)
+from aegis.execution.aegis_approval_ledger_state import (
+    approval_ledger_state_quarantine_block_reason,
+)
 from aegis.execution.aegis_approval_replay import (
     ApprovalReplayValidationResult,
     AuthorityBoundApprovalReceipt,
@@ -167,6 +177,12 @@ def evaluate_quarantine_release(
     firewall_decision: object,
     context_authority_checksum: object,
     current_lease_epoch: object,
+    approval_ledger_prior_entries: object | None = None,
+    approval_ledger_head: object | None = None,
+    approval_ledger_session_epoch: object | None = None,
+    approval_ledger_state_snapshot: object | None = None,
+    approval_ledger_state_source_id: object | None = None,
+    approval_ledger_state_enforced: bool = False,
 ) -> QuarantineReleaseDecision:
     """Return a deterministic fail-closed release decision for quarantined intent.
 
@@ -188,6 +204,12 @@ def evaluate_quarantine_release(
         firewall_decision=firewall_decision,
         context_authority_checksum=context_authority_checksum,
         current_lease_epoch=current_lease_epoch,
+        approval_ledger_prior_entries=approval_ledger_prior_entries,
+        approval_ledger_head=approval_ledger_head,
+        approval_ledger_session_epoch=approval_ledger_session_epoch,
+        approval_ledger_state_snapshot=approval_ledger_state_snapshot,
+        approval_ledger_state_source_id=approval_ledger_state_source_id,
+        approval_ledger_state_enforced=approval_ledger_state_enforced,
     )
     if reason is not None:
         return _blocked_decision(
@@ -237,6 +259,12 @@ def quarantine_release_block_reason(
     firewall_decision: object,
     context_authority_checksum: object,
     current_lease_epoch: object,
+    approval_ledger_prior_entries: object | None = None,
+    approval_ledger_head: object | None = None,
+    approval_ledger_session_epoch: object | None = None,
+    approval_ledger_state_snapshot: object | None = None,
+    approval_ledger_state_source_id: object | None = None,
+    approval_ledger_state_enforced: bool = False,
 ) -> CommandQuarantineReason | None:
     """Return the first deterministic reason a quarantine cannot be released."""
     source_reason = _source_shape_reason(
@@ -350,6 +378,45 @@ def quarantine_release_block_reason(
         != current_quarantine.context_authority_checksum
     ):
         return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_REPLAY_BINDING_MISMATCH
+    if approval_ledger_prior_entries is not None:
+        ledger_reason = approval_ledger_prior_chain_quarantine_block_reason(
+            approval_ledger_prior_entries
+        )
+        if ledger_reason is not None:
+            return ledger_reason
+    if approval_ledger_head is not None:
+        if approval_ledger_prior_entries is None:
+            return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_LEDGER_ENFORCED_MODE_BYPASS
+        head_reason = approval_ledger_prior_chain_quarantine_head_block_reason(
+            head=approval_ledger_head,
+            prior_entries=approval_ledger_prior_entries,
+            context_authority_checksum=context_authority_checksum,
+            session_epoch=approval_ledger_session_epoch,
+        )
+        if head_reason is not None:
+            return head_reason
+        if approval_ledger_state_snapshot is None:
+            if approval_ledger_state_enforced:
+                return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_REQUIRED
+            return None
+        if approval_ledger_prior_entries is None:
+            return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_INVALID
+        try:
+            epoch_manifest = build_ledger_epoch_manifest(
+                session_epoch=approval_ledger_session_epoch,
+                context_authority_checksum=context_authority_checksum,
+                backend_admission_checksum=admission.decision_checksum,
+            )
+        except ValueError:
+            return CommandQuarantineReason.COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_INVALID
+        state_reason = approval_ledger_state_quarantine_block_reason(
+            state_snapshot=approval_ledger_state_snapshot,
+            ledger_head=approval_ledger_head,
+            ledger_epoch_manifest=epoch_manifest,
+            expected_state_source_id=approval_ledger_state_source_id,
+        )
+        if state_reason is not None:
+            return state_reason
     return None
 
 

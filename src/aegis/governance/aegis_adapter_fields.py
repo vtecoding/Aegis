@@ -23,6 +23,24 @@ from aegis.contracts.aegis_runtime_dispatch import (
     RuntimeDispatchPlan,
     RuntimeDispatchReceipt,
 )
+from aegis.execution.aegis_approval_ledger import (
+    ApprovalLedgerChainValidationResult,
+    ApprovalLedgerEntry,
+)
+from aegis.execution.aegis_approval_ledger_head import (
+    ApprovalLedgerAppendResult,
+    ApprovalLedgerHead,
+    LedgerEpochManifest,
+)
+from aegis.execution.aegis_approval_ledger_repository import (
+    ApprovalLedgerRepositoryAuthorityEvidence,
+    RepositoryCommitResult,
+)
+from aegis.execution.aegis_approval_ledger_state import (
+    ApprovalLedgerStateSnapshot,
+    ApprovalLedgerStateTransition,
+    LedgerStateValidationResult,
+)
 from aegis.execution.aegis_approval_replay import (
     ApprovalReplayValidationResult,
     AuthorityBoundApprovalReceipt,
@@ -615,6 +633,169 @@ ADAPTER_AUTHORITY_CONTRACTS = (
         ),
         checksum_function="approval_replay_validation_checksum",
         reason="approval replay validation binds the release proof to one evidence chain",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerEntry,
+        authoritative_fields=(
+            "sequence_index",
+            "prior_entry_checksum",
+            "release_decision_checksum",
+            "entry_checksum",
+        ),
+        checksum_function="approval_ledger_entry_checksum",
+        reason="approval ledger entries hash-link one release decision checksum to the prior tip",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerChainValidationResult,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "chain_depth",
+            "chain_tip_checksum",
+            "ledger_validation_checksum",
+        ),
+        checksum_function="approval_ledger_chain_validation_checksum",
+        reason="approval ledger chain validation binds tamper-evidence for a ledger prefix",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerHead,
+        authoritative_fields=(
+            "ledger_contract_version",
+            "session_epoch",
+            "latest_sequence_index",
+            "latest_entry_checksum",
+            "genesis_checksum",
+            "context_authority_checksum",
+            "head_checksum",
+        ),
+        checksum_function="approval_ledger_head_checksum",
+        reason=(
+            "approval ledger heads bind epoch, context authority, and current chain tip "
+            "for ADR-0025 mandatory release-mode enforcement"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=LedgerEpochManifest,
+        authoritative_fields=(
+            "manifest_id",
+            "session_epoch",
+            "context_authority_checksum",
+            "backend_admission_checksum",
+            "manifest_checksum",
+        ),
+        checksum_function="ledger_epoch_manifest_checksum",
+        reason="ledger epoch manifests bind one session epoch to context authority and admission",
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerAppendResult,
+        authoritative_fields=(
+            "new_entry",
+            "new_head",
+            "chain_validation",
+            "append_result_checksum",
+        ),
+        checksum_function="approval_ledger_append_result_checksum",
+        reason=(
+            "approval ledger append results bind new entry, new head, and chain validation "
+            "checksums for one atomic ledger append operation"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerStateSnapshot,
+        authoritative_fields=(
+            "contract_version",
+            "ledger_epoch_manifest_checksum",
+            "ledger_head_checksum",
+            "latest_sequence_index",
+            "latest_entry_checksum",
+            "genesis_checksum",
+            "context_authority_checksum",
+            "backend_admission_checksum",
+            "state_source_id",
+            "state_snapshot_checksum",
+        ),
+        checksum_function="approval_ledger_state_snapshot_checksum",
+        reason=(
+            "approval ledger state snapshots bind canonical current epoch state to head, "
+            "manifest, and deterministic state source"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerStateTransition,
+        authoritative_fields=(
+            "contract_version",
+            "previous_snapshot_checksum",
+            "append_result_checksum",
+            "new_snapshot_checksum",
+            "previous_sequence_index",
+            "new_sequence_index",
+            "previous_entry_checksum",
+            "new_entry_checksum",
+            "ledger_epoch_manifest_checksum",
+            "state_source_id",
+            "state_transition_checksum",
+        ),
+        checksum_function="approval_ledger_state_transition_checksum",
+        reason=(
+            "approval ledger state transitions bind one append to monotonic canonical state "
+            "progression without rollback or skip"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=LedgerStateValidationResult,
+        authoritative_fields=(
+            "status",
+            "reason",
+            "state_snapshot_checksum",
+            "ledger_head_checksum",
+            "ledger_epoch_manifest_checksum",
+            "validation_checksum",
+        ),
+        checksum_function="ledger_state_validation_checksum",
+        reason=(
+            "ledger state validation results bind deterministic VALID/BLOCKED proof for snapshot "
+            "and transition evidence"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=ApprovalLedgerRepositoryAuthorityEvidence,
+        authoritative_fields=(
+            "prior_entries",
+            "ledger_head",
+            "ledger_epoch_manifest",
+            "state_source_id",
+            "authority_evidence_checksum",
+        ),
+        checksum_function="approval_ledger_repository_authority_evidence_checksum",
+        reason=(
+            "repository authority evidence binds prior chain, head, epoch manifest, and source "
+            "for deterministic append proposal"
+        ),
+    ),
+    adapter_manifest_for(
+        contract_type=RepositoryCommitResult,
+        authoritative_fields=(
+            "status",
+            "reason_code",
+            "expected_previous_snapshot_checksum",
+            "previous_snapshot_checksum",
+            "committed_snapshot_checksum",
+            "committed_transition_checksum",
+            "repository_epoch_manifest_checksum",
+            "expected_previous_snapshot_matched",
+            "transition_valid",
+            "new_snapshot_became_current",
+            "stale_write_rejected",
+            "fork_rejected",
+            "rollback_rejected",
+            "cross_epoch_rejected",
+            "commit_result_checksum",
+        ),
+        checksum_function="repository_commit_result_checksum",
+        reason=(
+            "repository commit results prove deterministic compare-and-swap commit obligations "
+            "for one proposed transition"
+        ),
     ),
 )
 """Closed ADR-0015 adapter authority contract manifest registry."""

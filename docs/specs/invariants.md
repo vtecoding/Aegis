@@ -653,3 +653,13 @@ checksum mismatch, confusable stage name, partial receipt overclaim, and direct-
 evidence cannot be classified as full pipeline approval.
 
 **Adversarial test:** `tests/adversarial/test_evil_twin_scenarios.py`
+
+---
+
+## INV-REPOSITORY-DETACHED-READ-001: Repository Reads Cannot Mutate Canonical State
+
+**Statement:** `read_current_state`, `current_snapshot`, and `current_head` return detached objects.
+Mutating returned objects with `object.__setattr__` must not mutate repository-owned canonical state.
+
+**Integration and adversarial tests:** `tests/integration/test_approval_ledger_repository_integration.py`,
+`tests/adversarial/test_approval_ledger_repository_tamper.py`

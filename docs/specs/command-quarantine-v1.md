@@ -22,6 +22,14 @@ sign receipts, or make physical safety claims.
 - `QuarantineReleaseDecision` records `RELEASED_DRY_RUN` or `BLOCKED`, reason code, quarantine
   checksum, approval checksum, lease checksum, dispatch plan checksum, released item count,
   and decision checksum.
+- `ApprovalLedgerEntry` and `ApprovalLedgerChainValidationResult` (ADR-0024) record an optional
+  hash-linked history of release decision checksums for tamper-evident ordering evidence carried
+  by the caller as immutable tuples.
+- `ApprovalLedgerHead` and `LedgerEpochManifest` (ADR-0025) bind epoch and context authority for
+  deterministic head validation.
+- `ApprovalLedgerStateSnapshot`, `ApprovalLedgerStateTransition`, and
+  `LedgerStateValidationResult` (ADR-0026) define the canonical current state boundary and
+  deterministic append transition evidence for one epoch/state-source authority domain.
 
 ## Release Requirements
 
@@ -44,6 +52,18 @@ sign receipts, or make physical safety claims.
 - operator id is structurally well formed
 - approval scope is explicit, non-empty, non-wildcard, subset-bounded, and matches every
   quarantined item checksum
+- when `approval_ledger_prior_entries` is supplied to `evaluate_quarantine_release()`, the tuple
+  contains only `ApprovalLedgerEntry` values, monotonic `sequence_index` values starting at zero,
+  each `prior_entry_checksum` equals the genesis head or the previous entry checksum, and every
+  `entry_checksum` recomputes from its authoritative fields
+- when `approval_ledger_head` is supplied, the head must validate against the same prior chain,
+  epoch, and context authority
+- when `approval_ledger_state_snapshot` is supplied, snapshot validation requires exact binding to
+  the supplied head, derived epoch manifest, context authority, backend admission checksum, and
+  optional `approval_ledger_state_source_id`
+- when `approval_ledger_state_enforced` is true and a head is supplied, missing
+  `approval_ledger_state_snapshot` blocks with
+  `COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_REQUIRED`
 
 ## Failure Reasons
 
@@ -76,6 +96,12 @@ sign receipts, or make physical safety claims.
 - `COMMAND_QUARANTINE_STALE_APPROVAL_EPOCH`
 - `COMMAND_QUARANTINE_OPERATOR_ID_MALFORMED`
 - `COMMAND_QUARANTINE_RUNTIME_OBJECT_INJECTION`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_CHAIN_INVALID`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_HEAD_INVALID`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_ENFORCED_MODE_BYPASS`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_INVALID`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_REQUIRED`
+- `COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_TRANSITION_INVALID`
 - `DIRECT_QUARANTINE_RELEASE_CONSTRUCTION`
 
 ## Scenario Categories
@@ -103,6 +129,8 @@ sign receipts, or make physical safety claims.
 - Approval scope cannot be wildcard, empty, overbroad, or partial for release.
 - Quarantine creation and release do not mutate source evidence.
 - Release decisions expose no execution, publish, queue, ROS, or backend operation.
+- Canonical state validation remains in-memory and deterministic only; it does not provide
+  persistence, durability, signatures, PKI, or non-repudiation.
 
 ## Release Gate
 

@@ -5,6 +5,20 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 
 ---
 
+## ADR Scope Addendum (ADR-0024 .. ADR-0027)
+
+- ADR-0024 deterministic approval ledger: `tests/contracts/test_approval_ledger_contract.py`,
+  `tests/adversarial/test_approval_ledger_tamper.py`, `tests/integration/test_approval_ledger_quarantine_release.py`
+- ADR-0025 ledger head + epoch authority: `tests/contracts/test_approval_ledger_head_contract.py`,
+  `tests/adversarial/test_approval_ledger_head_tamper.py`, `tests/integration/test_approval_ledger_head_quarantine_release.py`
+- ADR-0026 canonical state boundary: `tests/contracts/test_approval_ledger_state_contract.py`,
+  `tests/adversarial/test_approval_ledger_state_tamper.py`, `tests/integration/test_approval_ledger_state_quarantine_release.py`
+- ADR-0027 repository authority boundary + detached reads: `tests/contracts/test_approval_ledger_repository_contract.py`,
+  `tests/adversarial/test_approval_ledger_repository_tamper.py`, `tests/integration/test_approval_ledger_repository_integration.py`,
+  `tests/invariants/test_approval_ledger_repository_invariants.py`
+
+---
+
 ## Invariant Coverage
 
 | Invariant | Unit | Contract | Hypothesis | Adversarial | Integration |
@@ -120,10 +134,12 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 | FM-36: Scenario category missing from coverage gate | — | ✓ | — | ✓ |
 | FM-37: Scenario outcome matches but receipt path does not | — | ✓ | ✓ | ✓ |
 | FM-38: Evil-twin receipt or trace overclaim | — | — | ✓ | ✓ |
-| FM-39: Adapter replay mutation or cross-pipeline swap | — | ✓ | ✓ | ✓ |
-| FM-40: Adapter replay missing mapping evidence | — | ✓ | — | ✓ |
-| FM-41: Runtime dispatch proof swap or stale proof | — | ✓ | ✓ | ✓ |
-| FM-42: Runtime dispatch mode, sequence, payload, mapping, or object-injection bypass | — | ✓ | ✓ | ✓ |
+| FM-39: Release gate false-pass | ✓ | — | — | — |
+| FM-40: Repository read-reference mutation | — | ✓ | ✓ | ✓ |
+| FM-41: Adapter replay mutation or cross-pipeline swap | — | ✓ | ✓ | ✓ |
+| FM-42: Adapter replay missing mapping evidence | — | ✓ | — | ✓ |
+| FM-43: Runtime dispatch proof swap or stale proof | — | ✓ | ✓ | ✓ |
+| FM-44: Runtime dispatch mode, sequence, payload, mapping, or object-injection bypass | — | ✓ | ✓ | ✓ |
 
 ---
 

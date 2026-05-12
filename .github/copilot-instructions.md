@@ -141,6 +141,9 @@ make verify                      # Unix/CI wrapper for the canonical runner
 
 **If any gate fails, do not present the change as complete.**
 
+Release-seal rule: never claim Aegis is sealed if `scripts/verify.py verify` reports any required
+gate failure marker, exits non-zero, or lacks valid coverage evidence.
+
 ---
 
 ## 6. Testing Philosophy

@@ -1473,9 +1473,7 @@ def _is_certified_verifier(
 ) -> TypeGuard[VerifierAdapterCertificationResult]:
     if result is None:
         return False
-    from aegis.contracts.aegis_attestation_verifier import VerifierCertificationStatus
-
-    return result.status is VerifierCertificationStatus.CERTIFIED
+    return getattr(result.status, "value", None) == "CERTIFIED"
 
 
 def _is_valid_trust_policy_config(
@@ -1483,9 +1481,7 @@ def _is_valid_trust_policy_config(
 ) -> TypeGuard[TrustPolicyConfigValidationResult]:
     if result is None:
         return False
-    from aegis.contracts.aegis_trust_policy_config import TrustPolicyConfigStatus
-
-    return result.status is TrustPolicyConfigStatus.VALID
+    return getattr(result.status, "value", None) == "VALID"
 
 
 def _trust_authority_bindings(

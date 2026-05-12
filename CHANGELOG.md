@@ -10,6 +10,63 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Audit remediation hardening for release-gate and repository authority integrity:
+  `scripts/verify.py` now fails closed on required-gate failure markers and malformed/missing
+  structured coverage evidence, CI adds an independent coverage sanity step, and
+  `InMemoryApprovalLedgerRepository` read APIs now return detached snapshot/head objects to
+  prevent external mutation of repository-owned canonical state.
+- Regression coverage for false-pass and detached-read mutation classes:
+  verify-stage aggregation tests, coverage-fail-closed tests, detached-read adversarial tests,
+  and CAS behavior checks after detached reads.
+- Approval-ledger repository contract boundary for Phase 3 / ADR-0027: deterministic
+  `ApprovalLedgerRepositoryAuthorityEvidence` and checksum-bound `RepositoryCommitResult`,
+  explicit repository interface semantics (`read_current_state`, `propose_append`,
+  `commit_transition`), and `InMemoryApprovalLedgerRepository` reference adapter enforcing
+  compare-and-swap commit proofs, stale/lost/fork/rollback/cross-epoch rejection, forged transition
+  blocking, and unavailable-repository fail-closed behavior without introducing durable storage
+- Contract, integration, adversarial, invariant, and governance coverage for ADR-0027 including
+  repository checksum-field sentinels, scenario category registration, adapter authority manifest
+  registration, and deterministic proof checks for CAS commit obligations
+- Canonical approval-ledger state boundary for Phase 3 / ADR-0026: checksum-bound
+  `ApprovalLedgerStateSnapshot`, `ApprovalLedgerStateTransition`, and `LedgerStateValidationResult`
+  contracts; deterministic `build_/validate_` state snapshot and transition functions; optional
+  `append_to_approval_ledger_state()` helper; and quarantine-release wiring for
+  `approval_ledger_state_snapshot`, `approval_ledger_state_source_id`, and
+  `approval_ledger_state_enforced` with explicit
+  `COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_INVALID` and
+  `COMMAND_QUARANTINE_APPROVAL_LEDGER_STATE_REQUIRED` fail-closed reasons
+- Governance, scenario, and authority-manifest coverage for ADR-0026 including strict field
+  sentinels, canonical-state scenario categories (valid, stale/forked, rollback/skip, cross-epoch
+  graft, source drift), and adapter manifest registration for state snapshot, state transition,
+  and validation result contracts
+- Contract, integration, adversarial, invariant, and governance tests proving canonical state
+  replay resistance, head/snapshot/epoch/source binding, transition monotonicity, constructor
+  hardening, and enforced-mode state-snapshot requirement behavior
+- Ledger head, epoch manifest, and enforced release mode for Phase 3 / ADR-0025:
+  `ApprovalLedgerHead` binds epoch, context authority, chain tip, and genesis in a
+  checksum-bound head contract; `build_approval_ledger_head()` validates the prior chain and
+  emits the canonical head; `append_to_approval_ledger_head()` returns an
+  `ApprovalLedgerAppendResult` (new entry + new head + chain validation) in one atomic step;
+  `validate_approval_ledger_head()` returns `VALID`/`BLOCKED` with a closed `ApprovalLedgerHeadReason`;
+  `LedgerEpochManifest` binds one session epoch to context authority and backend admission;
+  `evaluate_quarantine_release()` gains `approval_ledger_head` and `approval_ledger_session_epoch`
+  kwargs and returns `COMMAND_QUARANTINE_APPROVAL_LEDGER_ENFORCED_MODE_BYPASS` when a head is
+  supplied but prior entries are `None`, or `COMMAND_QUARANTINE_APPROVAL_LEDGER_HEAD_INVALID`
+  when head validation fails
+- Contract, integration, adversarial, invariant, and governance tests proving head checksum
+  determinism, epoch isolation, context authority binding, tip and sequence enforcement, stale
+  head rejection, cross-context grafting rejection, direct construction blocking, enforced-mode
+  bypass blocking, and scenario category coverage for all five ADR-0025 categories
+- Deterministic tamper-evident approval ledger for Phase 3 / ADR-0024: canonical genesis head,
+  hash-linked `ApprovalLedgerEntry` rows binding each `QuarantineReleaseDecision` checksum to the
+  prior tip, `append_approval_ledger_entry()` construction gate, `validate_approval_ledger_chain()`
+  checksum-bound chain validation, optional `approval_ledger_prior_entries` enforcement on
+  `evaluate_quarantine_release()`, and `COMMAND_QUARANTINE_APPROVAL_LEDGER_CHAIN_INVALID` for
+  ledger failures mapped from closed `ApprovalLedgerReason` codes
+- Contract, integration, adversarial, invariant, and governance tests proving genesis and entry
+  checksum determinism, append-only linkage, quarantine release blocking on tampered prefixes,
+  runtime object injection rejection, adapter field manifest registration, and scenario category
+  coverage for ledger positives, tamper, and injection paths
 - Runtime Command Quarantine and Operator Approval Receipt for Phase 3 / ADR-0022: immutable checksum-bound `CommandQuarantineEnvelope`, `OperatorApprovalReceipt`, and `QuarantineReleaseDecision` contracts, `quarantine_runtime_command()` for placing every lease-valid dispatch item into quarantine by default, `build_operator_approval_receipt()` for explicit operator approval/rejection evidence, and `evaluate_quarantine_release()` for fail-closed dry-run-only release decisions
 - Contract, integration, adversarial, governance, and invariant tests proving missing/rejected/stale/overbroad/drifted/malformed approvals block release, evidence drift across dispatch, backend admission, descriptor, registry, manifest, certification, replay proof, lease, and context authority fails closed, runtime object/callable injection is rejected, direct released-decision construction is blocked, scenario sentinels cover ADR-0022 categories, and forbidden runtime import scans remain clean
 - Runtime Backend Interface Contract and Null Backend Certification for Phase 3 Part 4 / ADR-0018: immutable checksum-bound `RuntimeBackendDescriptor`, `BackendCertificationResult`, and `BackendDryRunReceipt` contracts, descriptor-only `RuntimeBackendContract`, `NullRuntimeBackend`, `certify_runtime_backend()`, and `build_backend_dry_run_receipt()` for binding firewall-allowed `DRY_RUN_ONLY` dispatch plans to a non-executing null backend

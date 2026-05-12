@@ -11,7 +11,11 @@ from aegis.contracts.aegis_policy import (
     PolicyRule,
     policy_identity_checksum,
 )
-from aegis.governance.aegis_policy_identity import policy_identity_errors, recompute_policy_checksum
+from aegis.governance.aegis_policy_identity import (
+    policy_identity_errors,
+    policy_identity_fields,
+    recompute_policy_checksum,
+)
 
 
 def _rule(max_mps: float = 1.0) -> PolicyRule:
@@ -62,3 +66,26 @@ def test_policy_checksum_changes_when_version_changes() -> None:
 def test_policy_rejects_forged_checksum() -> None:
     with pytest.raises(ValueError, match="policy_checksum must match"):
         Policy("forged-policy", "v1", (_rule(),), policy_checksum="0" * 64)
+
+
+def test_policy_identity_fields_returns_stable_projection() -> None:
+    policy = Policy("identity-projection", "v1", (_rule(),))
+    fields = policy_identity_fields(policy)
+    assert fields["policy_id"] == "identity-projection"
+    assert fields["policy_version"] == "v1"
+    assert fields["policy_checksum"] == policy.policy_checksum
+
+
+def test_policy_identity_errors_reports_missing_and_checksum_mismatch() -> None:
+    policy = Policy("identity-errors", "v1", (_rule(),))
+    object.__setattr__(policy, "policy_id", "")
+    object.__setattr__(policy, "policy_version", "")
+    object.__setattr__(policy, "policy_schema_version", "")
+    object.__setattr__(policy, "policy_authority", "")
+    object.__setattr__(policy, "policy_checksum", "0" * 64)
+    errors = policy_identity_errors(policy)
+    assert "POLICY_ID_MISSING" in errors
+    assert "POLICY_VERSION_MISSING" in errors
+    assert "POLICY_SCHEMA_VERSION_MISSING" in errors
+    assert "POLICY_AUTHORITY_MISSING" in errors
+    assert "POLICY_CHECKSUM_MISMATCH" in errors
