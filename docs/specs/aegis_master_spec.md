@@ -1,4 +1,4 @@
-# Aegis Master Specification - Phase 1 + Phase 2 + Phase 3 Part 3
+# Aegis Master Specification - Phase 1 + Phase 2 + Phase 3 Part 4
 
 ## Purpose
 
@@ -27,12 +27,16 @@ adds authority drift, policy versioning, context authority, resource bounds, and
 coverage. Phase 3 Part 1 adds a deterministic non-executing adapter boundary and ROS 2
 message mapping contract after allowed, receipt-valid pipeline results. Phase 3 Part 2
 adds deterministic adapter replay proof. Phase 3 Part 3 adds runtime dispatch dry-run
-planning and a dispatch firewall without a runtime backend.
+planning and a dispatch firewall without a runtime backend. Phase 3 Part 4 adds
+approval-ledger persistence-boundary semantics for deterministic serialization, fail-closed
+load/write behavior, and validated recovery.
 
 Aegis does not execute robot commands. The deterministic pipeline produces receipt-bound decisions.
 The Phase 3 adapter path produces checksum-bound `ExecutionAdapterEnvelope`, replay proof,
 and `RuntimeDispatchPlan` evidence from an already allowed `PipelineResult`; it models ROS 2
 and dispatch as data only and does not claim real-world physical safety.
+ADR-0028 persistence boundary semantics preserve and recover repository authority evidence,
+but do not claim production durability.
 
 ---
 
@@ -285,6 +289,9 @@ oversized, or runtime-object-injected plans fail closed.
     safety, or ROS middleware safety.
 - No claim that an ALLOWED_DRY_RUN dispatch decision is runtime execution permission,
     robot safety, simulation safety, collision safety, middleware safety, or certification.
+- No claim that ADR-0028 persistence-boundary proofs imply production durability, database
+  availability guarantees, cryptographic non-repudiation, PKI signatures, or external
+  storage security.
 - No LLM SDK dependencies anywhere in the deterministic core.
 - No ROS 2, hardware, or network I/O inside `src/aegis/`.
 

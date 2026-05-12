@@ -663,3 +663,24 @@ Mutating returned objects with `object.__setattr__` must not mutate repository-o
 
 **Integration and adversarial tests:** `tests/integration/test_approval_ledger_repository_integration.py`,
 `tests/adversarial/test_approval_ledger_repository_tamper.py`
+
+---
+
+## INV-PERSISTENCE-BOUNDARY-001: Persisted Payload Is Storage, Not Authority
+
+**Statement:** Persisted payload existence never implies restored authority. Recovery requires
+canonical deserialization, checksum validation, repository/epoch binding checks, sequence monotonic
+checks, and detached contract reconstruction through builders.
+
+**Tests:** `tests/contracts/test_approval_ledger_persistence_contract.py`,
+`tests/adversarial/test_approval_ledger_persistence_adversarial.py`,
+`tests/integration/test_approval_ledger_persistence_integration.py`
+
+---
+
+## INV-PERSISTENCE-BOUNDARY-002: Failed Persistence Write Does Not Mutate Repository Authority
+
+**Statement:** Persistence adapter write failures (unavailable, malformed input, partial write)
+must not mutate canonical repository authority state.
+
+**Tests:** `tests/integration/test_approval_ledger_persistence_integration.py`

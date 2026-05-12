@@ -799,3 +799,25 @@ repository canonical state, and forged/mutated read objects fail validation in p
 
 **Required test coverage:** `tests/integration/test_approval_ledger_repository_integration.py`,
 `tests/adversarial/test_approval_ledger_repository_tamper.py`.
+
+---
+
+## FM-45: Persistence Payload Corruption, Rollback, Fork, or Replay
+
+**Trigger:** Persisted approval-ledger payload is malformed/corrupt, contract version unknown,
+cross-repository or cross-epoch replayed, sequence-rolled-back, forked at same sequence, partial,
+checksum-drifted, or loaded while adapter is unavailable.
+
+**Expected outcome:** `ApprovalLedgerPersistenceValidationResult` / `ApprovalLedgerRecoveryResult`
+fail closed with deterministic status and reason; recovery does not restore authority.
+
+**Allowed recovery:** Re-load from valid payload or re-persist canonical repository state from
+authoritative in-memory repository evidence.
+
+**Forbidden behaviour:** Trusting persisted payload presence as authority, silently normalizing
+malformed payloads, or claiming production durability from the ADR-0028 in-memory reference adapter.
+
+**Required test coverage:** `tests/contracts/test_approval_ledger_persistence_contract.py`,
+`tests/adversarial/test_approval_ledger_persistence_adversarial.py`,
+`tests/integration/test_approval_ledger_persistence_integration.py`,
+`tests/invariants/test_approval_ledger_persistence_invariants.py`.

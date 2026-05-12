@@ -1,0 +1,38 @@
+---
+alwaysApply: true
+---
+
+# Aegis Project Rules
+
+You are working on Aegis, a deterministic robotics safety/evidence boundary system.
+
+Before editing:
+- Inspect existing files first. Read skills.md and copilot-instructions.md fully.
+- Reuse existing contracts, builders, validators, fixtures, and governance sentinels.
+- Do not create duplicate parallel modules.
+- Follow the `aegis_*` concrete module naming convention.
+- Supported public imports are package-level APIs such as `aegis.execution`; direct private implementation-module imports are not compatibility-guaranteed.
+
+Hard constraints:
+- No ROS, rclpy, rclcpp, DDS, simulator, hardware, network, filesystem, environment, async, runtime execution, queues, publishing, services, actions, or actuation unless an ADR explicitly authorises it.
+- Do not weaken pyright, ruff, format, coverage, invariant, governance, or forbidden-import gates.
+- Do not lower coverage thresholds.
+- Do not bypass deterministic checksum, receipt, replay, authority, lease, quarantine, or ledger gates.
+- Do not use wall-clock, randomness, mutable global state, hidden I/O, or implicit state mutation in core contracts.
+
+Required implementation pattern:
+- Update contracts.
+- Update builders/validators.
+- Update governance/category/field sentinels.
+- Add contract, integration, adversarial, invariant, and governance tests.
+- Update ADR/spec/changelog docs.
+- Run `scripts\verify.py verify`.
+
+Acceptance:
+- Pyright clean.
+- Ruff clean.
+- Format clean.
+- Full tests pass.
+- Coverage above floor.
+- Invariants pass.
+- Forbidden runtime import scan clean.

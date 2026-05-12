@@ -10,6 +10,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Approval-ledger persistence boundary for Phase 3 / ADR-0028: deterministic
+  `ApprovalLedgerPersistenceRecord`, `ApprovalLedgerPersistenceReceipt`,
+  `ApprovalLedgerPersistenceLoadResult`, `ApprovalLedgerPersistenceValidationResult`,
+  `ApprovalLedgerRecoveryResult`, and `ApprovalLedgerPersistenceAdapterDescriptor` contracts;
+  canonical JSON serialization boundary (`sort_keys`, compact separators, `allow_nan=False`);
+  `ApprovalLedgerPersistenceAdapter` protocol and `InMemoryApprovalLedgerPersistenceAdapter`
+  reference implementation with fail-closed unavailable/partial/malformed handling
+- Contract, integration, adversarial, invariant, and governance coverage for ADR-0028 including
+  cross-repository replay rejection, cross-epoch replay rejection, rollback/fork detection,
+  partial-write detection, read-after-write recovery consistency, persistence field sentinels,
+  scenario category coverage, and adapter authority manifest registration
 - Audit remediation hardening for release-gate and repository authority integrity:
   `scripts/verify.py` now fails closed on required-gate failure markers and malformed/missing
   structured coverage evidence, CI adds an independent coverage sanity step, and

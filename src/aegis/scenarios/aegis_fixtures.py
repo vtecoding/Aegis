@@ -230,6 +230,7 @@ def canonical_scenario_definitions() -> tuple[ScenarioDefinition, ...]:
         *_approval_ledger_head_scenarios(),
         *_approval_ledger_state_scenarios(),
         *_approval_ledger_repository_scenarios(),
+        *_approval_ledger_persistence_scenarios(),
     )
 
 
@@ -356,6 +357,22 @@ def _approval_ledger_repository_scenarios() -> tuple[ScenarioDefinition, ...]:
             ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_CROSS_EPOCH_COMMIT,
             ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_FORGED_TRANSITION,
             ScenarioCategory.APPROVAL_LEDGER_REPOSITORY_UNAVAILABLE,
+        )
+    )
+
+
+def _approval_ledger_persistence_scenarios() -> tuple[ScenarioDefinition, ...]:
+    return tuple(
+        _adapter_replay_category_scenario(category)
+        for category in (
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_POSITIVE,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_CORRUPT,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_ROLLBACK,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_FORKED,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_CROSS_REPOSITORY_REPLAY,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_CROSS_EPOCH_REPLAY,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_PARTIAL_WRITE,
+            ScenarioCategory.APPROVAL_LEDGER_PERSISTENCE_UNAVAILABLE,
         )
     )
 

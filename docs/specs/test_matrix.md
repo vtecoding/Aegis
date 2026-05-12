@@ -5,7 +5,7 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 
 ---
 
-## ADR Scope Addendum (ADR-0024 .. ADR-0027)
+## ADR Scope Addendum (ADR-0024 .. ADR-0028)
 
 - ADR-0024 deterministic approval ledger: `tests/contracts/test_approval_ledger_contract.py`,
   `tests/adversarial/test_approval_ledger_tamper.py`, `tests/integration/test_approval_ledger_quarantine_release.py`
@@ -16,6 +16,12 @@ Maps each invariant and failure mode to its test coverage across all test tiers.
 - ADR-0027 repository authority boundary + detached reads: `tests/contracts/test_approval_ledger_repository_contract.py`,
   `tests/adversarial/test_approval_ledger_repository_tamper.py`, `tests/integration/test_approval_ledger_repository_integration.py`,
   `tests/invariants/test_approval_ledger_repository_invariants.py`
+- ADR-0028 durable persistence boundary semantics (no production durability claim):
+  `tests/contracts/test_approval_ledger_persistence_contract.py`,
+  `tests/adversarial/test_approval_ledger_persistence_adversarial.py`,
+  `tests/integration/test_approval_ledger_persistence_integration.py`,
+  `tests/invariants/test_approval_ledger_persistence_invariants.py`,
+  `tests/governance/test_approval_ledger_persistence_governance.py`
 
 ---
 

@@ -67,3 +67,17 @@ implemented behind this boundary in later ADRs.
 
 This boundary provides structural deterministic authority only. It does not provide user
 authentication, PKI signatures, cryptographic non-repudiation, or durable persistence guarantees.
+
+## ADR-0028 Persistence Boundary Addendum
+
+ADR-0028 adds a deterministic persistence boundary *around* repository authority:
+
+- `ApprovalLedgerPersistenceRecord` stores canonical detached state evidence only.
+- `ApprovalLedgerPersistenceAdapter` persists/loads payloads but does not create authority.
+- `ApprovalLedgerPersistenceValidationResult` and `ApprovalLedgerRecoveryResult` fail closed on
+  corrupt, stale, rollback, forked, cross-repository, cross-epoch, partial-write, unavailable,
+  and checksum-mismatch cases.
+
+ADR-0028 proves deterministic persistence-boundary semantics and recovery validation.
+It does not claim production durability, database guarantees, external storage security, PKI
+signatures, cryptographic non-repudiation, or authenticated storage.
